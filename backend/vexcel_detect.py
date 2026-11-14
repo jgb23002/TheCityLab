@@ -16,6 +16,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import base64
+import io
+
 from PIL import Image, ImageDraw
 from pydantic import BaseModel
 from shapely import wkt as shapely_wkt
@@ -46,7 +49,9 @@ def _image_request(area_wkt: str) -> dict[str, Any]:
     return {"layer": vexcel.LAYERS, "srid": 4326, "wkt": area_wkt, "crop": "bounding_box"}
 
 
-def _detect_payload(area_wkt: str, prompts: list[str]) -> dict[str, Any]:
+def _detect_payload(
+    area_wkt: str, prompts: list[str], include: tuple[str, ...] = ("bbox", "confidence"),
+) -> dict[str, Any]:
     """Build the elements/detect body exactly as the quickstart does."""
     return {
         "wkt": area_wkt,
@@ -58,7 +63,7 @@ def _detect_payload(area_wkt: str, prompts: list[str]) -> dict[str, Any]:
                 {"label": p, "model": MODEL, "detection-threshold": DETECTION_THRESHOLD}
                 for p in prompts
             ],
-            "include": ["bbox", "confidence"],
+            "include": list(include),  # the API needs pixel-bbox with pixel-mask
         },
     }
 
@@ -263,4 +268,137 @@ def detect_tiled(
     return DetectionRun(
         property_id=property_id, prompts=prompts, counts=counts, detections=detections,
         image_path=str(image_path), annotated_image_path=annotated,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Parking estimate from paved lot area (method B)
+# ---------------------------------------------------------------------------
+
+SQFT_PER_M2 = 10.7639
+# One space plus its share of the drive aisle (US rule of thumb).
+SQFT_PER_SPACE = (300.0, 350.0)
+
+
+class ParkingEstimate(BaseModel):
+    """Spaces estimated as measured parking-lot area / area per space."""
+
+    property_id: int
+    lot_count: int
+    lot_area_sq_ft: float
+    spaces_low: int
+    spaces_high: int
+    spaces_mid: int
+    sq_ft_per_space: tuple[float, float]
+    tiles: int
+    detect_calls: int
+    annotated_image_path: str
+    method: str
+
+
+def _mask_fraction(mask_png_b64: str) -> float | None:
+    """Share of the mask picture that is object (white), 0..1."""
+    try:
+        mask = Image.open(io.BytesIO(base64.b64decode(mask_png_b64))).convert("L")
+    except Exception:
+        return None
+    hist = mask.histogram()
+    total = sum(hist)
+    return sum(hist[129:]) / total if total else None
+
+
+def _box_area_m2(geom: Any) -> float:
+    """Area in m^2 of a lon/lat box, using the local metres-per-degree scale."""
+    x0, y0, x1, y1 = geom.bounds
+    lat = (y0 + y1) / 2
+    return ((x1 - x0) * 111_320.0 * math.cos(math.radians(lat))) * ((y1 - y0) * 111_320.0)
+
+
+def estimate_parking_spaces(
+    lat: float, lon: float, property_id: int, half_m: float,
+    tile_m: float = 80.0, label: str = "parking lot",
+) -> ParkingEstimate:
+    """Estimate surface parking spaces from detected parking-lot area.
+
+    The square is tiled like :func:`detect_tiled`; each tile asks for
+    *label* with pixel masks. Lot area = box area x share of the box the mask
+    covers. Spaces = area / 350 (low) to area / 300 (high) sq ft per space.
+    Lots cut by a tile edge are measured piece by piece, so nothing is
+    counted twice; overlapping duplicates are dropped first.
+    """
+    bounds = vexcel._square_bounds(lat, lon, half_m=half_m)
+    min_lon, min_lat, max_lon, max_lat = bounds
+    n = max(1, math.ceil(2 * half_m / tile_m))
+    step_lon, step_lat = (max_lon - min_lon) / n, (max_lat - min_lat) / n
+    include = ("bbox", "confidence", "pixel-bbox", "pixel-mask")
+
+    lots: list[tuple[Detection, float]] = []  # (detection, area m^2)
+    for row in range(n):
+        for col in range(n):
+            tile = (min_lon + col * step_lon, min_lat + row * step_lat,
+                    min_lon + (col + 1) * step_lon, min_lat + (row + 1) * step_lat)
+            data = vexcel._client.request_json(
+                "POST", DETECT_ENDPOINT, _detect_payload(box(*tile).wkt, [label], include),
+                timeout=300,
+            )
+            images = data.get("images") or []
+            ortho_id = images[0].get("image-id") if images else None
+            for feat in data.get("features") or []:
+                for det in ((feat or {}).get("properties") or {}).get("detections") or []:
+                    if ortho_id is not None and det.get("imageId") != ortho_id:
+                        continue
+                    try:
+                        geom = shapely_wkt.loads(det["bbox"]).intersection(box(*tile))
+                    except Exception:
+                        continue
+                    if geom.is_empty:
+                        continue
+                    frac = _mask_fraction(det["pixel-mask"]) if det.get("pixel-mask") else None
+                    conf = det.get("confidence")
+                    lots.append((
+                        Detection(
+                            id=f"lot-{property_id}-{len(lots) + 1}", label=label,
+                            property_id=property_id, geometry_wkt=geom.wkt,
+                            confidence=float(conf) if isinstance(conf, (int, float)) and 0 <= conf <= 1 else None,
+                        ),
+                        _box_area_m2(geom) * (frac if frac is not None else 1.0),
+                    ))
+
+    area_by_id = {d.id: a for d, a in lots}
+    kept = _dedupe([d for d, _ in lots], iou_min=0.5)
+    area_sqft = sum(area_by_id[d.id] for d in kept) * SQFT_PER_M2
+
+    img_bytes = vexcel._client.request_bytes(
+        "POST", "ortho/extract",
+        {**_image_request(box(*bounds).wkt), "buffer-meter": 0, "image-format": "jpeg"},
+    )
+    img_dir = config.CACHE_DIR / "vexcel" / "detect"
+    img_dir.mkdir(parents=True, exist_ok=True)
+    tag = f"_{round(2 * half_m)}m_lots"
+    image_path = img_dir / f"property_{property_id}{tag}.jpg"
+    image_path.write_bytes(img_bytes)
+    with Image.open(image_path) as img:
+        width, height = img.size
+    drawn = []
+    for d in kept:
+        x0, y0, x1, y1 = shapely_wkt.loads(d.geometry_wkt).bounds  # type: ignore[arg-type]
+        drawn.append(d.model_copy(update={"bbox": (
+            (x0 - min_lon) / (max_lon - min_lon) * width, (max_lat - y1) / (max_lat - min_lat) * height,
+            (x1 - min_lon) / (max_lon - min_lon) * width, (max_lat - y0) / (max_lat - min_lat) * height,
+        )}))
+    annotated = draw_detections(str(image_path), drawn, img_dir / f"property_{property_id}{tag}_boxes.jpg")
+
+    low, high = SQFT_PER_SPACE
+    return ParkingEstimate(
+        property_id=property_id,
+        lot_count=len(kept),
+        lot_area_sq_ft=round(area_sqft),
+        spaces_low=round(area_sqft / high),
+        spaces_high=round(area_sqft / low),
+        spaces_mid=round(area_sqft / ((low + high) / 2)),
+        sq_ft_per_space=SQFT_PER_SPACE,
+        tiles=n * n,
+        detect_calls=n * n,
+        annotated_image_path=annotated,
+        method=f"'{label}' masks on {n}x{n} tiles; area / {low:g}-{high:g} sq ft per space",
     )
