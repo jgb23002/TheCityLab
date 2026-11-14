@@ -448,6 +448,35 @@ class MultiDateSpaces(BaseModel):
     method: str
 
 
+SAME_SPOT_OVERLAP = 0.3  # boxes overlapping this much (of the smaller box) = one spot
+SPACE_HALF_WIDTH_M = 1.3  # half of a 2.7 m (9 ft) space
+SPACE_LENGTH_LIMIT_M = 3.5  # under one 5.5 m (18 ft) space length
+
+
+def _same_spot(spot: dict[str, Any], xy: tuple[float, float], det: Detection) -> bool:
+    """True when *det* is the spot already recorded in *spot*.
+
+    Photos from different dates shift by ~1-3 m. A car shifted along its own
+    length still overlaps its earlier box, while cars in neighbouring spaces
+    sit side by side without overlapping, so overlap is the main test and
+    centre distance catches small boxes.
+    """
+    if math.dist(spot["xy"], xy) < SAME_SPOT_M:
+        return True
+    a = shapely_wkt.loads(spot["det"].geometry_wkt)
+    b = shapely_wkt.loads(det.geometry_wkt)  # type: ignore[arg-type]
+    smaller = min(a.area, b.area)
+    if smaller and a.intersection(b).area / smaller >= SAME_SPOT_OVERLAP:
+        return True
+    # Same space if within half a space width sideways and less than one
+    # space length along the car (shade can split one car into two halves).
+    ax0, ay0, ax1, ay1 = a.union(b).bounds
+    along_ns = (ay1 - ay0) * 111_320.0 >= (ax1 - ax0) * 111_320.0 * math.cos(math.radians(ay0))
+    dx, dy = abs(spot["xy"][0] - xy[0]), abs(spot["xy"][1] - xy[1])
+    across, along = (dx, dy) if along_ns else (dy, dx)
+    return across < SPACE_HALF_WIDTH_M and along < SPACE_LENGTH_LIMIT_M
+
+
 def list_collections(lat: float, lon: float) -> list[dict[str, str]]:
     """Ortho capture dates at a point, newest first: {collection, layer, date}."""
     data = vexcel._client.request_json("GET", "ortho/collections", {
@@ -562,7 +591,7 @@ def spaces_from_dates(
 
         for det in sorted(found, key=lambda d: -(d.confidence or 0)):
             xy = _centre_m(det.geometry_wkt, lat)  # type: ignore[arg-type]
-            match = next((s for s in spots if math.dist(s["xy"], xy) < SAME_SPOT_M), None)
+            match = next((s for s in spots if _same_spot(s, xy, det)), None)
             if match:
                 match["dates"].add(c["date"])
             else:
@@ -594,7 +623,7 @@ def spaces_from_dates(
             if not keep_area.contains(shapely_wkt.loads(det.geometry_wkt).centroid):  # type: ignore[arg-type]
                 continue
             xy = _centre_m(det.geometry_wkt, lat)  # type: ignore[arg-type]
-            if any(math.dist(s["xy"], xy) < SAME_SPOT_M for s in spots):
+            if any(_same_spot(s, xy, det) for s in spots):
                 continue
             spots.append({"xy": xy, "det": det, "dates": {"empty:" + c["date"]}})
             confirmed.append(spots[-1])

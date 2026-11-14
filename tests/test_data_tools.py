@@ -281,3 +281,25 @@ def test_mask_fraction_and_box_area() -> None:
 def test_spaces_from_dates_needs_area() -> None:
     with pytest.raises(ValueError):
         vexcel_detect.spaces_from_dates(LAT, LON, 1, half_m=0.0, outline_wkt=None)
+
+
+def test_same_spot_uses_space_dimensions() -> None:
+    """Halves of one car end to end merge; side-by-side neighbours stay apart."""
+    m = 1 / 111_320.0  # ~1 m in degrees near the equator
+
+    def det(x0: float, y0: float, x1: float, y1: float) -> vexcel_detect.Detection:
+        return vexcel_detect.Detection(
+            id="d", label="car",
+            geometry_wkt=f"POLYGON(({x0*m} {y0*m},{x1*m} {y0*m},{x1*m} {y1*m},{x0*m} {y1*m},{x0*m} {y0*m}))")
+
+    def spot(d: vexcel_detect.Detection) -> dict:
+        return {"xy": vexcel_detect._centre_m(d.geometry_wkt, 0.0), "det": d}
+
+    car = det(0, 0, 2, 2.5)            # front half of a car pointing north
+    back = det(0, 2.6, 2, 5)           # back half, touching, not overlapping
+    neighbour = det(2.8, 0, 4.8, 5)    # next space, 2.8 m east
+    facing = det(0, 6, 2, 11)          # head-to-head space 6 m north
+    s = spot(car)
+    assert vexcel_detect._same_spot(s, spot(back)["xy"], back)
+    assert not vexcel_detect._same_spot(s, spot(neighbour)["xy"], neighbour)
+    assert not vexcel_detect._same_spot(spot(back), spot(facing)["xy"], facing)
