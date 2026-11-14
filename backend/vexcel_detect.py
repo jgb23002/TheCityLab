@@ -498,16 +498,19 @@ def _centre_m(geom_wkt: str, lat0: float) -> tuple[float, float]:
     return (c.x * 111_320.0 * math.cos(math.radians(lat0)), c.y * 111_320.0)
 
 
-def property_outline(
+def property_parcel(
     lat: float, lon: float, lot_acres: float, search_half_m: float | None = None,
-) -> str | None:
-    """WKT of the parcel that best matches the CoStar property, or None.
+) -> dict[str, Any] | None:
+    """The Vexcel parcel that best matches the CoStar property, or None.
 
     CoStar's point may sit off-centre or inside a small neighbouring parcel,
     so this searches all Vexcel parcels in a square around the point and picks
     the one whose area is closest to CoStar ``lotSize`` (within 25%). The
     square defaults to the lot's own size: Vexcel returns at most 500 parcels,
     so a much larger square can cut the answer off before the right parcel.
+
+    Returns ``{"wkt", "properties", "acres", "area_error"}`` where
+    ``properties`` are Vexcel's precomputed attributes for that parcel.
     """
     if search_half_m is None:
         search_half_m = max(100.0, math.sqrt(lot_acres * 4046.86) / 2)
@@ -517,16 +520,28 @@ def property_outline(
         "include": "precomputed", "unit-system": "imperial",
     })
     target_m2 = lot_acres * 4046.86
-    best, best_err = None, 0.25
+    best: dict[str, Any] | None = None
+    best_err = 0.25
     for f in data.get("features") or []:
         try:
             g = shape(f["geometry"])
         except Exception:
             continue
-        err = abs(_box_area_m2_poly(g, lat) - target_m2) / target_m2
+        m2 = _box_area_m2_poly(g, lat)
+        err = abs(m2 - target_m2) / target_m2
         if err < best_err:
-            best, best_err = g, err
-    return best.wkt if best is not None else None
+            best_err = err
+            best = {"wkt": g.wkt, "properties": dict(f.get("properties") or {}),
+                    "acres": m2 / 4046.86, "area_error": err}
+    return best
+
+
+def property_outline(
+    lat: float, lon: float, lot_acres: float, search_half_m: float | None = None,
+) -> str | None:
+    """WKT of the parcel that best matches the CoStar property, or None."""
+    parcel = property_parcel(lat, lon, lot_acres, search_half_m)
+    return parcel["wkt"] if parcel else None
 
 
 def _box_area_m2_poly(geom: Any, lat: float) -> float:
