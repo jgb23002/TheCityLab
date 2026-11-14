@@ -1542,11 +1542,12 @@ async function initShowcaseStrip() {
   frames[0].querySelector(".strip-placeholder").classList.add("strip-text");
   [1, 2, 3].forEach((frameIndex, mediaIndex) => {
     const [src, alt] = media[mediaIndex];
-    const holder = frames[frameIndex].querySelector(".strip-placeholder");
+    const holder = frames[frameIndex].querySelector(".strip-media");
     const img = new Image();
     img.alt = alt;
-    img.loading = "lazy";
-    img.onload = () => holder.replaceWith(img);
+    // loading="lazy" only works once the element is in the DOM; these start detached,
+    // so eager-loading here is correct (the browser still won't render them until active).
+    img.onload = () => { holder.classList.remove("strip-placeholder"); holder.replaceChildren(img); };
     img.onerror = () => { holder.querySelector("span").textContent = "Not available for this building."; };
     img.src = src;
   });
