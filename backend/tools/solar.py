@@ -19,7 +19,7 @@ from backend.schemas import Building, Measurement, SolarResult
 
 log = logging.getLogger(__name__)
 
-PVWATTS_URL = "https://developer.nrel.gov/api/pvwatts/v8.json"
+PVWATTS_URL = "https://developer.nlr.gov/api/pvwatts/v8.json"
 HOUSTON, LOS_ANGELES = 14, 20
 
 # Share of measured roof that can hold panels after setbacks, HVAC and fire lanes.
