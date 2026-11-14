@@ -40,6 +40,37 @@ study steps, map, chart, evidence table, solar shortlist and owner-email draft.
    source and number of buildings, then click **Find the answer**.
    Hard-refresh the page if your browser still shows the old placeholder.
 
+## What the page does now
+
+The page streams a real DeepAgents run from `POST /api/ask-stream`:
+
+- **Left, agent activity:** the planner's to-do list (DeepAgents `write_todos`), each
+  subagent delegation, every tool call, and the citation check.
+- **Centre, map:** sampled buildings, coloured by a chosen measure, with a filter.
+- **Right, building inspection:** the CoStar record (owners and tenants for single
+  properties), the aerial image with the boxes the vision model confirmed, confidence,
+  editable measurements, the interior scan and solar estimates.
+- **Below, analytics and reports:** two charts, the cited research brief, retrofit proposal
+  or property report (copy, download, print to PDF), the upgrade table with every
+  assumption, the solar ranking, the owner email draft (never sent) and the evidence ledger.
+
+Three kinds of question work:
+
+- **Research:** for example, Q1 and Q2.
+- **Retrofit:** Q3, or "best rooftop solar" questions.
+- **Single property:** a CoStar property id or a street address, for example "Evaluate
+  property 23453 for building upgrades".
+
+Correcting a measurement (parking spaces, green cover or roof area) re-runs the statistics,
+or the solar estimates, ranking, upgrades and email, with no model call. Corrections are
+saved under a new study id, and correction history feeds `GET /api/calibration`.
+
+**Offline demo:** `USE_CACHE_ONLY=true uvicorn backend.main:app` replays the recorded
+showcase runs (Q1-Q3 and the judging scenarios S1-S3) with no network calls. Replays are
+labelled as recorded runs. See `docs/AGENT.md` and `IMPLEMENTATION_STATUS.md`.
+
+## Older details
+
 Open **Preview selected buildings** to see the actual CoStar sample immediately,
 without starting an imagery or model call. Changing city or data source refreshes
 that preview.
@@ -73,8 +104,8 @@ answer for every question. `GET /api/mock-study` remains a saved fixture preview
 The web workflow is in `backend/agent/study.py`. It calls the merged typed tools
 directly and builds the brief only from returned numbers. The existing Deep
 Agents CLI remains available for conversational planning. The web request's
-`use_mock_tools` flag selects its data source; `USE_MOCK_TOOLS` still controls the
-CLI. `/api/correct` remains future work.
+`use_mock_tools` flag selects its data source; `USE_MOCK_TOOLS` still controls that
+workflow. The dashboard itself uses the agent routes below.
 
 To prohibit all Vexcel and vision calls and use existing measurements only:
 
@@ -95,7 +126,12 @@ merged tool's local template without a model call.
 | `GET /api/questions` | The three existing showcase questions and their metadata |
 | `GET /api/mock-study` | The validated, saved mock `StudyResult` |
 | `GET /api/buildings?market_id=14&limit=50` | The selected CoStar cohort without imagery/model calls; `use_mock_tools=true` previews synthetic records |
-| `POST /api/ask` | A question-specific `AskResponse` containing a `StudyResult` and actual completed-step events |
+| `POST /api/ask` | A question-specific `AskResponse` containing a `StudyResult` and actual completed-step events (fixed pipeline, no agent) |
+| `POST /api/ask-agent` | The DeepAgents planner's `AskResponse` (research, retrofit or single property) |
+| `POST /api/ask-stream` | The same, as server-sent events: plan, handoff, tool_call, details, citation_check, evidence, result |
+| `POST /api/correct` | Applies a measurement correction to a saved study and recomputes it (no model call) |
+| `GET /api/calibration` | Correction-history calibration per measured field |
+| `GET /api/image/{id}` | A building's aerial image (showcase, then cache) or a demo placeholder |
 
 `POST /api/ask` accepts the existing `AskRequest` contract, for example
 `{"question": "Do greener Houston apartments have higher asking rents?", "market_id": 14, "limit": 12, "use_mock_tools": true}`.

@@ -135,6 +135,15 @@ def run_study(
             "r_squared": 0.31,
             "interpretation": "MOCK: illustrative vacancy percentage-point association only.",
         })
+    elif "parking" in question.lower():
+        result = result.model_copy(update={
+            "predictor": "parking_space_count",
+            "coefficients": {"parking_space_count": 1.6},
+            "p_values": {"parking_space_count": 0.21},
+            "confidence_intervals": {"parking_space_count": (-0.9, 4.1)},
+            "r_squared": 0.29,
+            "interpretation": "MOCK: illustrative rent-per-parking-space association only.",
+        })
     return result
 
 
