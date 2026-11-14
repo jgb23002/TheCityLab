@@ -104,19 +104,55 @@
         </div>
       </div>
 
-      <section id="progress-card" class="steps-card" hidden aria-live="polite">
-        <div class="progress-head">
-          <span id="spinner" class="spinner" aria-hidden="true"></span>
-          <span class="steps-title">Live progress</span>
-          <span id="tool-count" class="counter">0 tool calls</span>
-          <button type="button" id="cancel" class="cancel-btn">Cancel</button>
-        </div>
-        <ul id="progress" class="live-list"></ul>
-        <div id="citation" class="citation" hidden>
-          <button type="button" id="citation-badge" class="citation-badge" aria-expanded="false"></button>
-          <ul id="citation-problems" class="citation-problems" hidden></ul>
-        </div>
-      </section>
+      <div id="dashboard" class="dashboard" hidden>
+        <section id="progress-card" class="steps-card panel-left" hidden aria-live="polite">
+          <div class="progress-head">
+            <span id="spinner" class="spinner" aria-hidden="true"></span>
+            <span class="steps-title">Agent activity</span>
+            <span id="tool-count" class="counter">0 tool calls</span>
+            <button type="button" id="cancel" class="cancel-btn">Cancel</button>
+          </div>
+          <p id="run-status" class="run-status" role="status"></p>
+          <div id="plan-box" class="plan-box" hidden>
+            <h4>Planner to-do list <small>(DeepAgents write_todos)</small></h4>
+            <ol id="plan" class="plan"></ol>
+          </div>
+          <h4 class="activity-title">Delegations and tool calls</h4>
+          <ul id="progress" class="live-list"></ul>
+          <div id="citation" class="citation" hidden>
+            <button type="button" id="citation-badge" class="citation-badge" aria-expanded="false"></button>
+            <ul id="citation-problems" class="citation-problems" hidden></ul>
+          </div>
+        </section>
+
+        <section class="card panel-center">
+          <div class="map-head">
+            <h3>Where we looked</h3>
+            <label class="inline-control">Colour by
+              <select id="color-by" aria-label="Colour map markers by">
+                <option value="auto">study measure</option>
+                <option value="parking_space_count">parking spaces</option>
+                <option value="green_cover_percent">green cover</option>
+                <option value="paved_surface_percent">paved surface</option>
+                <option value="roof_area_sq_ft">roof area</option>
+                <option value="payback_years">solar payback</option>
+              </select></label>
+            <label class="inline-control">Show
+              <select id="map-filter" aria-label="Filter buildings">
+                <option value="all">all buildings</option>
+                <option value="measured">measured only</option>
+                <option value="corrected">corrected only</option>
+              </select></label>
+          </div>
+          <div id="map"><p class="map-empty">Sampled buildings appear here when the study finishes.</p></div>
+          <p id="map-legend" class="map-legend" aria-live="polite"></p>
+        </section>
+
+        <aside id="inspector" class="card panel-right" aria-live="polite">
+          <h3>Building inspection</h3>
+          <div id="inspector-body"><p class="stat-note">Select a building on the map, in a table or on a card.</p></div>
+        </aside>
+      </div>
 
       <section id="skeleton" class="card" hidden aria-hidden="true">
         <div class="skel-line wide"></div>
@@ -130,6 +166,7 @@
         <div class="report-head">
           <span class="stamp">Field report</span>
           <span id="mock-badge" class="badge" hidden>Demo data</span>
+          <span id="replay-badge" class="badge replay" hidden>Offline showcase replay</span>
         </div>
         <h2 id="study-question" class="study-question"></h2>
 
@@ -140,13 +177,36 @@
           </div>
           <p id="wc-conclusion" class="wc-conclusion"></p>
           <ul id="wc-list" class="wc-list"></ul>
+          <p id="wc-calibration" class="wc-calibration"></p>
         </section>
 
         <section id="verdict" class="verdict"></section>
         <div id="kpis" class="kpis"></div>
 
-        <section class="card brief-card">
-          <h3>The story in detail</h3>
+        <div class="grid">
+          <section class="card">
+            <h3 id="chart-title">How it lines up</h3>
+            <p id="chart-message" class="stat-note" hidden></p>
+            <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Result chart"></canvas></div>
+            <p id="chart-summary" class="chart-summary"></p>
+          </section>
+          <section class="card">
+            <h3 id="chart2-title">A second view</h3>
+            <div class="chart-wrap"><canvas id="chart2" role="img" aria-label="Second result chart"></canvas></div>
+            <p id="chart2-summary" class="chart-summary"></p>
+          </section>
+        </div>
+
+        <section class="card brief-card" id="report-card">
+          <div class="report-actions-head">
+            <h3 id="report-title">Research brief</h3>
+            <div class="report-actions">
+              <button type="button" id="copy-report" class="action-btn">Copy</button>
+              <button type="button" id="download-report" class="action-btn">Download .md</button>
+              <button type="button" id="print-report" class="action-btn">Print / save PDF</button>
+              <span id="report-status" class="copy-status" aria-live="polite"></span>
+            </div>
+          </div>
           <div id="brief"></div>
           <div id="caveat-box" class="notice">
             <strong>Handle with care</strong>
@@ -154,18 +214,10 @@
           </div>
         </section>
 
-        <div class="grid">
-          <section class="card">
-            <h3>Where we looked</h3>
-            <div id="map"></div>
-          </section>
-          <section class="card">
-            <h3 id="chart-title">How it lines up</h3>
-            <p id="chart-message" class="stat-note" hidden></p>
-            <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Result chart"></canvas></div>
-            <p id="chart-summary" class="chart-summary"></p>
-          </section>
-        </div>
+        <section id="upgrades-card" class="card" hidden>
+          <h3>Recommended upgrades <small id="upgrades-for"></small></h3>
+          <div id="upgrades"></div>
+        </section>
 
         <section id="stats-card" class="card">
           <h3>The statistics, if you want them</h3>
@@ -184,14 +236,16 @@
             <h3>Owner email</h3>
             <span class="not-sent">Draft for review - not sent</span>
             <button type="button" id="copy-email" class="copy-btn">Copy</button>
+            <button type="button" id="download-email" class="action-btn">Download .txt</button>
             <span id="copy-status" class="copy-status" aria-live="polite"></span>
           </div>
+          <p class="stat-note">Edit the draft below before sending it yourself; CityLab never sends email.</p>
           <div id="outreach"></div>
         </section>
 
         <section class="card">
           <h3>Every building we measured</h3>
-          <p class="stat-note">Click a card to find it on the map, or a map marker to find its card. Boxes show the detections on the aerial image.</p>
+          <p class="stat-note">Click a card to inspect it. Boxes show the detections the vision model confirmed on the aerial image.</p>
           <div id="cards" class="cards"></div>
           <div id="cards-sentinel" class="cards-sentinel"></div>
           <button type="button" id="more-cards" class="more-btn" hidden>Show more buildings</button>

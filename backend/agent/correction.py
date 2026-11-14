@@ -23,7 +23,7 @@ from backend.agent.citations import verify_brief
 from backend.agent.evidence import Ledger
 from backend.agent.registry import regression_ok
 from backend.agent.study_store import StudyRun, next_corrected_id
-from backend.schemas import Measurement, MeasurementCorrection, StatsResult
+from backend.schemas import Measurement, MeasurementCorrection, SolarResult, StatsResult
 
 CORRECTION_HEADING = "## What changed after your correction"
 _RESULT_SECTION = re.compile(r"(^## Result[^\n]*\n)(.*?)(?=^## |\Z)", re.M | re.S)
@@ -206,6 +206,8 @@ def apply_correction(run: StudyRun, measurement_id: str, corrections: Measuremen
     when = datetime.now(timezone.utc).isoformat()
     corrected = _patched_measurement(original, patch, note, fields, when)
 
+    if study.solar_results is not None:  # retrofit / property studies: re-estimate solar, re-rank
+        return _apply_solar_correction(run, original, corrected, measurement_id, fields, note, when)
     ledger = Ledger.from_entries(run.ledger.to_json())  # never touch the original ledger
     previous = _original_regression(run)
     source = previous["source"]
@@ -293,3 +295,200 @@ def apply_correction(run: StudyRun, measurement_id: str, corrections: Measuremen
     return CorrectionResult(run=StudyRun(study=new_study, ledger=ledger, meta=meta), corrected_measurement=corrected,
                             changes=changes, conclusion=conclusion, correction_entry=correction_entry,
                             regression_entry=regression_entry, previous_regression_entry=previous, problems=problems)
+
+
+# ---------------------------------------------------------------------------
+# Retrofit / property studies: re-estimate solar, re-rank, re-screen, re-draft
+# ---------------------------------------------------------------------------
+
+_RANKING_SECTION = re.compile(r"(^## Ranking[^\n]*\n)(.*?)(?=^## |\Z)", re.M | re.S)
+SOLAR_SCALING_NOTE = ("re-estimated after a correction by scaling the original estimate's kWh per kW "
+                      "(no new PVWatts call)")
+
+
+def _latest(ledger: Ledger, tool: str, property_id: int | None = None) -> dict[str, Any] | None:
+    """The latest successful entry for a tool (optionally for one property)."""
+    for entry in reversed(ledger.all()):
+        r = entry["result"]
+        if entry["tool"] == tool and "error" not in r and (property_id is None or r.get("property_id") == property_id):
+            return entry
+    return None
+
+
+def rescale_solar(old: SolarResult, roof_sq_ft: float | None) -> SolarResult:
+    """Deterministic rooftop re-estimate for a corrected roof area, from the old estimate's assumptions.
+
+    usable = roof x usable fraction; kW = usable x W per sq ft / 1000; kWh = kW x (old kWh / old kW);
+    cost = kW x 1000 x $/W; savings = kWh x $/kWh; payback = cost / savings. PVWatts output is linear
+    in system size for one site and orientation, so scaling kWh per kW is valid without a new call.
+    """
+    from backend.tools import solar as solar_tool
+
+    a = dict(old.assumptions or {})
+    if not roof_sq_ft or roof_sq_ft <= 0:
+        return old.model_copy(update={"usable_roof_area_sq_ft": None, "capacity_kw": None, "annual_energy_kwh": None,
+                                      "payback_years": None, "score": None, "rank": None,
+                                      "caveats": ["No measured roof area after the correction, so no solar estimate."]})
+    fraction = a.get("usable_fraction_of_roof") or solar_tool.USABLE_FRACTION[None]
+    wpsf = a.get("watts_per_usable_sq_ft") or solar_tool.WATTS_PER_USABLE_SQ_FT
+    cost_w = a.get("installed_cost_usd_per_watt") or solar_tool.INSTALLED_COST_PER_WATT
+    price = a.get("electricity_price_usd_per_kwh") or solar_tool.DEFAULT_PRICE_PER_KWH
+    kwh_per_kw = (old.annual_energy_kwh / old.capacity_kw) if old.capacity_kw and old.annual_energy_kwh else solar_tool.DEFAULT_KWH_PER_KW
+    usable = roof_sq_ft * fraction
+    kw = usable * wpsf / 1000
+    kwh = kw * kwh_per_kw
+    cost = kw * 1000 * cost_w
+    savings = kwh * price
+    payback = round(cost / savings, 1) if savings > 0 else None
+    a.update({"measured_roof_area_sq_ft": roof_sq_ft, "estimated_cost_usd": round(cost),
+              "estimated_annual_savings_usd": round(savings), "estimated_payback_years": payback,
+              "energy_source": f"{a.get('energy_source') or 'unknown'}; {SOLAR_SCALING_NOTE}"})
+    return old.model_copy(update={"usable_roof_area_sq_ft": round(usable), "capacity_kw": round(kw, 1),
+                                  "annual_energy_kwh": round(kwh), "payback_years": payback, "score": payback,
+                                  "rank": None, "assumptions": a})
+
+
+def _ranking_section(ranked: list[dict[str, Any]], eid: str, rows: int) -> str:
+    """A regenerated, cited ranking table for the Ranking section."""
+    head = ("| Rank | Property id | Usable roof area (sq ft) | Capacity (kW) | Annual energy (kWh) | Payback (years) |\n"
+            "|---|---|---|---|---|---|\n")
+    body = "\n".join(
+        f"| {r.get('rank')} | {r.get('property_id')} [{eid}] | {_cite(r.get('usable_roof_area_sq_ft'), eid)} | "
+        f"{_cite(r.get('capacity_kw'), eid)} | {_cite(r.get('annual_energy_kwh'), eid)} | {_cite(r.get('payback_years'), eid)} |"
+        for r in ranked if r.get("rank") is not None and r["rank"] <= rows)
+    return f"After your correction the ranking was re-run [{eid}].\n\n{head}{body}\n\n"
+
+
+def _apply_solar_correction(run: StudyRun, original: Measurement, corrected: Measurement, measurement_id: str,
+                            fields: list[str], note: str | None, when: str) -> CorrectionResult:
+    """Correction for a study with solar_results: re-estimate, re-rank, re-screen and re-draft."""
+    from backend.agent import upgrades
+    from backend.agent.registry import ranking_ok
+
+    study = run.study
+    ledger = Ledger.from_entries(run.ledger.to_json())
+    previous = next((e for e in reversed(ledger.all()) if e["tool"] == "rank_buildings" and ranking_ok(e["result"])), None)
+    if previous is None:
+        raise InvalidCorrection("This study has no solar ranking to re-run, so it cannot be corrected.")
+    source = previous["source"]
+    pid = original.property_id
+    building = next((b for b in study.buildings if b.id == pid), None)
+    place = building.name if building and building.name else f"property {pid}"
+    summarize = lambda m, f: len(m.detections or []) if f == "detections" else getattr(m, f)  # noqa: E731
+    before_vals = {f: summarize(original, f) for f in fields}
+    after_vals = {f: summarize(corrected, f) for f in fields}
+    correction_entry = ledger.add("correct_measurement", {
+        "measurement_id": measurement_id, "property_id": pid, "property_name": place,
+        "before": before_vals, "after": after_vals, "note": note,
+    }, corrected.model_dump(mode="json"), "mock" if study.is_mock else "real")
+
+    old_ranked = [SolarResult.model_validate(r) for r in previous["result"]["ranked"]]
+    old_estimate = next((r for r in old_ranked if r.property_id == pid), None)
+    if source == "mock":
+        from backend.tools import mock as implementation
+        new_estimate = implementation.estimate_solar(building, corrected) if building else old_estimate
+    else:
+        from backend.tools import solar as implementation
+        new_estimate = rescale_solar(old_estimate, corrected.roof_area_sq_ft) if old_estimate else None
+    estimates = [r.model_copy(update={"rank": None}) for r in old_ranked if r.property_id != pid]
+    if new_estimate is not None:
+        ledger.add("solar_payback", {"property_id": pid, "roof_area_sq_ft": corrected.roof_area_sq_ft,
+                                                   "note": f"after correction of {measurement_id}"},
+                                 new_estimate.model_dump(mode="json"), source)
+        estimates.append(new_estimate)
+    ranked = implementation.rank_buildings(estimates)
+    rank_entry = ledger.add("rank_buildings", {"estimates": len(estimates), "note": f"after correction of {measurement_id}"},
+                            {"ranked": [r.model_dump(mode="json") for r in ranked], "count": len(ranked),
+                             "estimated": len(estimates), "skipped_no_roof": previous["result"].get("skipped_no_roof", 0)},
+                            source)
+
+    screened = _latest(ledger, "screen_upgrades", pid)
+    upgrade_entry = None
+    new_by_id = {r.property_id: r for r in ranked}
+    if screened is not None and building is not None:
+        interior = _latest(ledger, "interior_inspect", pid)
+        upgrade_entry = ledger.add("screen_upgrades", {"property_id": pid, "note": f"after correction of {measurement_id}"},
+                                   upgrades.screen(building.model_dump(mode="json"), corrected.model_dump(mode="json"),
+                                                   new_by_id.get(pid).model_dump(mode="json") if new_by_id.get(pid) else None,
+                                                   interior["result"] if interior else None),
+                                   "mock" if study.is_mock else "real")
+
+    drafts = list(study.outreach_drafts or [])
+    for i, draft in enumerate(drafts):
+        if draft.property_id == pid and building is not None and new_by_id.get(pid) is not None:
+            estimate = new_by_id[pid]
+            if source == "mock":
+                from backend.tools import mock
+                redrafted = mock.draft_outreach(building, estimate)
+            else:
+                from backend.tools import outreach
+                subject, body = outreach.template_draft(building, estimate)
+                redrafted = draft.model_copy(update={"subject": subject, "body_markdown": body})
+            caveats = list(dict.fromkeys([*(draft.caveats or []),
+                                          "Redrafted from the fixed template after a measurement correction; review before use."]))
+            drafts[i] = redrafted.model_copy(update={"caveats": caveats})
+            ledger.add("draft_email", {"property_id": pid, "note": f"after correction of {measurement_id}"},
+                       drafts[i].model_dump(mode="json"), source)
+
+    old_e, new_e, cor_e = previous["id"], rank_entry["id"], correction_entry["id"]
+    old_row = next((r for r in previous["result"]["ranked"] if r.get("property_id") == pid), {})
+    new_row = next((r.model_dump(mode="json") for r in ranked if r.property_id == pid), {})
+    old_top = next((r for r in previous["result"]["ranked"] if r.get("rank") == 1), {}).get("property_id")
+    new_top = next((r.property_id for r in ranked if r.rank == 1), None)
+    keys = {"capacity_kw": "capacity (kW)", "annual_energy_kwh": "annual energy (kWh)",
+            "payback_years": "simple payback (years)", "rank": "rank"}
+    changes = [{"label": f"{f} ({place})", "before": before_vals[f], "after": after_vals[f],
+                "direction": _direction(before_vals[f], after_vals[f])} for f in fields]
+    changes += [{"label": f"{label} ({place})", "before": old_row.get(k), "after": new_row.get(k),
+                 "direction": _direction(old_row.get(k), new_row.get(k))} for k, label in keys.items()]
+    if old_top != new_top:
+        conclusion = (f"The conclusion changed: the top candidate is now property {new_top} [{new_e}] "
+                      f"instead of property {old_top} [{old_e}].")
+    else:
+        conclusion = "The conclusion did not change: the top-ranked candidate is the same."
+    if source == "mock":
+        conclusion += " Demo studies use fixed illustrative solar numbers, so a correction cannot move them."
+    field_lines = "\n".join(
+        f"- {f} for {place} (property {pid} [{cor_e}]): {_cite(before_vals[f], cor_e)} before, "
+        f"{_cite(after_vals[f], cor_e)} after." for f in fields)
+    solar_lines = "\n".join(f"- {label}: {_cite(old_row.get(k), old_e)} before, {_cite(new_row.get(k), new_e)} after."
+                             for k, label in keys.items())
+    block = (f"{CORRECTION_HEADING}\n\n{field_lines}\n{solar_lines}\n\n{conclusion}\n"
+             + ("\nThe owner email for this building was redrafted from the fixed template.\n"
+                if any(d.property_id == pid for d in drafts) else "")
+             + (f"\nYour note is saved with the correction [{cor_e}].\n" if note else ""))
+
+    brief = _CORRECTION_SECTION.sub("\n\n", study.brief_markdown).rstrip()
+    table_rows = max(1, sum(1 for r in previous["result"]["ranked"] if (r.get("rank") or 99) <= 10))
+    ranking_json = [r.model_dump(mode="json") for r in ranked]
+    if _RANKING_SECTION.search(brief):
+        brief = _RANKING_SECTION.sub(lambda m: m.group(1) + _ranking_section(ranking_json, new_e, table_rows), brief, count=1)
+    if conclusion.startswith("The conclusion changed") and STALE_ANSWER_NOTE not in brief:
+        brief = _ANSWER_HEADING.sub(lambda m: m.group(0) + STALE_ANSWER_NOTE, brief, count=1)
+    brief = brief.rstrip() + "\n\n" + block
+
+    problems = verify_brief(brief, ledger)
+    baseline = set(verify_brief(study.brief_markdown, run.ledger))
+    if [p for p in problems if p not in baseline]:
+        raise UnverifiableCorrection("The corrected brief failed the citation check; nothing was saved.")
+
+    new_id, n = next_corrected_id(run)
+    caveat = (f"User correction {n}: {', '.join(fields)} of {place} (measurement {measurement_id}) was changed "
+              "by hand; solar estimate, ranking, upgrade screening and email draft were recomputed.")
+    if note:
+        caveat += f" Note: {note}"
+    new_study = study.model_copy(deep=True, update={
+        "id": new_id, "brief_markdown": brief, "solar_results": ranked, "outreach_drafts": drafts or None,
+        "caveats": [*study.caveats, caveat],
+        "measurements": [corrected if m.id == measurement_id else m for m in study.measurements],
+    })
+    history = [*(run.meta.get("corrections") or []),
+               {"n": n, "measurement_id": measurement_id, "fields": fields, "at": when,
+                "correction_entry": cor_e, "regression_entry": new_e}]
+    meta = {"original_id": run.meta.get("original_id") or study.id, "corrected_from": study.id,
+            "correction_count": n, "corrections": history}
+    result = CorrectionResult(run=StudyRun(study=new_study, ledger=ledger, meta=meta), corrected_measurement=corrected,
+                              changes=changes, conclusion=conclusion, correction_entry=correction_entry,
+                              regression_entry=rank_entry, previous_regression_entry=previous, problems=problems)
+    result.upgrade_entry = upgrade_entry  # type: ignore[attr-defined]
+    return result

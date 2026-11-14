@@ -30,7 +30,14 @@ from backend.schemas import (
 log = logging.getLogger(__name__)
 
 MODES = ("auto", "real", "mock")
-INTENTS = ("research", "retrofit")
+INTENTS = ("research", "retrofit", "property")
+MULTIFAMILY = 11
+# CoStar records these only for some property types (see docs/CONTRACTS.md mappings).
+TYPE_LIMITED_FIELDS = {
+    "total_num_units": "CoStar records unit counts only for multifamily properties",
+    "max_rent": "asking rent comes from CoStar apartment listings, so it exists only for multifamily properties",
+    "vacancy_percent": "CoStar records vacancy (propertyApartment.vacancyPercent) only for multifamily properties",
+}
 MAX_TOP_N = 10
 DEFAULT_N = 40
 MAX_N = 60
@@ -164,15 +171,32 @@ def draft_ok(result: dict[str, Any]) -> bool:
 
 
 _RETROFIT_WORDS = re.compile(r"\b(solar|rooftop|retrofit)|best candidates", re.I)
+_STREET_ADDRESS = re.compile(
+    r"\b\d{1,6}\s+(?:[nsew]\.?\s+)?[a-z0-9]+(?:\s+[a-z0-9]+){0,3}\s+"
+    r"(?:st|street|ave|avenue|rd|road|blvd|boulevard|dr|drive|ln|lane|way|pkwy|parkway|hwy|highway|"
+    r"ct|court|pl|place|fwy|freeway|cir|circle|ter|terrace)\b", re.I)
+
+
+def is_property_query(question: str) -> bool:
+    """True for a single-property request: a CoStar property id or a street address."""
+    from backend.agent.property_lookup import parse_property_id
+
+    return parse_property_id(question) is not None or bool(_STREET_ADDRESS.search(question or ""))
 
 
 def detect_intent(question: str, intent: str | None = "auto") -> str:
-    """Resolve intent: explicit research/retrofit, or auto from the question's words."""
+    """Resolve intent: explicit research/retrofit/property, or auto from the question.
+
+    auto: a property id or street address means one building ("property"); solar,
+    rooftop, retrofit or "best candidates" means "retrofit"; anything else "research".
+    """
     value = (intent or "auto").strip().lower()
     if value == "auto":
+        if is_property_query(question):
+            return "property"
         return "retrofit" if _RETROFIT_WORDS.search(question) else "research"
     if value not in INTENTS:
-        raise ValueError("intent must be auto, research or retrofit.")
+        raise ValueError("intent must be auto, research, retrofit or property.")
     return value
 
 
@@ -268,9 +292,19 @@ class _Runner:
             raise
         except Exception as exc:
             self._fail("sample_buildings", args, exc)
+        if property_type != MULTIFAMILY:
+            required = [f for f in required if f != "total_num_units"]  # units exist only for multifamily
+            args["required_fields"] = required
         complete = [b for b in candidates if _is_complete(b, required)]
         result = _as_result("sample_buildings", complete[:limit])
-        result.update({"candidates_scanned": len(candidates), "excluded_incomplete": len(candidates) - len(complete)})
+        missing = {f: sum(getattr(b, f, None) is None for b in candidates) for f in required}
+        result.update({"candidates_scanned": len(candidates), "excluded_incomplete": len(candidates) - len(complete),
+                       "missing_by_field": {f: n for f, n in missing.items() if n}})
+        blocking = [f for f, n in missing.items() if candidates and n == len(candidates)]
+        if not complete and blocking:
+            why = "; ".join(TYPE_LIMITED_FIELDS.get(f, f"{f} is unknown for every candidate") for f in blocking)
+            result["unavailable_reason"] = (f"No complete cases: {', '.join(blocking)} is missing for all "
+                                            f"{len(candidates)} candidate buildings ({why}).")
         return self._record("sample_buildings", args, result, source)
 
     def vision(self, property_id: int, image_path: str) -> dict[str, Any]:
@@ -407,11 +441,67 @@ class _Runner:
     # ---- ledger lookups used to fill omitted arguments --------------------------------
 
     def sampled_buildings(self) -> list[Building]:
-        """Return the buildings from the latest successful sample_buildings entry."""
+        """Buildings from the latest successful sample_buildings (or lookup_property) entry."""
         for entry in reversed(self.ledger.all()):
             if entry["tool"] == "sample_buildings" and "buildings" in entry["result"]:
                 return [Building.model_validate(b) for b in entry["result"]["buildings"]]
+            if entry["tool"] == "lookup_property" and "building" in entry["result"]:
+                return [Building.model_validate(entry["result"]["building"])]
         return []
+
+    # ---- single property, interior scan and upgrade screening -------------------------
+
+    def lookup(self, query: str) -> dict[str, Any]:
+        """lookup_property: one CoStar property by id or street address, with owners and tenants."""
+        from backend.agent import property_lookup
+
+        args = {"query": query}
+        source: Source = "mock" if self.mode == "mock" else "real"
+        try:
+            result = property_lookup.lookup(query, self.mode)
+        except Exception as exc:  # LookupError carries a user-facing message
+            self._fail("lookup_property", args, exc)
+        return self._record("lookup_property", args, result, source)
+
+    def interior(self, property_id: int) -> dict[str, Any]:
+        """interior_inspect: Matterport spatial metadata when a scan exists; skipped otherwise."""
+        args: dict[str, Any] = {"property_id": property_id}
+        if self.mode == "mock":
+            return self._record("interior_inspect", args, {
+                "property_id": property_id, "available": False,
+                "reason": "the synthetic demo data has no Matterport scans"}, "mock")
+        from backend.tools import matterport
+
+        model_id = matterport.model_id_for(property_id)
+        if not model_id:
+            return self._record("interior_inspect", args, {
+                "property_id": property_id, "available": False,
+                "reason": "no Matterport scan is linked to this property in commercial-properties.csv"}, "real")
+        args["model_id"] = model_id
+        try:
+            model = matterport.get_model(model_id)
+        except Exception as exc:
+            self._fail("interior_inspect", args, exc)
+        return self._record("interior_inspect", args, {
+            "property_id": property_id, "available": True, "model_id": model_id, "summary": model.metadata,
+            "not_observed": ["lighting type", "window characteristics", "visible HVAC equipment"],
+            "not_observed_reason": ("the Matterport model API used here returns measured floors and rooms but no "
+                                    "interior images, so these were not assessed"),
+        }, "real")
+
+    def upgrades(self, property_id: int) -> dict[str, Any]:
+        """screen_upgrades: rooftop solar, solar carport, LED, window film, HVAC for one building."""
+        from backend.agent import upgrades
+
+        args: dict[str, Any] = {"property_id": property_id}
+        building = self._building(property_id)
+        if building is None:
+            self._fail("screen_upgrades", args, ValueError(f"property {property_id} was not sampled or looked up"))
+        latest = lambda tool: next((e["result"] for e in reversed(self.ledger.all()) if e["tool"] == tool  # noqa: E731
+                                    and e["result"].get("property_id") == property_id and "error" not in e["result"]), None)
+        result = upgrades.screen(building.model_dump(mode="json"), latest("vision_inspect"),
+                                 latest("solar_payback"), latest("interior_inspect"))
+        return self._record("screen_upgrades", args, result, "mock" if self.mode == "mock" else "real")
 
     def measurements(self) -> list[Measurement]:
         """Return the latest measurement per property from successful vision_inspect calls."""
@@ -459,8 +549,9 @@ def get_tools(
 
     def sample_buildings(market_id: int, property_type: int, limit: int = default_n) -> dict[str, Any]:
         """Sample buildings from CoStar for a market (Houston 14, Los Angeles 20) and
-        property type (apartments/multifamily 11). limit is capped at 60. For research,
-        only complete cases are returned (units, year built, class and the outcome)."""
+        property type (multifamily 11, office 5, industrial 2, retail 6). limit is capped at
+        60. For research, only complete cases are returned (year built, class, the outcome,
+        and units for multifamily); unavailable_reason explains an empty sample."""
         return runner.sample(market_id, property_type, max(1, min(limit, MAX_N)), required)
 
     def vexcel_detect(lat: float, lon: float) -> dict[str, Any]:
@@ -498,6 +589,23 @@ def get_tools(
         """Draft (never send) an owner email for one building in the latest ranking's top N."""
         return runner.draft(property_id, top_n)
 
+    def lookup_property(query: str) -> dict[str, Any]:
+        """Look up ONE CoStar property by its id (e.g. "23453") or street address (e.g.
+        "4620 N Braeswood Blvd, Houston"). Returns the building, its owners, property
+        manager and current tenants where CoStar records them, and lists unavailable fields."""
+        return runner.lookup(query)
+
+    def interior_inspect(property_id: int) -> dict[str, Any]:
+        """Optional interior check: the property's Matterport scan (measured floors, rooms and
+        ceiling heights) when one exists; recorded as skipped when there is no scan."""
+        return runner.interior(property_id)
+
+    def screen_upgrades(property_id: int) -> dict[str, Any]:
+        """Screen rooftop solar, a solar carport, LED lighting, window film and HVAC for one
+        building. Only upgrades with enough measured inputs are estimated; the others are
+        listed with the missing input. Call after solar_payback for that building."""
+        return runner.upgrades(property_id)
+
     def read_evidence(evidence_id: str) -> dict[str, Any]:
         """Return one ledger entry (id, tool, args, result, source) by id, e.g. "E3"."""
         entry = ledger.get(evidence_id)
@@ -517,6 +625,7 @@ def get_tools(
         return rows
 
     functions = [sample_buildings, vexcel_detect, vision_inspect, run_regression,
-                 solar_payback, rank_buildings, draft_email, read_evidence, list_evidence]
+                 solar_payback, rank_buildings, draft_email, lookup_property, interior_inspect,
+                 screen_upgrades, read_evidence, list_evidence]
     return [StructuredTool.from_function(func=f, name=f.__name__, description=(f.__doc__ or "").strip(),
                                          handle_tool_error=True) for f in functions]

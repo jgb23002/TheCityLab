@@ -276,3 +276,69 @@ td.changed-down { animation:flashDown 3s ease-out; font-weight:800; color:#8e141
 .email-subject { margin:0 0 10px; font-size:20px; font-family:var(--serif); overflow-wrap:anywhere; }
 .email-body { background:#fff; border:2px solid var(--line); border-radius:12px; padding:14px 18px; font-size:17px; overflow-wrap:anywhere; }
 .email-caveats { margin:12px 0 0; padding-left:22px; color:var(--ink-soft); font-size:15px; }
+
+/* ---- Dashboard: activity | map | inspection, analytics below ------------------------ */
+.dashboard { display:grid; grid-template-columns:minmax(260px, 1fr) minmax(0, 1.6fr) minmax(280px, 1.1fr); gap:20px; align-items:start; margin-bottom:22px; }
+.dashboard > * { margin-bottom:0; min-width:0; }
+@media (max-width:1200px) { .dashboard { grid-template-columns:1fr 1fr; } .panel-left { grid-column:1 / -1; } }
+@media (max-width:820px) { .dashboard { grid-template-columns:1fr; } }
+main { max-width:1500px; }
+.panel-left .live-list { max-height:460px; }
+.panel-right { max-height:1100px; overflow-y:auto; }
+.run-status { margin:0 0 8px; font-weight:700; color:#1c62d6; }
+.run-status:empty { display:none; }
+.activity-title, .plan-box h4 { margin:14px 0 8px; font-size:16px; }
+.plan-box small, .activity-title small { font-weight:500; color:var(--ink-soft); }
+.plan { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.todo { display:grid; grid-template-columns:24px 1fr auto; gap:8px; align-items:center; padding:8px 10px; border-radius:9px; background:#fff; border:1.5px solid var(--line); font-size:15px; }
+.todo small { font-family:var(--mono); font-size:12px; color:var(--ink-soft); }
+.todo.completed { border-color:var(--moss); background:var(--moss-soft); }
+.todo.in_progress { border-color:var(--orange); background:var(--orange-soft); font-weight:700; }
+.todo-icon { font-weight:800; text-align:center; }
+.live-list li.note { border-left:6px solid #1c62d6; }
+.map-head { display:flex; align-items:center; flex-wrap:wrap; gap:10px 16px; margin-bottom:10px; }
+.map-head h3 { margin:0 auto 0 0; }
+.inline-control { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:600; color:var(--ink-soft); }
+.inline-control select { font:inherit; font-size:15px; padding:6px 8px; border:2px solid var(--ink); border-radius:8px; background:#fff; color:var(--ink); }
+#map { height:460px; }
+.map-empty { margin:0; padding:24px; color:var(--ink-soft); }
+.map-legend { margin:10px 0 0; font-size:15px; color:var(--ink-soft); }
+.insp-name { margin:0; font-family:var(--serif); font-size:22px; overflow-wrap:anywhere; }
+.insp-img { border-radius:12px; overflow:hidden; border:2px solid var(--ink); margin:8px 0; }
+.panel-right h5 { margin:16px 0 6px; font-size:16px; }
+.panel-right h5 small { font-weight:500; color:var(--ink-soft); }
+.edit-value.static { cursor:default; background:var(--paper); }
+.facts { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:0; font-size:15px; }
+.facts dt { font-weight:700; color:var(--ink-soft); }
+.facts dd { margin:0; overflow-wrap:anywhere; }
+.unavail { font-style:italic; color:#6b5000; background:var(--gold-soft); padding:0 6px; border-radius:6px; }
+.calibration { margin:8px 0 0; padding-left:18px; font-size:14px; color:var(--ink-soft); }
+.prov { display:inline-block; font-family:var(--mono); font-weight:700; font-size:13px; padding:3px 10px; border-radius:99px; border:2px solid; }
+.prov-live { background:#d7f5e4; border-color:#137a4b; color:#0d5a37; }
+.prov-cached { background:#e1ecfb; border-color:#1c62d6; color:#123f8a; }
+.prov-demo { background:var(--gold-soft); border-color:var(--gold); color:#4a3700; }
+.prov-unavailable { background:#eceff1; border-color:#8a939c; color:#3a4552; }
+.badge.replay { background:#e1ecfb; border-color:#1c62d6; color:#123f8a; }
+.wc-calibration { margin:10px 0 0; font-size:15px; color:var(--ink-soft); }
+.wc-calibration:empty { display:none; }
+td.reason { white-space:normal; color:var(--ink-soft); }
+details.assumptions { margin-top:10px; }
+details.assumptions summary { cursor:pointer; font-weight:700; }
+details.assumptions code { font-size:14px; white-space:normal; }
+.report-actions-head { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.report-actions-head h3 { margin:0 auto 0 0; }
+.report-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.action-btn { border:2px solid var(--ink); background:#fff; color:var(--ink); font-weight:700; padding:7px 14px; border-radius:9px; }
+.action-btn:hover, .action-btn:focus-visible { background:var(--gold-soft); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+
+/* Print / save as PDF: only the report, its caveats and the solar shortlist. */
+@media print {
+  body.print-report .nav, body.print-report .hero, body.print-report #dashboard, body.print-report details.card,
+  body.print-report #error-banner, body.print-report #skeleton, body.print-report .grid, body.print-report #kpis,
+  body.print-report #verdict, body.print-report #stats-card, body.print-report #ledger-card,
+  body.print-report #what-changed, body.print-report .report-actions, body.print-report .foot,
+  body.print-report section.card:has(#cards), body.print-report .contours { display:none !important; }
+  body.print-report .card { box-shadow:none; border:1px solid #999; break-inside:avoid; }
+  body.print-report { background:#fff; font-size:12pt; }
+}

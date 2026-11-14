@@ -33,7 +33,8 @@ def test_registry_exposes_contract_names() -> None:
     """All research, retrofit and evidence tools are registered."""
     assert set(tools_for("mock", Ledger())) == {
         "sample_buildings", "vexcel_detect", "vision_inspect", "run_regression",
-        "solar_payback", "rank_buildings", "draft_email", "read_evidence", "list_evidence",
+        "solar_payback", "rank_buildings", "draft_email", "lookup_property", "interior_inspect",
+        "screen_upgrades", "read_evidence", "list_evidence",
     }
 
 

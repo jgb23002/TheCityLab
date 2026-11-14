@@ -463,7 +463,7 @@ def test_build_agent_retrofit_subagents(monkeypatch: pytest.MonkeyPatch) -> None
     subs = {s["name"]: s for s in creator.call_args.kwargs["subagents"]}
     assert {n: [t.name for t in s["tools"]] for n, s in subs.items()} == {
         "sampler": ["sample_buildings"], "inspector": ["vexcel_detect", "vision_inspect"],
-        "solar": ["solar_payback", "rank_buildings"], "outreach": ["draft_email"],
+        "solar": ["solar_payback", "rank_buildings", "screen_upgrades"], "outreach": ["draft_email"],
         "writer": ["read_evidence", "list_evidence"]}
     assert subs["writer"]["system_prompt"] == prompts.RETROFIT_WRITER_PROMPT
     assert "statistician" not in subs

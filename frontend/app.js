@@ -15,11 +15,13 @@ const state = {
   controller: null, cards: [], cardsShown: 0, cardObserver: null, selected: null,
   evidence: [], cachedIds: new Set(), progress: new Map(), toolCalls: 0, failedCalls: 0,
   history: [], highlight: null, lastQuestion: "", correcting: false,
+  details: { property: {}, interior: {}, upgrades: {} }, visionSource: {}, calibration: null, chart2: null, replay: null,
 };
 // Editable measurement fields: label, unit, input limits (validated before sending).
 const EDITABLE = {
   parking_space_count: { label: "Parking spaces", unit: "", min: 0, max: null, step: 1, integer: true },
   green_cover_percent: { label: "Green cover", unit: "%", min: 0, max: 100, step: 0.1, integer: false },
+  roof_area_sq_ft: { label: "Roof area", unit: " sq ft", min: 0, max: null, step: 1, integer: false },
 };
 const SHOWCASE_MISSING = "Demo mode: this question is not in the offline showcase";
 
@@ -199,6 +201,7 @@ function resetProgress() {
   $("spinner").hidden = false;
   $("cancel").hidden = false;
   $("progress-card").hidden = false;
+  $("dashboard").hidden = false;
 }
 
 /** One line per subagent or per tool+source; repeats increase the line's count. */
@@ -221,6 +224,7 @@ function addProgress(kind, data) {
       `<span class="task">${esc(p.task || "")}</span>`;
   } else {
     state.toolCalls += 1;
+    noteVisionSource(p);
     if (p.failed) state.failedCalls += 1;
     if (p.cached) state.cachedIds.add(p.evidence_id);
     const notes = [item.cached ? `${item.cached} cached` : "", item.failed ? `${item.failed} failed` : ""].filter(Boolean).join(", ");
@@ -281,6 +285,7 @@ function renderMap(study) {
   const paybacks = (study.solar_results || []).map((r) => r.payback_years).filter((v) => v != null);
   const lo = Math.min(...paybacks), hi = Math.max(...paybacks);
   if (!state.map) {
+    $("map").innerHTML = ""; // drop the "appears here" placeholder before Leaflet takes over
     state.map = L.map("map");
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19, attribution: "&copy; OpenStreetMap contributors",
@@ -289,9 +294,22 @@ function renderMap(study) {
   }
   try { state.markerLayer.clearLayers(); } catch { state.markerLayer = L.layerGroup().addTo(state.map); }
   const points = [];
+  const key = colorKey(study);
+  const valueOf = (b) => key === "payback_years" ? (solar[b.id] || {}).payback_years : (byProp[b.id] || {})[key];
+  const values = buildings.map(valueOf).filter((v) => v != null);
+  const vlo = Math.min(...values), vhi = Math.max(...values);
+  const filter = $("map-filter").value;
+  const colorOf = (v) => v == null ? "#b3bac1" : key === "payback_years" ? paybackColor(v, vlo, vhi)
+    : seqColor(vhi > vlo ? (v - vlo) / (vhi - vlo) : 0.5);
+  $("map-legend").textContent = values.length
+    ? `Colour: ${nice(key)} from ${fmt(vlo, 1)} (${key === "payback_years" ? "green, shortest" : "light"}) to ${fmt(vhi, 1)} ` +
+      `(${key === "payback_years" ? "red, longest" : "dark"}); grey = unavailable. Numbered pins are the solar top 10.`
+    : `No building has a value for ${nice(key)}.`;
   for (const b of buildings) {
     if (b.latitude == null || b.longitude == null) continue;
     const m = byProp[b.id] || {};
+    if (filter === "measured" && !byProp[b.id]) continue;
+    if (filter === "corrected" && !m.is_corrected) continue;
     const r = solar[b.id];
     let marker;
     if (r && r.rank != null && r.rank <= 10) {
@@ -303,7 +321,7 @@ function renderMap(study) {
         `<strong>#${esc(r.rank)} ${esc(b.name || `Property ${b.id}`)}</strong><br>` +
         `Payback: ${fmt(r.payback_years, 1)} years · ${fmt(r.capacity_kw, 1)} kW`);
     } else {
-      const base = { radius: r ? 6 : 9, fillColor: r ? "#8a939c" : "#ff5a1f" };
+      const base = { radius: r ? 7 : 9, fillColor: colorOf(valueOf(b)) };
       marker = L.circleMarker([b.latitude, b.longitude], {
         ...base, color: "#1c2733", weight: 2, fillOpacity: 0.85,
       });
@@ -318,7 +336,8 @@ function renderMap(study) {
     state.markers.set(b.id, marker);
     points.push([b.latitude, b.longitude]);
   }
-  if (points.length) state.map.fitBounds(points, { padding: [30, 30], maxZoom: 13 });
+  if (points.length && !state.keepView) state.map.fitBounds(points, { padding: [30, 30], maxZoom: 13 });
+  state.keepView = false;
   setTimeout(() => state.map && state.map.invalidateSize(), 50);
 }
 
@@ -343,6 +362,8 @@ function selectBuilding(id, from) {
     if (from === "map") row.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   if (state.study && state.study.solar_results) renderEmail(state.study, id);
+  try { renderInspector(id); } catch (err) { console.warn("CityLab: could not draw the inspector", err); }
+  try { renderUpgrades(id); } catch (err) { console.warn("CityLab: could not draw the upgrades", err); }
   document.querySelectorAll(".bcard.selected").forEach((el) => el.classList.remove("selected"));
   if (from === "map") {
     const index = state.cards.findIndex((c) => c.building.id === id);
@@ -403,8 +424,8 @@ function buildCard(study, b, m) {
   card.tabIndex = 0;
   const [label, value] = keyMeasurement(study, m || {});
   const where = address(b);
-  const canEdit = !!(m && m.id && study.stats && !study.solar_results);
-  const editable = canEdit ? Object.entries(EDITABLE).map(([field, spec]) =>
+  const canEdit = canEditStudy(study, m);
+  const editable = canEdit ? editableFields(study).slice(0, 2).map((field) => [field, EDITABLE[field]]).map(([field, spec]) =>
     `<button type="button" class="edit-value" data-field="${field}" title="Correct ${esc(spec.label.toLowerCase())}">` +
     `<span>${esc(spec.label)}</span><strong>${m[field] == null ? "unknown" : esc(fmt(m[field], spec.integer ? 0 : 1)) + spec.unit}</strong>` +
     `<i aria-hidden="true">✎</i></button>`).join("") : "";
@@ -491,7 +512,8 @@ async function submitCorrection(card, m, field, value, note, form) {
   if (state.correcting) return;
   state.correcting = true;
   const msg = form.querySelector(".editor-msg");
-  msg.innerHTML = '<span class="spinner small" aria-hidden="true"></span> Re-running statistics...';
+  msg.innerHTML = `<span class="spinner small" aria-hidden="true"></span> ${studyKind(state.study) === "research"
+    ? "Re-running statistics..." : "Re-estimating solar, ranking and upgrades..."}`;
   msg.className = "editor-msg busy";
   form.querySelectorAll("button, input").forEach((el) => { el.disabled = true; });
   const corrections = { [field]: value };
@@ -508,7 +530,13 @@ async function submitCorrection(card, m, field, value, note, form) {
                          panel: state.lastPanel || null });
     const evidence = [...state.evidence, ...correctionEvidence(data, event.payload)];
     state.highlight = { propertyId: m.property_id, statsBefore: state.study.stats };
+    state.history[state.history.length - 1].details = JSON.parse(JSON.stringify(state.details));
+    detailsFromEvents(data.events);
+    await loadCalibration();
+    state.selected = m.property_id;
+    state.keepView = true;
     renderStudy(data.study, evidence);
+    selectBuilding(m.property_id, "correction");
     showWhatChanged(event.payload);
     state.highlight = null;
   } catch (err) {
@@ -533,7 +561,10 @@ function correctionEvidence(data, payload) {
   const tool = (data.events || []).find((e) => e.event_type === "tool_call");
   const stats = data.study.stats || {};
   const p = stats.predictor;
-  if (tool && tool.payload) {
+  if (tool && tool.payload && tool.payload.tool === "rank_buildings") {
+    rows.push({ id: tool.payload.evidence_id, tool: "rank_buildings", source: tool.payload.source,
+                summary: `${(data.study.solar_results || []).length} buildings re-ranked after correction` });
+  } else if (tool && tool.payload) {
     const coef = p && stats.coefficients ? stats.coefficients[p] : null;
     rows.push({ id: tool.payload.evidence_id, tool: "run_regression", source: tool.payload.source,
                 summary: coef == null ? "regression re-run after correction: no result"
@@ -549,6 +580,8 @@ function showWhatChanged(payload) {
   $("what-changed").hidden = !changes.length;
   $("undo").hidden = !state.history.length;
   $("wc-conclusion").textContent = (payload && payload.conclusion) || "";
+  const cal = (payload && payload.calibration) || {};
+  $("wc-calibration").textContent = Object.keys(cal).map((f) => `${(EDITABLE[f] || { label: f }).label}: ${calibrationLine(f)}`).join(" ");
   const arrow = { up: "▲", down: "▼", unchanged: "＝", "n/a": "→" };
   const show = (v) => v == null ? "unknown" : typeof v === "number" ? fmt(v, Math.abs(v) < 1 ? 4 : 2) : esc(v);
   $("wc-list").innerHTML = changes.map((c) =>
@@ -561,6 +594,8 @@ function undoCorrection() {
   const previous = state.history.pop();
   if (!previous) return;
   state.cachedIds = previous.cachedIds;
+  if (previous.details) state.details = previous.details;
+  state.keepView = true;
   renderStudy(previous.study, previous.evidence);
   if (previous.panel && state.history.length) showWhatChanged(previous.panel);
   else { state.lastPanel = null; $("what-changed").hidden = true; }
@@ -901,6 +936,254 @@ async function copyEmail() {
 }
 
 // ---------------------------------------------------------------------------
+// Structured agent results: plan, property details, interior scans, upgrades, provenance
+// ---------------------------------------------------------------------------
+
+const PROPERTY_TYPES = { 11: "Multifamily", 5: "Office", 2: "Industrial", 6: "Retail" };
+const CLASSES = { 1: "A", 2: "B", 3: "C", 4: "F" };
+const UNAVAILABLE = '<span class="unavail" title="Not recorded in the data source">unavailable</span>';
+
+function resetDetails() {
+  state.details = { property: {}, interior: {}, upgrades: {} };
+  state.visionSource = {};
+  state.replay = null;
+  $("plan-box").hidden = true;
+  $("plan").innerHTML = "";
+  $("run-status").textContent = "";
+}
+
+/** Keep the structured payloads (property details, interior scan, upgrade screening) by property. */
+function takeDetail(kind, payload) {
+  const key = { property_details: "property", interior: "interior", upgrade_screening: "upgrades" }[kind];
+  if (key && payload && payload.property_id != null) state.details[key][payload.property_id] = payload;
+}
+
+function detailsFromEvents(events) {
+  for (const e of events || []) {
+    if (e.event_type === "plan") renderPlan(e.payload);
+    else if (e.event_type === "tool_call") noteVisionSource(e.payload || {});
+    else takeDetail(e.event_type, e.payload || {});
+  }
+}
+
+/** Per-building measurement provenance from tool_call events (live, cached or demo). */
+function noteVisionSource(p) {
+  if (p.tool !== "vision_inspect" || p.property_id == null || p.failed) return;
+  state.visionSource[p.property_id] = p.source === "mock" ? "demo" : p.cached ? "cached" : "live";
+}
+
+function provenance(pid) {
+  const study = state.study || {};
+  if (study.is_mock) return ["demo", "Demo data (synthetic)"];
+  let kind = state.visionSource[pid];
+  if (!kind) {  // older saved runs: read it from the evidence summary instead
+    const row = (state.evidence || []).find((e) => e.tool === "vision_inspect" && new RegExp(`for property ${pid}\\b`).test(e.summary || ""));
+    kind = row ? (/\(cached\)/.test(row.summary) ? "cached" : "live") : "unavailable";
+  }
+  const label = { live: "Live measurement (this run)", cached: "Cached real measurement (earlier run)",
+                  unavailable: "No measurement" }[kind] || kind;
+  return [kind, state.replay ? `${label} · recorded showcase run` : label];
+}
+
+/** The planner's to-do list from DeepAgents write_todos. */
+function renderPlan(payload) {
+  const todos = (payload && payload.todos) || [];
+  $("plan-box").hidden = !todos.length;
+  const icon = { completed: "✓", in_progress: "◐", pending: "○" };
+  $("plan").innerHTML = todos.map((t) => `<li class="todo ${esc(t.status)}"><span class="todo-icon" aria-hidden="true">` +
+    `${icon[t.status] || "○"}</span><span>${esc(t.content)}</span><small>${esc(String(t.status).replace("_", " "))}</small></li>`).join("");
+}
+
+function addNote(data) {
+  const li = document.createElement("li");
+  li.className = "note";
+  li.innerHTML = `<b>note</b> ${esc((data.payload || {}).path || "")} <span class="notes">(${esc((data.payload || {}).chars || 0)} characters, DeepAgents scratch file)</span>`;
+  $("progress").appendChild(li);
+}
+
+function studyKind(study) {
+  if (!study.solar_results) return "research";
+  return study.buildings.length === 1 ? "property" : "retrofit";
+}
+
+const canEditStudy = (study, m) => !!(m && m.id && (study.stats || study.solar_results));
+const editableFields = (study) => studyKind(study) === "research"
+  ? ["parking_space_count", "green_cover_percent", "roof_area_sq_ft"] : ["roof_area_sq_ft", "parking_space_count"];
+
+function calibrationLine(field) {
+  const c = state.calibration && state.calibration.fields ? state.calibration.fields[field] : null;
+  if (!c) return "No corrections recorded for this measure yet.";
+  if (c.confidence_multiplier == null) return `Corrected ${c.corrections} time${c.corrections === 1 ? "" : "s"} so far (need ${state.calibration.min_corrections} to judge reliability).`;
+  return `Corrected ${c.corrections} times; median correction ${fmt(c.median_relative_error * 100, 0)}% → reliability ${esc(c.reliability)}, ` +
+    `confidence × ${fmt(c.confidence_multiplier, 2)} (from correction history; the model is not retrained).`;
+}
+
+async function loadCalibration() {
+  try {
+    const res = await fetch("/api/calibration");
+    state.calibration = res.ok ? await res.json() : null;
+  } catch { state.calibration = null; }
+}
+
+/** Right panel: everything known about one building, with editable measurements. */
+function renderInspector(id) {
+  const study = state.study;
+  const body = $("inspector-body");
+  if (!study) return;
+  const b = study.buildings.find((x) => x.id === id);
+  if (!b) { body.innerHTML = '<p class="stat-note">Select a building on the map, in a table or on a card.</p>'; return; }
+  const m = study.measurements.find((x) => x.property_id === id) || null;
+  const r = (study.solar_results || []).find((x) => x.property_id === id);
+  const det = state.details.property[id], interior = state.details.interior[id];
+  const val = (v, f) => (v == null ? UNAVAILABLE : f(v));
+  const facts = [
+    ["Property id", esc(b.id)], ["Type", val(b.property_type, (v) => esc(PROPERTY_TYPES[v] || `type ${v}`))],
+    ["Building size", val(b.building_size_sq_ft, (v) => `${fmt(v, 0)} sq ft (gross)`)], ["Year built", val(b.year_built, esc)],
+    ["Class", val(b.building_class, (v) => esc(CLASSES[v] || "unknown"))], ["Units", val(b.total_num_units, (v) => fmt(v, 0))],
+    ["Asking rent (max)", val(b.max_rent, (v) => `$${fmt(v, 0)} / month`)], ["Vacancy", val(b.vacancy_percent, (v) => `${fmt(v, 1)}%`)],
+    ["Surface parking (CoStar)", val(b.surface_parking_spaces, (v) => fmt(v, 0))],
+    ["Coordinates", b.latitude != null ? `${fmt(b.latitude, 5)}, ${fmt(b.longitude, 5)}` : UNAVAILABLE],
+  ];
+  if (det) {
+    const names = (list) => (list && list.length ? esc(list.join(", ")) : UNAVAILABLE);
+    facts.push(["True owner", names((det.owners || {}).true_owner)], ["Property manager", names((det.owners || {}).property_manager)],
+      ["Current tenants", det.tenants ? `${esc(det.tenants.current_tenant_count)}${det.tenants.tenants ? ": " + esc(det.tenants.tenants.slice(0, 5).join(", ")) : ""}` : UNAVAILABLE]);
+  }
+  const [kind, label] = provenance(id);
+  const editable = canEditStudy(study, m);
+  const measures = m ? editableFields(study).map((field) => {
+    const spec = EDITABLE[field];
+    const shown = m[field] == null ? "unknown" : esc(fmt(m[field], spec.integer ? 0 : 1)) + spec.unit;
+    return editable ? `<button type="button" class="edit-value" data-field="${field}"><span>${esc(spec.label)}</span><strong>${shown}</strong><i aria-hidden="true">✎</i></button>`
+      : `<div class="edit-value static"><span>${esc(spec.label)}</span><strong>${shown}</strong></div>`;
+  }).join("") : '<p class="stat-note">This building has no image measurement.</p>';
+  const obs = (m && m.observations) || {};
+  const cal = m ? editableFields(study).map((f) => `<li><b>${esc(EDITABLE[f].label)}:</b> ${calibrationLine(f)}</li>`).join("") : "";
+  const interiorHtml = !interior ? '<p class="stat-note">Interior scan not checked for this building.</p>'
+    : !interior.available ? `<p class="stat-note">No interior scan: ${esc(interior.reason || "")}.</p>`
+    : `<p>Matterport scan: ${esc(interior.summary.floor_count)} floor(s), ${fmt(interior.summary.scanned_floor_area, 0)} ${esc(interior.summary.units || "")} scanned, ` +
+      `${esc(interior.summary.room_count)} rooms${interior.summary.labelled_rooms.length ? ` (${esc(interior.summary.labelled_rooms.slice(0, 6).join(", "))})` : ""}. ` +
+      `Measured ceiling heights: ${interior.summary.measured_ceiling_heights.length ? esc(interior.summary.measured_ceiling_heights.join(", ")) : "none recorded"}.</p>` +
+      `<p class="stat-note">Not observed: ${esc((interior.not_observed || []).join(", "))} (${esc(interior.not_observed_reason || "")}).</p>`;
+  const solarHtml = r ? `<p>Rank <b>${fmt(r.rank, 0)}</b> · ${fmt(r.capacity_kw, 1)} kW · ${fmt(r.annual_energy_kwh, 0)} kWh/yr · simple payback <b>${fmt(r.payback_years, 1)}</b> years</p>` : "";
+  body.innerHTML =
+    `<h4 class="insp-name">${esc(b.name || `Property ${b.id}`)}</h4>${address(b) ? `<p class="addr">${esc(address(b))}</p>` : ""}` +
+    `<p><span class="prov prov-${esc(kind)}">${esc(label)}</span></p>` +
+    `<div class="bimg insp-img"><img alt="Aerial image of property ${esc(b.id)}" src="/api/image/${encodeURIComponent(b.id)}">` +
+    `<canvas class="boxes" aria-hidden="true"></canvas><span class="noimg" hidden>No aerial image available</span></div>` +
+    `<p class="stat-note">Boxes: detections the vision model confirmed (${esc((m && m.detections || []).length)}). ` +
+    `Model confidence: ${m && m.confidence != null ? fmt(m.confidence * 100, 0) + "%" : "unavailable"}. ` +
+    `${obs.basis ? esc(obs.basis) + "." : ""}</p>` +
+    `<h5>Measurements${editable ? " <small>(click to correct)</small>" : ""}</h5><div class="edit-values">${measures}</div><div class="editor-slot"></div>` +
+    (cal ? `<ul class="calibration">${cal}</ul>` : "") +
+    `<h5>CoStar record</h5><dl class="facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>` +
+    `<h5>Interior</h5>${interiorHtml}` + (solarHtml ? `<h5>Rooftop solar</h5>${solarHtml}` : "");
+  const img = body.querySelector("img"), canvas = body.querySelector("canvas");
+  const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
+  img.addEventListener("load", draw);
+  img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; body.querySelector(".noimg").hidden = false; });
+  if (editable) body.querySelectorAll("button.edit-value").forEach((btn) => btn.addEventListener("click", () => openEditor(body, m, btn.dataset.field)));
+}
+
+/** Bottom section: the five upgrades for the selected (or top-ranked) building. */
+function renderUpgrades(id) {
+  const study = state.study;
+  const ids = Object.keys(state.details.upgrades).map(Number);
+  const pick = state.details.upgrades[id] ? id : (study.solar_results || []).map((r) => r.property_id).find((x) => state.details.upgrades[x]) ?? ids[0];
+  const data = state.details.upgrades[pick];
+  $("upgrades-card").hidden = !data;
+  if (!data) return;
+  const b = study.buildings.find((x) => x.id === pick);
+  $("upgrades-for").textContent = `for ${b ? b.name || `property ${b.id}` : `property ${pick}`}${pick !== id && id != null ? " (selected building has no screening)" : ""}`;
+  const money = (v) => (v == null ? "-" : "$" + fmt(v, 0));
+  $("upgrades").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Rank</th><th>Upgrade</th><th>Status</th><th>kW</th><th>kWh / yr</th>` +
+    `<th>Cost</th><th>Savings / yr</th><th>Simple payback</th></tr></thead><tbody>` +
+    data.upgrades.map((u) => u.status === "estimated"
+      ? `<tr><td>${u.rank != null ? esc(u.rank) : "-"}</td><td><b>${esc(u.name)}</b></td><td><span class="pill ok">estimated</span></td><td>${fmt(u.capacity_kw, 1)}</td>` +
+        `<td>${fmt(u.annual_kwh, 0)}</td><td>${money(u.cost_usd)}</td><td>${money(u.annual_savings_usd)}</td><td>${u.simple_payback_years != null ? fmt(u.simple_payback_years, 1) + " years" : "-"}</td></tr>`
+      : `<tr><td>-</td><td><b>${esc(u.name)}</b></td><td><span class="pill no">not estimated</span></td><td colspan="5" class="reason">${esc(u.reason || "")}</td></tr>`).join("") +
+    `</tbody></table></div><p class="stat-note">${esc(data.ranking_basis)}</p>` +
+    data.upgrades.filter((u) => u.assumptions).map((u) => `<details class="assumptions"><summary>${esc(u.name)}: assumptions and formula</summary>` +
+      `<p><code>${esc(u.formula || "")}</code></p><ul>${Object.entries(u.assumptions).map(([k, a]) =>
+        `<li><b>${esc(k.replace(/_/g, " "))}</b>: ${esc(a && a.value != null ? a.value : "unavailable")} <small>(${esc(a && a.source || "")})</small></li>`).join("")}</ul></details>`).join("") +
+    `<ul class="email-caveats">${(data.caveats || []).map((c) => `<li>${esc(c)}</li>`).join("")}</ul>`;
+}
+
+/** A second, descriptive chart. */
+function renderChart2(study) {
+  if (typeof Chart === "undefined") return;
+  if (state.chart2) state.chart2.destroy();
+  state.chart2 = null;
+  $("chart2-summary").textContent = "";
+  const demo = study.is_mock ? " — Demo data" : "";
+  if (study.solar_results) {
+    const pts = study.solar_results.filter((r) => r.capacity_kw != null && r.payback_years != null)
+      .map((r) => ({ x: r.capacity_kw, y: r.payback_years, rank: r.rank }));
+    $("chart2-title").textContent = "System size vs payback" + demo;
+    state.chart2 = new Chart($("chart2"), { type: "scatter",
+      data: { datasets: [{ label: "Buildings", data: pts, backgroundColor: "rgba(31,138,112,.85)", borderColor: "#1c2733", borderWidth: 1.5, pointRadius: 7 }] },
+      options: { maintainAspectRatio: false, animation: false, plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `rank ${c.raw.rank}: ${fmt(c.raw.x, 1)} kW, ${fmt(c.raw.y, 1)} years` } } },
+        scales: { x: { title: { display: true, text: "Estimated capacity (kW)" } }, y: { title: { display: true, text: "Simple payback (years)" } } } } });
+    $("chart2-summary").textContent = `${pts.length} buildings with an estimate. Bigger systems do not always pay back faster: yield and roof obstructions matter.`;
+    return;
+  }
+  const stats = study.stats || {};
+  const xKey = stats.predictor, yKey = stats.outcome;
+  const byProp = Object.fromEntries(study.measurements.map((m) => [m.property_id, m]));
+  const pts = study.buildings.map((b) => ({ x: (byProp[b.id] || {})[xKey] ?? b[xKey], y: b[yKey] }))
+    .filter((p) => p.x != null && p.y != null).sort((a, b) => a.x - b.x);
+  $("chart2-title").textContent = `Average ${nice(yKey)} by ${nice(xKey)} group${demo}`;
+  if (pts.length < 6) { $("chart2-summary").textContent = "Too few buildings with both values to group."; return; }
+  const third = Math.ceil(pts.length / 3);
+  const groups = [pts.slice(0, third), pts.slice(third, 2 * third), pts.slice(2 * third)].filter((g) => g.length);
+  const labels = groups.map((g, i) => `${["Low", "Middle", "High"][i]} (${fmt(g[0].x, 1)}–${fmt(g[g.length - 1].x, 1)}, n=${g.length})`);
+  const means = groups.map((g) => g.reduce((s, p) => s + p.y, 0) / g.length);
+  state.chart2 = new Chart($("chart2"), { type: "bar",
+    data: { labels, datasets: [{ label: `Average ${nice(yKey)}`, data: means, backgroundColor: "#ff5a1f", borderColor: "#1c2733", borderWidth: 1.5 }] },
+    options: { maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } },
+      scales: { y: { title: { display: true, text: `Average ${nice(yKey)}` } }, x: { title: { display: true, text: `${nice(xKey)} (thirds of the sample)` } } } } });
+  $("chart2-summary").textContent = `Descriptive only: thirds of the ${pts.length} buildings by ${nice(xKey)}, with no controls. The regression on the left holds size and age fixed.`;
+}
+
+// ---- report actions -----------------------------------------------------------------
+
+function reportText() {
+  const study = state.study;
+  return `${study.brief_markdown.trim()}\n\n## Caveats from the tools\n${(study.caveats || []).map((c) => `- ${c}`).join("\n")}\n`;
+}
+
+function downloadText(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copyText(text, statusEl, fallbackEl) {
+  try { await navigator.clipboard.writeText(text); statusEl.textContent = "Copied to clipboard."; }
+  catch {
+    const range = document.createRange(); range.selectNodeContents(fallbackEl);
+    const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    statusEl.textContent = "Text selected: press Ctrl/Cmd+C to copy.";
+  }
+}
+
+// ---- map colouring --------------------------------------------------------------------
+
+function seqColor(t) {
+  const mix = (a, b) => Math.round(a + (b - a) * t);
+  return `rgb(${mix(255, 168)}, ${mix(214, 44)}, ${mix(170, 8)})`;
+}
+
+function colorKey(study) {
+  const chosen = $("color-by").value;
+  if (chosen !== "auto") return chosen;
+  return (study.stats && study.stats.predictor) || (study.solar_results ? "payback_years" : "parking_space_count");
+}
+
+// ---------------------------------------------------------------------------
 // Whole study
 // ---------------------------------------------------------------------------
 
@@ -911,19 +1194,28 @@ function renderStudy(study, evidence) {
   $("mock-badge").hidden = false;
   $("mock-badge").textContent = study.is_mock ? "Demo data (synthetic)" : "Real CoStar + aerial data";
   $("mock-badge").classList.toggle("live", !study.is_mock);
+  $("replay-badge").hidden = !state.replay;
+  if (state.replay) $("replay-badge").textContent = `Offline showcase replay · recorded ${String(state.replay.generated_at || "").slice(0, 10)}`;
+  $("report-title").textContent = { research: "Research brief", retrofit: "Retrofit proposal", property: "Property report" }[studyKind(study)];
+  $("dashboard").hidden = false;
   $("brief").innerHTML = renderMarkdown(study.brief_markdown);
   linkEvidenceTags($("brief"));
   $("caveats").innerHTML = (study.caveats || []).map((c) => `<li>${esc(c)}</li>`).join("");
   $("caveat-box").hidden = !(study.caveats || []).length;
   if (!study.buildings.some((b) => b.id === state.selected)) state.selected = null;
+  if (state.selected == null && study.buildings.length) {
+    const top = (study.solar_results || []).find((r) => r.rank === 1);
+    state.selected = top ? top.property_id : study.buildings[0].id;
+  }
   // Each section is drawn on its own: if one fails (for example the map library or its
   // tiles), the rest of the report still appears and the failure is named, not hidden.
   const sections = [
     ["evidence ledger", () => renderLedger(evidence)], ["map", () => renderMap(study)],
     ["building cards", () => renderCards(study)], ["chart", () => renderChart(study)],
+    ["second chart", () => renderChart2(study)],
     ["summary", () => renderKpis(study)], ["statistics", () => renderStats(study.stats)],
     ["building table", () => renderBuildingTable(study)], ["solar view", () => renderSolarAndOutreach(study)],
-    ["selection", () => { if (study.solar_results && state.selected != null) selectBuilding(state.selected, "init"); }],
+    ["selection", () => { if (state.selected != null) selectBuilding(state.selected, "init"); }],
   ];
   const failed = [];
   for (const [name, draw] of sections) {
@@ -951,7 +1243,9 @@ async function runStudy(question) {
   showBanner("");
   $("results").hidden = true;
   $("skeleton").hidden = false;
+  resetDetails();
   resetProgress();
+  loadCalibration();
   $("progress-card").scrollIntoView({ behavior: "smooth", block: "center" });
   setRunning(true);
   const controller = new AbortController();
@@ -964,12 +1258,17 @@ async function runStudy(question) {
   try {
     await streamStudy(body, (event, data) => {
       if (event === "handoff" || event === "tool_call") addProgress(event, data);
+      else if (event === "plan") renderPlan(data.payload);
+      else if (event === "note") addNote(data);
+      else if (event === "replay") { state.replay = data; $("run-status").textContent = data.message; }
+      else if (["property_details", "interior", "upgrade_screening"].includes(event)) takeDetail(event, data.payload || {});
       else if (event === "citation_check") showCitation(data);
       else if (event === "evidence") evidence = data.evidence || [];
       else if (event === "result") {
         gotResult = true;
         finishProgress();
         $("skeleton").hidden = true;
+        detailsFromEvents(data.events);
         renderStudy(data.study, evidence); // draws section by section; never mistaken for a network error
       }
       else if (event === "error") throw Object.assign(new Error(data.message || "The study failed."), { kind: "server" });
@@ -1018,12 +1317,21 @@ async function showSavedDemo() {
 // Examples and sample preview (unchanged behaviour; Demo mode replaces the Data select)
 // ---------------------------------------------------------------------------
 
+// The judging scenarios (also recorded in the offline showcase as S1-S3).
+const SCENARIO_EXAMPLES = [
+  { id: "S1", mode: "research", market_id: 14, question: "Do office buildings with more parking spaces have higher vacancy rates in Houston?" },
+  { id: "S2", mode: "retrofit", market_id: 20, question: "Which commercial buildings in Los Angeles have the best rooftop solar retrofit potential?" },
+  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for building upgrades" },
+];
+
 async function loadExamples() {
+  let questions = [];
   try {
     const res = await fetch("/api/questions");
-    if (!res.ok) return;
-    const data = await res.json();
-    for (const q of data.questions || []) {
+    if (res.ok) questions = (await res.json()).questions || [];
+  } catch { /* examples are optional */ }
+  try {
+    for (const q of [...questions, ...SCENARIO_EXAMPLES]) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "chip";
@@ -1077,6 +1385,22 @@ $("show-demo").addEventListener("click", showSavedDemo);
 $("retry").addEventListener("click", () => { if (state.lastQuestion) runStudy(state.lastQuestion); });
 $("undo").addEventListener("click", undoCorrection);
 $("copy-email").addEventListener("click", copyEmail);
+$("download-email").addEventListener("click", () => {
+  if (state.emailText) downloadText(`citylab-owner-email-${state.selected}.txt`, state.emailText, "text/plain");
+});
+$("copy-report").addEventListener("click", () => state.study && copyText(reportText(), $("report-status"), $("brief")));
+$("download-report").addEventListener("click", () => state.study && downloadText(`citylab-${state.study.id}.md`, reportText(), "text/markdown"));
+$("print-report").addEventListener("click", () => {
+  document.body.classList.add("print-report");
+  window.print();
+  setTimeout(() => document.body.classList.remove("print-report"), 500);
+});
+for (const id of ["color-by", "map-filter"]) $(id).addEventListener("change", () => {
+  if (!state.study) return;
+  state.keepView = true;
+  try { renderMap(state.study); if (state.selected != null) selectBuilding(state.selected, "init"); }
+  catch (err) { console.warn("CityLab: could not redraw the map", err); }
+});
 $("more-cards").addEventListener("click", () => showMoreCards());
 $("ledger-filter").addEventListener("input", filterLedger);
 for (const id of ["market", "sample-limit", "demo-mode"]) $(id).addEventListener("change", loadPreview);

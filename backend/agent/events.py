@@ -18,7 +18,9 @@ def tool_call_event(entry: dict[str, Any]) -> dict[str, Any]:
     return {"event_type": "tool_call", "message": f"{entry['tool']} [{entry['source']}]",
             "timestamp": entry.get("ts"),
             "payload": {"evidence_id": entry["id"], "tool": entry["tool"], "source": entry["source"],
-                        "cached": bool(entry.get("cached")), "failed": "error" in entry["result"]}}
+                        "cached": bool(entry.get("cached")), "failed": "error" in entry["result"],
+                        # from the result, never the arguments: lets the UI show per-building provenance
+                        "property_id": entry["result"].get("property_id") if isinstance(entry["result"], dict) else None}}
 
 
 def handoff_event(handoff: dict[str, str]) -> dict[str, Any]:
@@ -85,6 +87,22 @@ def evidence_summary(entry: dict[str, Any]) -> str:
         return f"{len(ranked)} buildings ranked; top property {top}"
     if tool == "draft_email":
         return str(redact(f"draft for property {pid}: {result.get('subject') or ''}"))[:120]
+    if tool == "lookup_property":
+        b = result.get("building") or {}
+        owners = (result.get("owners") or {}).get("true_owner")
+        return str(redact(f"property {b.get('id')} {b.get('name') or ''} matched by {result.get('matched_by')}"
+                          + (f"; owner {owners[0]}" if owners else "")))[:120]
+    if tool == "interior_inspect":
+        if not result.get("available"):
+            return f"no interior scan for property {pid}: {result.get('reason', '')}"[:120]
+        s = result.get("summary") or {}
+        return f"Matterport scan: {s.get('floor_count')} floors, {s.get('room_count')} rooms for property {pid}"
+    if tool == "screen_upgrades":
+        ups = result.get("upgrades") or []
+        est = [u for u in ups if u.get("status") == "estimated"]
+        best = min(est, key=lambda u: u.get("simple_payback_years") or 1e9, default=None)
+        return (f"{len(est)} of {len(ups)} upgrades estimated for property {pid}"
+                + (f"; best {best['name']} payback {_num(best.get('simple_payback_years'))} years" if best else ""))
     return tool
 
 
@@ -92,3 +110,40 @@ def evidence_list(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
     """[{id, tool, source, summary}] for every ledger entry."""
     return [{"id": e["id"], "tool": e["tool"], "source": e["source"], "summary": evidence_summary(e)}
             for e in entries]
+
+
+# ---- planning and structured results (shared by the live stream and the saved response) ----
+
+def plan_event(todos: list[dict[str, Any]], timestamp: str | None = None) -> dict[str, Any]:
+    """The orchestrator's to-do list, from DeepAgents' write_todos tool (content + status)."""
+    items = [{"content": str(redact(str(t.get("content", ""))))[:200], "status": str(t.get("status", "pending"))}
+             for t in todos if isinstance(t, dict)]
+    done = sum(t["status"] == "completed" for t in items)
+    return {"event_type": "plan", "message": f"plan: {done}/{len(items)} steps done", "timestamp": timestamp,
+            "payload": {"todos": items}}
+
+
+def note_event(path: str, chars: int, timestamp: str | None = None) -> dict[str, Any]:
+    """A note the orchestrator wrote to its DeepAgents scratch filesystem (path and size only)."""
+    return {"event_type": "note", "message": f"note saved: {redact(path)}", "timestamp": timestamp,
+            "payload": {"path": str(redact(path))[:120], "chars": int(chars)}}
+
+
+DETAIL_EVENTS = {"lookup_property": "property_details", "interior_inspect": "interior", "screen_upgrades": "upgrade_screening"}
+
+
+def detail_event(entry: dict[str, Any]) -> dict[str, Any] | None:
+    """Structured results the UI renders (property details, interior scan, upgrade screening).
+
+    The StudyResult contract has no fields for these, so they travel as event payloads
+    built from the ledger entry's result (never its arguments).
+    """
+    kind = DETAIL_EVENTS.get(entry["tool"])
+    if kind is None or "error" in entry["result"]:
+        return None
+    result = dict(entry["result"])
+    if kind == "property_details":
+        result = {k: result.get(k) for k in ("matched_by", "owners", "tenants", "unavailable")}
+        result["property_id"] = (entry["result"].get("building") or {}).get("id")
+    return {"event_type": kind, "message": f"{kind.replace('_', ' ')} [{entry['source']}]",
+            "timestamp": entry.get("ts"), "payload": {**redact(result), "evidence_id": entry["id"], "source": entry["source"]}}
