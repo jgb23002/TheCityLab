@@ -128,19 +128,21 @@ against the local CoStar model docs, and are not new source-field claims:
 `measurements: list[Measurement]`, `stats: StatsResult | None`,
 `brief_markdown: str`, and `caveats: list[str]`. `stats` is a required key but can
 be null for a retrofit-only study. Optional `solar_results: list[SolarResult]`
-supports solar outputs; `is_mock` defaults to false. Join buildings to
+and `outreach_drafts: list[OutreachDraft]` support solar rankings and unsent
+owner-email drafts; `is_mock` defaults to false. Join buildings to
 measurements, detections and solar outputs using their `property_id` and
 `Building.id`. All entity ids are required; `Detection.label` is also required.
 Other entity measurements can be unknown.
 
-| Future endpoint | Request model | Response model |
+| Endpoint contract | Request model | Response model |
 |---|---|---|
 | `POST /api/ask` | **AskRequest** | **AskResponse** |
 | `POST /api/correct` | **CorrectRequest** | **CorrectResponse** |
 
 - **AskRequest**: required nonempty `question`; optional `market_id` and
   `property_type`; `limit` defaults to 50 (1–500); `mode` is `research` (default)
-  or `retrofit`.
+  or `retrofit`. `use_mock_tools` defaults to false; true explicitly selects
+  offline synthetic tools for that web request.
 - **AskResponse**: required `study: StudyResult`; `events: list[AgentEvent]`
   defaults to an empty list.
 - **CorrectRequest**: required `study_id`, `measurement_id` and
@@ -153,10 +155,22 @@ Other entity measurements can be unknown.
   required `corrected_measurement: Measurement`; the updated study will carry
   that measurement and refreshed statistics/brief.
 
-These are schemas only. `backend/main.py` still implements only health and static
-files; no ask/correct handlers or correction/recomputation logic are added.
-`backend/cache.py` remains a non-tool helper with its existing JsonValue/None
-signatures; persistence is outside this contract task.
+`backend/main.py` serves health, the static frontend, `GET /api/questions`,
+`GET /api/mock-study`, a no-imagery/model-call `GET /api/buildings` cohort preview,
+and `POST /api/ask` using **AskRequest** and **AskResponse**.
+The ask route runs `backend/agent/study.py` over the selected city cohort with
+the merged CoStar, Vexcel, vision, statistics, solar and outreach tools.
+Research gets full Building/Measurement records; retrofit returns ranked solar
+results and a reviewable owner-email draft. Brief numbers come from tool
+outputs. Mock mode is explicit and question-specific, not a fixed saved answer.
+Progress events record completed workflow steps and are returned with the final
+result; the web API does not claim to stream live events. The CLI planner remains
+available separately. No correct handler or correction/recomputation is added.
+Vision results reuse `data/cache/vision/m-<property_id>.json`, compatible with
+`scripts/accuracy_check.py`; `USE_CACHE_ONLY` prohibits fresh Vexcel/vision calls.
+Absent cached measurements remain unknown, and no usable measurements yields a
+503 instead of a synthetic fallback. Cache-only outreach uses the existing local
+template. All cache and local kit files remain ignored.
 
 ## Mock study and checks
 
