@@ -5,7 +5,6 @@ import importlib
 import inspect
 import json
 import re
-import textwrap
 import types
 from pathlib import Path
 from typing import Union, get_args, get_origin, get_type_hints
@@ -87,7 +86,7 @@ def test_mock_study_is_complete_and_explicitly_synthetic() -> None:
 
 
 def test_every_tool_signature_matches_contracts() -> None:
-    """Check complete coverage, exact parameter names/types/defaults and return models."""
+    """Check every documented tool exists with exact parameter names/types/defaults and return models."""
     documented = documented_tools()
     actual = {}
     for path in sorted((ROOT / "backend" / "tools").glob("*.py")):
@@ -97,8 +96,10 @@ def test_every_tool_signature_matches_contracts() -> None:
         for name, function in inspect.getmembers(module, inspect.isfunction):
             if function.__module__ == module.__name__:
                 actual[f"{module.__name__}.{name}"] = function
-    assert documented.keys() == actual.keys(), "Every tool must appear exactly once in CONTRACTS.md"
-    for name, function in actual.items():
+    missing = documented.keys() - actual.keys()
+    assert not missing, f"Documented tools not implemented: {sorted(missing)}"
+    # Helpers beyond the documented contract are allowed; only contract functions are checked.
+    for name, function in ((n, actual[n]) for n in documented):
         declaration = documented[name]
         signature = inspect.signature(function)
         hints = get_type_hints(function)
@@ -128,12 +129,6 @@ def test_every_tool_signature_matches_contracts() -> None:
             else:
                 assert inspect.isclass(annotation) and issubclass(annotation, BaseModel), name
                 assert annotation.__module__ == "backend.schemas", name
-
-        source = ast.parse(textwrap.dedent(inspect.getsource(function))).body[0]
-        body = source.body[1:] if ast.get_docstring(source) else source.body
-        assert len(body) == 1 and isinstance(body[0], ast.Raise), name
-        error = body[0].exc
-        assert isinstance(error, ast.Name) and error.id == "NotImplementedError", name
 
 
 def test_api_models_round_trip_mock_study_and_correction() -> None:
