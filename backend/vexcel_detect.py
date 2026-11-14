@@ -22,7 +22,7 @@ import io
 from PIL import Image, ImageDraw
 from pydantic import BaseModel
 from shapely import wkt as shapely_wkt
-from shapely.geometry import box
+from shapely.geometry import box, shape
 
 from backend import config
 from backend.schemas import Detection
@@ -44,20 +44,31 @@ class DetectionRun(BaseModel):
     annotated_image_path: str
 
 
-def _image_request(area_wkt: str) -> dict[str, Any]:
-    """The ortho request detection runs on; the downloaded picture must match it."""
-    return {"layer": vexcel.LAYERS, "srid": 4326, "wkt": area_wkt, "crop": "bounding_box"}
+def _image_request(
+    area_wkt: str, collection: str | None = None, layer: str | None = None,
+) -> dict[str, Any]:
+    """The ortho request detection runs on; the downloaded picture must match it.
+
+    With *collection* (and its *layer*), a specific capture date is used.
+    """
+    req: dict[str, Any] = {"layer": layer or vexcel.LAYERS, "srid": 4326,
+                           "wkt": area_wkt, "crop": "bounding_box"}
+    if collection:
+        req["collection"] = collection
+    return req
 
 
 def _detect_payload(
     area_wkt: str, prompts: list[str], include: tuple[str, ...] = ("bbox", "confidence"),
+    image_request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the elements/detect body exactly as the quickstart does."""
     return {
         "wkt": area_wkt,
         "srid": 4326,
         "buffer-meter": 0,  # only the area itself, no neighbours
-        "images": [{"endpoint": "ortho/extract", "request": _image_request(area_wkt)}],
+        "images": [{"endpoint": "ortho/extract",
+                    "request": image_request or _image_request(area_wkt)}],
         "model-input": {
             "elements": [
                 {"label": p, "model": MODEL, "detection-threshold": DETECTION_THRESHOLD}
@@ -401,4 +412,226 @@ def estimate_parking_spaces(
         detect_calls=n * n,
         annotated_image_path=annotated,
         method=f"'{label}' masks on {n}x{n} tiles; area / {low:g}-{high:g} sq ft per space",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spaces from cars seen on several capture dates (method: union over time)
+# ---------------------------------------------------------------------------
+
+SHARP_LAYERS = ("urban", "urban-r")  # 7.5 cm orthos
+SAME_SPOT_M = 2.0  # same spot across dates (orthos shift ~1-2 m; spaces are 2.7 m apart)
+
+
+class DateCount(BaseModel):
+    """Cars found on one capture date."""
+
+    collection: str
+    layer: str
+    date: str
+    cars: int
+
+
+class MultiDateSpaces(BaseModel):
+    """Distinct parking spots = car positions merged across capture dates."""
+
+    property_id: int
+    dates: list[DateCount]
+    spaces: int
+    spaces_seen_once: int
+    spaces_two_plus_dates: int = 0
+    empty_spots_added: int = 0
+    estimate: int = 0
+    detect_calls: int
+    annotated_image_path: str
+    method: str
+
+
+def list_collections(lat: float, lon: float) -> list[dict[str, str]]:
+    """Ortho capture dates at a point, newest first: {collection, layer, date}."""
+    data = vexcel._client.request_json("GET", "ortho/collections", {
+        "wkt": f"POINT({lon} {lat})", "srid": 4326, "layer": vexcel.LAYERS,
+        "include": "collection,last-capture-date,layer",
+    })
+    out = []
+    for f in data.get("features") or []:
+        p = (f or {}).get("properties") or {}
+        if p.get("collection") and p.get("last-capture-date"):
+            out.append({"collection": p["collection"], "layer": p.get("layer", ""),
+                        "date": p["last-capture-date"][:10]})
+    return sorted(out, key=lambda c: c["date"], reverse=True)
+
+
+def _centre_m(geom_wkt: str, lat0: float) -> tuple[float, float]:
+    """Box centre in metres (east, north) on a local flat grid."""
+    c = shapely_wkt.loads(geom_wkt).centroid
+    return (c.x * 111_320.0 * math.cos(math.radians(lat0)), c.y * 111_320.0)
+
+
+def property_outline(
+    lat: float, lon: float, lot_acres: float, search_half_m: float | None = None,
+) -> str | None:
+    """WKT of the parcel that best matches the CoStar property, or None.
+
+    CoStar's point may sit off-centre or inside a small neighbouring parcel,
+    so this searches all Vexcel parcels in a square around the point and picks
+    the one whose area is closest to CoStar ``lotSize`` (within 25%). The
+    square defaults to the lot's own size: Vexcel returns at most 500 parcels,
+    so a much larger square can cut the answer off before the right parcel.
+    """
+    if search_half_m is None:
+        search_half_m = max(100.0, math.sqrt(lot_acres * 4046.86) / 2)
+    area = box(*vexcel._square_bounds(lat, lon, half_m=search_half_m)).wkt
+    data = vexcel._client.request_json("GET", "property/extract", {
+        "wkt": area, "srid": 4326, "layer": vexcel.LAYERS, "latest": "true",
+        "include": "precomputed", "unit-system": "imperial",
+    })
+    target_m2 = lot_acres * 4046.86
+    best, best_err = None, 0.25
+    for f in data.get("features") or []:
+        try:
+            g = shape(f["geometry"])
+        except Exception:
+            continue
+        err = abs(_box_area_m2_poly(g, lat) - target_m2) / target_m2
+        if err < best_err:
+            best, best_err = g, err
+    return best.wkt if best is not None else None
+
+
+def _box_area_m2_poly(geom: Any, lat: float) -> float:
+    """Polygon area in m^2 using the local metres-per-degree scale."""
+    return geom.area * 111_320.0 ** 2 * math.cos(math.radians(lat))
+
+
+def spaces_from_dates(
+    lat: float, lon: float, property_id: int, half_m: float = 0.0,
+    n_dates: int = 4, tile_m: float = 80.0, label: str = "car",
+    outline_wkt: str | None = None, empty_label: str | None = "empty parking spot",
+) -> MultiDateSpaces:
+    """Estimate parking spaces as distinct spots where a car was parked on any date.
+
+    Runs tiled *label* detection on the *n_dates* newest sharp (7.5 cm)
+    captures, then merges car centres closer than ``SAME_SPOT_M`` across dates
+    (greedy, most confident first). Each date sees a different set of parked
+    cars, so the union approaches the number of spaces.
+
+    With *outline_wkt* (see :func:`property_outline`) the tiles cover that
+    outline and only spots inside it (plus 3 m) count, which drops traffic on
+    public roads and neighbours' cars. Otherwise a square of *half_m* is used.
+    """
+    outline = shapely_wkt.loads(outline_wkt) if outline_wkt else None
+    if outline is None and half_m <= 0:
+        raise ValueError("spaces_from_dates() needs outline_wkt or a positive half_m")
+    dates = [c for c in list_collections(lat, lon) if c["layer"] in SHARP_LAYERS][:n_dates]
+    if outline is not None:
+        bounds = outline.bounds
+        keep_area = outline.buffer(3.0 / 111_320.0)
+    else:
+        bounds = vexcel._square_bounds(lat, lon, half_m=half_m)
+        keep_area = box(*bounds)
+    min_lon, min_lat, max_lon, max_lat = bounds
+    width_m = (max_lon - min_lon) * 111_320.0 * math.cos(math.radians(lat))
+    height_m = (max_lat - min_lat) * 111_320.0
+    nx, ny = max(1, math.ceil(width_m / tile_m)), max(1, math.ceil(height_m / tile_m))
+    step_lon, step_lat = (max_lon - min_lon) / nx, (max_lat - min_lat) / ny
+
+    per_date: list[DateCount] = []
+    spots: list[dict[str, Any]] = []  # {xy, det, dates}
+    calls = 0
+    for c in dates:
+        found: list[Detection] = []
+        for row in range(ny):
+            for col in range(nx):
+                tile_geom = box(min_lon + col * step_lon, min_lat + row * step_lat,
+                                min_lon + (col + 1) * step_lon, min_lat + (row + 1) * step_lat)
+                if not tile_geom.intersects(keep_area):
+                    continue
+                tile = tile_geom.wkt
+                data = vexcel._client.request_json(
+                    "POST", DETECT_ENDPOINT,
+                    _detect_payload(tile, [label], image_request=_image_request(tile, c["collection"], c["layer"])),
+                    timeout=300,
+                )
+                calls += 1
+                found.extend(parse_detections(data, property_id, bounds, (1, 1)))
+        found = [d for d in _dedupe(found)
+                 if keep_area.contains(shapely_wkt.loads(d.geometry_wkt).centroid)]  # type: ignore[arg-type]
+        per_date.append(DateCount(collection=c["collection"], layer=c["layer"], date=c["date"], cars=len(found)))
+
+        for det in sorted(found, key=lambda d: -(d.confidence or 0)):
+            xy = _centre_m(det.geometry_wkt, lat)  # type: ignore[arg-type]
+            match = next((s for s in spots if math.dist(s["xy"], xy) < SAME_SPOT_M), None)
+            if match:
+                match["dates"].add(c["date"])
+            else:
+                spots.append({"xy": xy, "det": det, "dates": {c["date"]}})
+
+    # Combined estimate: a spot reused on 2+ dates is a real space (a car
+    # stopped in a drive lane rarely stops in the same place twice); plus
+    # empty spaces from the newest photo that no car ever covered.
+    confirmed = [s for s in spots if len(s["dates"]) >= 2]
+    empty_added = 0
+    if empty_label and dates:
+        c = dates[0]
+        empties: list[Detection] = []
+        for row in range(ny):
+            for col in range(nx):
+                tile_geom = box(min_lon + col * step_lon, min_lat + row * step_lat,
+                                min_lon + (col + 1) * step_lon, min_lat + (row + 1) * step_lat)
+                if not tile_geom.intersects(keep_area):
+                    continue
+                data = vexcel._client.request_json(
+                    "POST", DETECT_ENDPOINT,
+                    _detect_payload(tile_geom.wkt, [empty_label],
+                                    image_request=_image_request(tile_geom.wkt, c["collection"], c["layer"])),
+                    timeout=300,
+                )
+                calls += 1
+                empties.extend(parse_detections(data, property_id, bounds, (1, 1)))
+        for det in _dedupe(empties):
+            if not keep_area.contains(shapely_wkt.loads(det.geometry_wkt).centroid):  # type: ignore[arg-type]
+                continue
+            xy = _centre_m(det.geometry_wkt, lat)  # type: ignore[arg-type]
+            if any(math.dist(s["xy"], xy) < SAME_SPOT_M for s in spots):
+                continue
+            spots.append({"xy": xy, "det": det, "dates": {"empty:" + c["date"]}})
+            confirmed.append(spots[-1])
+            empty_added += 1
+
+    # Draw every distinct spot on the newest image.
+    newest = dates[0] if dates else {"collection": None, "layer": None}
+    img_bytes = vexcel._client.request_bytes("POST", "ortho/extract", {
+        **_image_request(box(*bounds).wkt, newest["collection"], newest["layer"]),
+        "buffer-meter": 0, "image-format": "jpeg",
+    })
+    img_dir = config.CACHE_DIR / "vexcel" / "detect"
+    img_dir.mkdir(parents=True, exist_ok=True)
+    tag = f"_outline_dates{len(dates)}" if outline is not None else f"_{round(2 * half_m)}m_dates{len(dates)}"
+    image_path = img_dir / f"property_{property_id}{tag}.jpg"
+    image_path.write_bytes(img_bytes)
+    with Image.open(image_path) as img:
+        width, height = img.size
+    drawn = []
+    for i, s in enumerate(spots, start=1):
+        x0, y0, x1, y1 = shapely_wkt.loads(s["det"].geometry_wkt).bounds
+        drawn.append(s["det"].model_copy(update={"id": f"spot-{property_id}-{i}", "bbox": (
+            (x0 - min_lon) / (max_lon - min_lon) * width, (max_lat - y1) / (max_lat - min_lat) * height,
+            (x1 - min_lon) / (max_lon - min_lon) * width, (max_lat - y0) / (max_lat - min_lat) * height,
+        )}))
+    annotated = draw_detections(str(image_path), drawn, img_dir / f"property_{property_id}{tag}_boxes.jpg")
+
+    return MultiDateSpaces(
+        property_id=property_id,
+        dates=per_date,
+        spaces=len(spots),
+        spaces_seen_once=sum(1 for s in spots if len(s["dates"]) == 1 and not
+                             next(iter(s["dates"])).startswith("empty:")),
+        spaces_two_plus_dates=sum(1 for s in spots if len(s["dates"]) >= 2),
+        empty_spots_added=empty_added,
+        estimate=len(confirmed),
+        detect_calls=calls,
+        annotated_image_path=annotated,
+        method=(f"'{label}' on {nx}x{ny} tiles x {len(dates)} dates; spots < {SAME_SPOT_M} m apart merged"
+                + ("; inside property outline" if outline is not None else "")),
     )
