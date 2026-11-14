@@ -29,8 +29,16 @@ MAX_EXTRA_BOXES = 40
 
 VISION_PROMPT = """You are the Sky Inspector for a building research study.
 The image is a top-down aerial photo, north up, {width}x{height} pixels,
-about {extent_m:.0f} m across ({m_per_px:.3f} m per pixel). The target property
-is outlined in gold/yellow. Measure ONLY what is inside that outline.
+about {extent_m:.0f} m across ({m_per_px:.3f} m per pixel). The gold/yellow square
+is an ~80 m box centred on the property's address point, not its exact boundary.
+Measure the property at the centre of the square: its buildings and the parking
+areas that serve them, inside the square.
+
+Parking spaces = parking capacity of open-air (surface) lots, not covered garages or
+carports. Count striped stalls where stripes are visible. Where stripes are faded or
+absent, estimate how many cars the paved parking area holds at a standard stall of
+2.7 m x 5.5 m with drive aisles, and never return fewer than the cars parked there.
+Do not count street parking or driveways of neighbouring lots.
 
 {box_section}
 
@@ -48,11 +56,11 @@ Return JSON only, no prose, no code fences, with exactly these keys:
   "notes": "one short sentence about anything unclear"
 }}
 Meanings:
-- parking_space_count: painted parking spaces (not cars) inside the outline.
-- confirmed_box_ids: ids of numbered boxes that really are parking spaces inside the outline.
+- parking_space_count: surface parking capacity as defined above.
+- confirmed_box_ids: ids of numbered boxes that really are parking spaces of this property.
 - extra_parking_boxes: pixel boxes for clear spaces the boxes missed (at most 40).
 - roof_fraction_of_image: share of the WHOLE image covered by the target building's roof.
-- green_cover_percent / paved_surface_percent: trees+grass / asphalt+concrete as % of the outlined area.
+- green_cover_percent / paved_surface_percent: trees+grass / asphalt+concrete as % of the gold square.
 - rooftop_obstructions: HVAC units, vents, skylights on the roof.
 - confidence: how sure you are overall.
 Use null when you cannot tell. Never guess a number you cannot see."""
@@ -60,7 +68,7 @@ Use null when you cannot tell. Never guess a number you cannot see."""
 BOX_SECTION_WITH_BOXES = """Vexcel's detector proposed these parking-space boxes, as
 [id, left, top, right, bottom] in pixels:
 {boxes}
-Confirm which ones are real parking spaces inside the outline, add clear spaces it missed,
+Confirm which ones are real parking spaces of this property, add clear spaces it missed,
 and set parking_space_count = confirmed + extra."""
 
 BOX_SECTION_NO_BOXES = "No detector boxes are available; count parking spaces yourself."
@@ -169,7 +177,7 @@ def inspect(
     m_per_px = image_extent_m / width
     observations: dict[str, Any] = {
         "basis": f"aerial image ~{image_extent_m:.0f} m across around the property point; "
-        "percentages are of the outlined area as judged by the model, not the legal parcel",
+        "percentages are of the ~80 m square as judged by the model, not the legal parcel",
         "image_width_px": width,
         "image_height_px": height,
         "meters_per_pixel": round(m_per_px, 4),
