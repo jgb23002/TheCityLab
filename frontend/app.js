@@ -417,6 +417,41 @@ function showMoreCards(study = state.study) {
   $("more-cards").textContent = `Show more buildings (${state.cards.length - state.cardsShown} left)`;
 }
 
+/** Short labels for where a solar estimate's roof area and height actually came from. */
+const SOURCE_LABEL = {
+  "Vexcel detected structure footprint": "Vexcel aerial footprint",
+  "Matterport room scan (median room height)": "Matterport scan",
+};
+function sourceLabel(text) {
+  if (!text) return null;
+  return SOURCE_LABEL[text] || (text.startsWith("CoStar") ? "CoStar record" : text.split(",")[0].split("(")[0].trim());
+}
+
+/** The building's solar assumptions, if the study produced one (retrofit mode only). */
+function solarFor(study, propertyId) {
+  return (study.solar_results || []).find((r) => r.property_id === propertyId) || null;
+}
+
+/** A compact provenance strip: where the roof, height and facing numbers came from. */
+function provenanceRow(solar) {
+  if (!solar || !solar.assumptions) return "";
+  const a = solar.assumptions;
+  const chips = [];
+  const roof = sourceLabel(a.roof_area_source);
+  if (roof) chips.push(`<span class="prov-chip" title="${esc(a.roof_area_source)}">Roof · ${esc(roof)}</span>`);
+  const height = sourceLabel(a.building_height_source);
+  if (height != null && a.estimated_building_height_ft != null) {
+    chips.push(`<span class="prov-chip" title="${esc(a.building_height_source)}">Height · ${fmt(a.estimated_building_height_ft, 1)} ft (${esc(height)})</span>`);
+  }
+  if (a.azimuth_deg != null) {
+    chips.push(`<span class="prov-chip" title="${esc(a.azimuth_source || "")}">Facing · ${fmt(a.azimuth_deg, 0)}°</span>`);
+  }
+  if (a.weather_station && a.weather_station.distance != null) {
+    chips.push(`<span class="prov-chip" title="NREL PVWatts weather station">Weather · ${fmt(a.weather_station.distance / 1000, 1)} km away</span>`);
+  }
+  return chips.length ? `<div class="provenance">${chips.join("")}</div>` : "";
+}
+
 function buildCard(study, b, m) {
   const card = document.createElement("article");
   card.className = "bcard";
@@ -429,6 +464,14 @@ function buildCard(study, b, m) {
     `<button type="button" class="edit-value" data-field="${field}" title="Correct ${esc(spec.label.toLowerCase())}">` +
     `<span>${esc(spec.label)}</span><strong>${m[field] == null ? "unknown" : esc(fmt(m[field], spec.integer ? 0 : 1)) + spec.unit}</strong>` +
     `<i aria-hidden="true">✎</i></button>`).join("") : "";
+  const solar = solarFor(study, b.id);
+  const hasTour = !!b.matterport_model_id;
+  // The Sun & roof tab is always offered; it checks for its own report image on click.
+  const tabs = `<div class="bcard-tabs" role="tablist">` +
+    (hasTour ? `<button type="button" class="bcard-tab" data-tab="tour" role="tab">3D tour</button>` : "") +
+    `<button type="button" class="bcard-tab" data-tab="roof" role="tab">Sun &amp; roof</button></div>` +
+    (hasTour ? `<div class="bcard-panel" data-panel="tour" hidden></div>` : "") +
+    `<div class="bcard-panel" data-panel="roof" hidden></div>`;
   card.innerHTML =
     `<div class="bimg"><img alt="Aerial image of property ${esc(b.id)}" loading="lazy" decoding="async" src="/api/image/${encodeURIComponent(b.id)}">` +
     `<canvas class="boxes" aria-hidden="true"></canvas><span class="noimg" hidden>No aerial image</span>` +
@@ -439,6 +482,7 @@ function buildCard(study, b, m) {
     (canEdit ? `<div class="edit-values">${editable}</div>`
       : `<p class="key"><span>${esc(label)}</span><strong>${esc(value)}</strong></p>`) +
     `<div class="editor-slot"></div>` +
+    provenanceRow(solar) + tabs +
     `<dl><dt>Rent</dt><dd>${b.max_rent != null ? "$" + fmt(b.max_rent, 0) : "-"}</dd>` +
     `<dt>Units</dt><dd>${fmt(b.total_num_units, 0)}</dd><dt>Built</dt><dd>${b.year_built != null ? esc(b.year_built) : "-"}</dd></dl>` +
     `<p class="pid">Property ${esc(b.id)}</p></div>`;
@@ -462,6 +506,10 @@ function buildCard(study, b, m) {
       if (hit) { e.stopPropagation(); openEditor(card, m, "parking_space_count"); }
     });
   }
+  card.querySelectorAll(".bcard-tab").forEach((tab) => tab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openBuildingTab(card, tab.dataset.tab, b);
+  }));
   card.addEventListener("click", () => selectBuilding(b.id, "card"));
   card.addEventListener("keydown", (e) => {
     if (e.target !== card) return; // typing in the editor must not select the card
@@ -470,6 +518,47 @@ function buildCard(study, b, m) {
   if (state.selected === b.id) card.classList.add("selected");
   if (state.highlight && state.highlight.propertyId === b.id) card.classList.add("flash-card");
   return card;
+}
+
+/** Load the clicked tab's panel the first time (3D tour iframe, or the roof-view report), and toggle it. */
+async function openBuildingTab(card, name, building) {
+  const tabs = card.querySelectorAll(".bcard-tab");
+  const panels = card.querySelectorAll(".bcard-panel");
+  const target = card.querySelector(`.bcard-panel[data-panel="${name}"]`);
+  const wasOpen = target && !target.hidden;
+  panels.forEach((p) => (p.hidden = true));
+  tabs.forEach((t) => t.classList.remove("active"));
+  if (wasOpen) return; // clicking an open tab just closes it
+  card.querySelector(`.bcard-tab[data-tab="${name}"]`).classList.add("active");
+  target.hidden = false;
+  if (target.dataset.loaded) return;
+  target.dataset.loaded = "1";
+  if (name === "tour") {
+    try {
+      const config = await getConfig();
+      if (!config.matterport_sdk_key) throw new Error("no key");
+      const url = `https://my.matterport.com/show/?m=${encodeURIComponent(building.matterport_model_id)}` +
+        `&play=1&qs=1&applicationKey=${encodeURIComponent(config.matterport_sdk_key)}`;
+      target.innerHTML = `<iframe src="${esc(url)}" title="3D tour of property ${esc(building.id)}" ` +
+        `allow="xr-spatial-tracking" allowfullscreen loading="lazy"></iframe>`;
+    } catch {
+      target.innerHTML = `<p class="panel-empty">The 3D tour is not available right now.</p>`;
+    }
+  } else {
+    const img = new Image();
+    img.alt = `Shadow and roof-sun report for property ${building.id}`;
+    img.loading = "lazy";
+    img.onerror = () => { target.innerHTML = `<p class="panel-empty">No roof report has been generated for this building yet.</p>`; };
+    img.onload = () => target.replaceChildren(img);
+    img.src = `/api/roof-view/${encodeURIComponent(building.id)}`;
+  }
+}
+
+let configPromise = null;
+/** GET /api/config once per page load (the Matterport SDK key, never a secret token). */
+function getConfig() {
+  if (!configPromise) configPromise = fetch("/api/config").then((r) => r.ok ? r.json() : {});
+  return configPromise;
 }
 
 /** Inline editor: number input with the current value, a note, Save / Cancel. */
@@ -884,13 +973,19 @@ function renderSolarAndOutreach(study) {
   const ranked = solar.filter((r) => r.rank != null).slice(0, 10);
   const paybacks = ranked.map((r) => r.payback_years).filter((v) => v != null);
   const lo = Math.min(...paybacks), hi = Math.max(...paybacks);
-  $("solar-ranking").innerHTML = "<thead><tr><th>Rank</th><th>Building</th><th>Roof area (sq ft)</th><th>kW</th>" +
-    "<th>kWh / yr</th><th>Payback (years)</th></tr></thead><tbody>" +
+  $("solar-ranking").innerHTML = "<thead><tr><th>Rank</th><th>Building</th><th>Roof area (sq ft)</th><th>Roof from</th>" +
+    "<th>Facing</th><th>kW</th><th>kWh / yr</th><th>Payback (years)</th><th>Savings / unit / mo</th></tr></thead><tbody>" +
     ranked.map((r) => {
       const b = byId[r.property_id] || {};
+      const a = r.assumptions || {};
+      const roofFrom = sourceLabel(a.roof_area_source) || "-";
+      const facing = a.azimuth_deg != null ? `${fmt(a.azimuth_deg, 0)}°` : "-";
+      const perUnit = a.savings_per_unit_per_month_usd != null ? `$${fmt(a.savings_per_unit_per_month_usd, 2)}` : "-";
       return `<tr data-id="${esc(r.property_id)}" tabindex="0"><td><span class="rank-dot" style="background:${paybackColor(r.payback_years, lo, hi)}">${esc(r.rank)}</span></td>` +
         `<td>${esc(b.name || `Property ${r.property_id}`)}</td><td>${fmt(r.usable_roof_area_sq_ft, 0)}</td>` +
-        `<td>${fmt(r.capacity_kw, 1)}</td><td>${fmt(r.annual_energy_kwh, 0)}</td><td><strong>${fmt(r.payback_years, 1)}</strong></td></tr>`;
+        `<td>${esc(roofFrom)}</td><td>${esc(facing)}</td>` +
+        `<td>${fmt(r.capacity_kw, 1)}</td><td>${fmt(r.annual_energy_kwh, 0)}</td><td><strong>${fmt(r.payback_years, 1)}</strong></td>` +
+        `<td>${esc(perUnit)}</td></tr>`;
     }).join("") + "</tbody>";
   $("solar-ranking").querySelectorAll("tbody tr").forEach((row) => {
     const id = Number(row.dataset.id);
@@ -1404,5 +1499,62 @@ for (const id of ["color-by", "map-filter"]) $(id).addEventListener("change", ()
 $("more-cards").addEventListener("click", () => showMoreCards());
 $("ledger-filter").addEventListener("input", filterLedger);
 for (const id of ["market", "sample-limit", "demo-mode"]) $(id).addEventListener("change", loadPreview);
+/** Fills the five landing-page frames with one real building's actual data, then cycles them. */
+async function initShowcaseStrip() {
+  const strip = $("strip");
+  if (!strip) return;
+  const frames = [...strip.querySelectorAll(".strip-frame")];
+  const dotsBox = strip.querySelector(".strip-dots");
+  dotsBox.innerHTML = frames.map((_, i) => `<button type="button" role="tab" aria-label="Step ${i + 1}"></button>`).join("");
+  const dots = [...dotsBox.querySelectorAll("button")];
+  let step = 0, timer = null;
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function show(i) {
+    step = i;
+    frames.forEach((f, idx) => f.classList.toggle("active", idx === i));
+    dots.forEach((d, idx) => d.classList.toggle("active", idx === i));
+  }
+  function advance() { show((step + 1) % frames.length); }
+  dots.forEach((dot, i) => dot.addEventListener("click", () => { show(i); restart(); }));
+  function restart() {
+    if (timer) clearInterval(timer);
+    if (!reduced) timer = setInterval(advance, 3200);
+  }
+
+  let data;
+  try {
+    const res = await fetch("/api/showcase-strip");
+    if (!res.ok) throw new Error("not ready");
+    data = await res.json();
+  } catch {
+    strip.querySelectorAll(".strip-placeholder span").forEach((s) => { s.textContent = "No fully-measured building is cached yet."; });
+    show(0);
+    return;
+  }
+  const media = [
+    [`/api/image/${data.property_id}`, `Aerial photo of ${data.name || "property " + data.property_id}`],
+    [`/api/image/${data.property_id}/boxes`, "Vexcel's detections boxed on the aerial photo"],
+    [`/api/roof-view/${data.property_id}`, "Shadow-measured roof and per-side sun report"],
+  ];
+  frames[0].querySelector(".strip-placeholder span").textContent =
+    `${data.name || `Property ${data.property_id}`}, built ${data.year_built || "?"}, ${fmt(data.building_size_sq_ft, 0)} sq ft`;
+  frames[0].querySelector(".strip-placeholder").classList.add("strip-text");
+  [1, 2, 3].forEach((frameIndex, mediaIndex) => {
+    const [src, alt] = media[mediaIndex];
+    const holder = frames[frameIndex].querySelector(".strip-placeholder");
+    const img = new Image();
+    img.alt = alt;
+    img.loading = "lazy";
+    img.onload = () => holder.replaceWith(img);
+    img.onerror = () => { holder.querySelector("span").textContent = "Not available for this building."; };
+    img.src = src;
+  });
+  $("strip-payback").textContent = data.payback_years != null ? fmt(data.payback_years, 1) : "?";
+  show(0);
+  restart();
+}
+initShowcaseStrip();
+
 loadExamples();
 loadPreview();

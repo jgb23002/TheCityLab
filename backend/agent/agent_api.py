@@ -1,5 +1,5 @@
-"""Agent API: POST /api/ask-agent, POST /api/ask-stream (SSE), POST /api/correct and
-GET /api/image/{id}.
+"""Agent API: POST /api/ask-agent, POST /api/ask-stream (SSE), POST /api/correct,
+GET /api/image/{id} and GET /api/roof-view/{id}.
 
 Finished studies are saved with their ledger under data/cache/studies/<id>.json so the
 correction loop (POST /api/correct, no LLM or network calls) can re-run the regression.
@@ -334,3 +334,27 @@ def building_image(property_id: int = PathParam(ge=0)) -> Response:
         return Response(placeholder_svg(property_id), media_type="image/svg+xml",
                         headers={"Cache-Control": "public, max-age=3600"})
     raise HTTPException(status_code=404, detail="No image for this property.")
+
+
+@router.get("/api/roof-view/{property_id}")
+def roof_view_image(property_id: int = PathParam(ge=0)) -> Response:
+    """Serve a building's shadow/sun roof report (scripts/roof_solar_view.py), or 404.
+
+    Only buildings scripts/roof_solar_view.py has already processed have one; the
+    frontend hides the "Sun & roof" tab on a 404 rather than treating it as an error.
+    """
+    root = (config.CACHE_DIR / "roof_view").resolve()
+    path = (root / f"property_{property_id}_report.jpg").resolve()
+    if path.parent == root and path.is_file():
+        return FileResponse(path, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="No roof report for this property.")
+
+
+@router.get("/api/image/{property_id}/boxes")
+def building_detections_image(property_id: int = PathParam(ge=0)) -> Response:
+    """Serve a building's boxed aerial detections (scripts/measure_sample.py), or 404."""
+    root = (config.CACHE_DIR / "vexcel" / "detect").resolve()
+    path = (root / f"property_{property_id}_boxes.jpg").resolve()
+    if path.parent == root and path.is_file():
+        return FileResponse(path, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="No detection image for this property.")
