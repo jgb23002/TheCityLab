@@ -38,6 +38,17 @@
         <h1>Got a hunch about a city?<br><em>Let's go check the rooftops.</em></h1>
         <p class="lede">Ask in plain English. We measure real aerial photos, run the numbers, and tell you what the evidence says.</p>
         <p class="demo-note" role="note">Real data runs CoStar buildings through aerial analysis, reusing cached measurements. Name the city in your question. Turn on Demo mode to explore with synthetic numbers and no paid calls.</p>
+        <details class="scope-note">
+          <summary>What questions can this actually answer?</summary>
+          <p>The cohort is <strong>apartment communities in Houston or Los Angeles</strong>. A question works best when
+            it compares one of these aerial measurements &mdash; green cover, paved surface, parking spaces, roof area
+            &mdash; against a CoStar outcome: asking rent or reported vacancy.</p>
+          <p><strong>Good:</strong> "Do greener Houston apartments charge more rent?" &middot; "Do LA buildings with
+            more parking have higher vacancy?" &middot; "Which 10 LA apartment buildings are the best solar candidates?"</p>
+          <p><strong>Won't work yet:</strong> office, retail or industrial buildings (no vacancy/rent data in this cohort)
+            &middot; cities other than Houston and Los Angeles &middot; anything the aerial photo can't show, like
+            interior condition or tenant names.</p>
+        </details>
         <form id="ask-form" class="search">
           <input id="question" type="text" autocomplete="off" aria-label="Your question"
                  placeholder="Do greener buildings charge more rent?">
