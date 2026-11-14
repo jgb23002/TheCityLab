@@ -11,14 +11,16 @@ from langchain_core.messages import HumanMessage
 from backend import config
 
 
-def get_chat_model(role: Literal["chat", "vision"] = "chat") -> BaseChatModel:
-    """Create a provider model using LLM_MODEL for chat or VISION_MODEL for vision."""
+def get_chat_model(
+    role: Literal["chat", "vision"] = "chat", *, model_id: str | None = None,
+) -> BaseChatModel:
+    """Choose a chat/vision model, optionally overriding its id for an AI tool."""
     if role not in {"chat", "vision"}:
         raise ValueError("Model role must be chat or vision.")
     provider = (config.LLM_PROVIDER or "").strip().lower()
     setting = "LLM_MODEL" if role == "chat" else "VISION_MODEL"
-    model = (config.LLM_MODEL if role == "chat" else config.VISION_MODEL) or ""
-    model = model.strip()
+    configured = config.LLM_MODEL if role == "chat" else config.VISION_MODEL
+    model = ((model_id if model_id is not None else configured) or "").strip()
     if provider not in {"bedrock", "google", "anthropic"}:
         raise ValueError("Set LLM_PROVIDER to bedrock, google, or anthropic in .env.")
     if not model:
@@ -42,7 +44,18 @@ def get_chat_model(role: Literal["chat", "vision"] = "chat") -> BaseChatModel:
     return ChatAnthropic(model=model)
 
 
-def ask_with_image(prompt: str, image_path: str) -> str:
+def vision_model_id() -> str | None:
+    """Return the configured vision override, or None when it is absent."""
+    return (config.VISION_MODEL or "").strip() or None
+
+
+def ask_text(prompt: str, model_id: str | None = None) -> str:
+    """Send one text prompt and return only the reply text."""
+    model = get_chat_model(model_id=model_id) if model_id else get_chat_model()
+    return str(model.invoke([HumanMessage(content=prompt)]).text)
+
+
+def ask_with_image(prompt: str, image_path: str, model_id: str | None = None) -> str:
     """Send text plus a base64 JPEG in a standard multimodal HumanMessage."""
     image_bytes = Path(image_path).read_bytes()
     if not image_bytes.startswith(b"\xff\xd8\xff"):
@@ -55,7 +68,8 @@ def ask_with_image(prompt: str, image_path: str) -> str:
             "mime_type": "image/jpeg",
         },
     ])
-    reply = get_chat_model("vision").invoke([message])
+    model = get_chat_model("vision", model_id=model_id) if model_id else get_chat_model("vision")
+    reply = model.invoke([message])
     return str(reply.text)
 
 

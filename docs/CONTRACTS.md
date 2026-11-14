@@ -1,9 +1,9 @@
 # CityLab contracts
 
 These are application contracts, not provider response field names. Existing
-schema classes and fields are preserved. The canonical real tool functions below are stubs
-whose only behavior is to raise `NotImplementedError`; no file loading, network,
-vision, statistical, solar or outreach logic is implemented here.
+schema classes and fields are preserved. The canonical tools below now include
+local CoStar loading, cached Vexcel requests, vision inspection, regression,
+solar estimates and outreach drafts. The optional Matterport tool remains a stub.
 
 Tools return the named Pydantic models. At a JSON boundary, use
 `model_dump(mode="json")` / `model_dump_json()` (per element for lists); never
@@ -187,7 +187,8 @@ aliases; other tool names match their canonical function names:
 | `run_regression` | `stats.run_study` |
 
 `USE_MOCK_TOOLS=true` (default) selects the mock functions; false routes to the
-real stubs, which currently fail explicitly. This flag substitutes the tools,
+real implementations, requiring the local kit, credentials or cached responses.
+Unavailable real tools/data fail explicitly. This flag substitutes the tools,
 not the chat model: normal CLI runs still use the configured provider. Tests
 inject a scripted fake chat model and prohibit network access.
 
@@ -197,6 +198,7 @@ and `name`; the default backend is in-memory StateBackend, not the host
 filesystem. `get_chat_model("chat")` selects LLM_MODEL;
 `get_chat_model("vision")` selects VISION_MODEL. The no-argument form still
 selects chat for compatibility.
+The optional `model_id=` keyword overrides the selected model for AI-tool calls.
 
 ```sh
 USE_MOCK_TOOLS=true python -m backend.agent.planner "Do greener Houston apartments have higher asking rents?"
