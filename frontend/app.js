@@ -1460,17 +1460,24 @@ async function showSavedDemo() {
 // ---------------------------------------------------------------------------
 
 // The judging scenarios (also recorded in the offline showcase as S1-S3).
+// All three stay on the one problem CityLab solves: which apartment buildings are
+// worth a rooftop-solar call. Earlier versions mixed in office/commercial-building
+// wording that doesn't match the real cohort (apartment communities only) -- these
+// match backend/agent/samples.py's actual sample population and property type.
 const SCENARIO_EXAMPLES = [
-  { id: "S1", mode: "research", market_id: 14, question: "Do office buildings with more parking spaces have higher vacancy rates in Houston?" },
-  { id: "S2", mode: "retrofit", market_id: 20, question: "Which commercial buildings in Los Angeles have the best rooftop solar retrofit potential?" },
-  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for building upgrades" },
+  { id: "S1", mode: "retrofit", market_id: 14, question: "Which 10 Houston apartment buildings are the best rooftop-solar candidates?" },
+  { id: "S2", mode: "retrofit", market_id: 20, question: "Which Los Angeles apartment buildings have the fastest solar payback?" },
+  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for a rooftop solar retrofit" },
 ];
 
 async function loadExamples() {
   let questions = [];
   try {
     const res = await fetch("/api/questions");
-    if (res.ok) questions = (await res.json()).questions || [];
+    // Keep the chip row on the one problem CityLab solves (solar screening); the
+    // manifest's research/correlation questions (Q1, Q2) are left for the API and
+    // docs, not the demo surface.
+    if (res.ok) questions = ((await res.json()).questions || []).filter((q) => q.mode === "retrofit");
   } catch { /* examples are optional */ }
   try {
     for (const q of [...questions, ...SCENARIO_EXAMPLES]) {
