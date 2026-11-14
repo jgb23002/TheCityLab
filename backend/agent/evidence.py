@@ -54,6 +54,13 @@ class Ledger:
         with self._lock:
             return list(self._entries)
 
+    @classmethod
+    def from_entries(cls, entries: list[dict[str, Any]]) -> "Ledger":
+        """Rebuild a ledger from saved entries (ids are kept, so new ids continue the sequence)."""
+        ledger = cls()
+        ledger._entries = json.loads(json.dumps(list(entries)))
+        return ledger
+
     def to_json(self) -> list[dict[str, Any]]:
         """Return a JSON-serializable copy of every entry."""
         return json.loads(json.dumps(self.all()))

@@ -82,6 +82,49 @@ curl -N -X POST localhost:8000/api/ask-stream -H "Content-Type: application/json
   -d '{"question":"Which 10 Los Angeles apartment buildings are the best rooftop-solar candidates?","mode":"retrofit","use_mock_tools":true}'
 ```
 
+## Correction loop
+
+Every finished `/api/ask-agent` or `/api/ask-stream` study is saved with its ledger to
+`data/cache/studies/<study id>.json` (git-ignored). `POST /api/correct` patches one
+measurement and makes no LLM or network calls, so it works with `USE_CACHE_ONLY=true`.
+An omitted field stays unchanged; an explicit `null` clears it to unknown. It then:
+
+- records the edit as a `correct_measurement` ledger entry (before and after values);
+- re-runs `run_study` with the original question and property ids, using the same
+  implementation as before (demo studies keep their fixed demo numbers);
+- adds a cited "What changed after your correction" section, rewrites the Result section
+  to cite the new regression, and refuses (HTTP 500, nothing saved) if any new number
+  would fail the citation check;
+- saves the result under a new id `<original id>-c<N>` (the original is untouched) and
+  returns `correction`, `tool_call` and `citation_check` events. The `correction` payload
+  lists the changes as `{label, before, after, direction}`.
+
+Unknown study or measurement ids return 404. Out-of-range values return 422.
+
+```sh
+curl -X POST localhost:8000/api/correct -H "Content-Type: application/json" \
+  -d '{"study_id":"study-1a2b3c4d5e6f","measurement_id":"m-23453","corrections":{"parking_space_count":42,"note":"recounted by hand"}}'
+```
+
+## Offline showcase
+
+`python scripts/build_showcase.py` runs Q1-Q3 from `data/showcase/questions.json` once
+for real (n=40) and commits what replay needs:
+- `data/showcase/results/q*.json`: study, ledger, events and evidence, with secrets and
+  raw Vexcel responses removed;
+- `data/showcase/images/`: only the studies' aerial images, at most 1024 px;
+- `data/showcase/index.json`: normalised question to result file.
+
+The build can be resumed and fails if the showcase is over 25 MB. With
+`USE_CACHE_ONLY=true`, or `?replay=true` on a showcase question, `/api/ask-agent` and
+`/api/ask-stream` replay the saved run with no network calls; the stream sends events
+150 ms apart. Replayed studies can be corrected with `/api/correct`. Other questions in
+cache-only mode get 503 "Demo mode: this question is not in the offline showcase."
+
+```sh
+USE_CACHE_ONLY=true uvicorn backend.main:app --port 8000
+```
+
 ## Commands
 
 ```sh
