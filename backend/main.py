@@ -9,6 +9,7 @@ from pydantic import JsonValue, ValidationError
 from backend.config import FRONTEND_DIR, PROJECT_ROOT
 from backend.schemas import AskRequest, AskResponse, Building, StudyResult
 from backend.agent.study import StudyUnavailable, preview_buildings, run_study
+from backend.agent.agent_api import router as agent_router
 
 SHOWCASE_DIR = PROJECT_ROOT / "data" / "showcase"
 
@@ -86,6 +87,8 @@ def ask(request: AskRequest) -> AskResponse:
     except Exception:
         raise HTTPException(status_code=503, detail="The study could not complete. Check local data, tool settings and cached results.") from None
 
+
+app.include_router(agent_router)
 
 # Keep API routes above the root static mount.
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
