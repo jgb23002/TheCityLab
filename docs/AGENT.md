@@ -32,10 +32,33 @@ named in the caveats. Rows with missing values are dropped (listwise) and counte
 (`draft_email` for the top N; N comes from the question, default and maximum 10) ->
 retrofit writer (Question, Answer, Ranking table, Assumptions, Caveats, Next step).
 Solar uses only the image-measured roof, never floor area. Buildings with no measured roof
-are skipped and counted (`skipped_no_roof`). Drafts are never sent.
+are skipped and counted (`skipped_no_roof`). Drafts are never sent. The solar step also
+runs `screen_upgrades` for the top N (see below).
+
+**Property (one building):** chosen automatically when the question names a CoStar
+property id or a street address. The flow is:
+1. lookup (`lookup_property`: the building, owners, property manager, current tenants and
+   the unavailable fields);
+2. inspector;
+3. interior (`interior_inspect`: the Matterport scan's measured floors, rooms and ceiling
+   heights, or a clean skip when there is no scan);
+4. solar (`solar_payback`, `rank_buildings`, `screen_upgrades`);
+5. outreach;
+6. property-report writer.
+
+**Planning:** the orchestrator has LangChain's `TodoListMiddleware` (`write_todos`), which
+deepagents 0.7.38 does not add by default, and writes `/findings.md` with `write_file`.
+Both are streamed as `plan` and `note` events.
+
+**Upgrade screening (`backend/agent/upgrades.py`):** rooftop solar comes from the solar
+tool. A solar carport is estimated as spaces × 0.6 coverage × 162 sq ft × 15 W/sq ft at
+$3.00/W, using the building's own rooftop kWh per kW; every assumption is labelled with its
+source. LED lighting, window film and HVAC are "not estimated" with the missing input named.
+Estimated upgrades are ranked by simple payback.
 
 **Completeness guard:** research needs a regression with a coefficient and sample size;
-retrofit needs a successful ranking and at least one email draft. If something is missing,
+retrofit needs a successful ranking and at least one email draft; a property report needs
+the lookup, an inspection and the upgrade screening. If something is missing,
 the orchestrator is asked once to run it. If it is still missing, the brief gets "Study
 incomplete: ..." and the CLI prints `CITATION CHECK: FAIL (study incomplete)`.
 
@@ -105,6 +128,17 @@ Unknown study or measurement ids return 404. Out-of-range values return 422.
 curl -X POST localhost:8000/api/correct -H "Content-Type: application/json" \
   -d '{"study_id":"study-1a2b3c4d5e6f","measurement_id":"m-23453","corrections":{"parking_space_count":42,"note":"recounted by hand"}}'
 ```
+
+**Retrofit and property corrections:** a roof-area or parking correction makes no network
+call. The rooftop estimate is recomputed from the original estimate's own assumptions;
+energy scales by its kWh per kW, which is valid because PVWatts output is linear in system
+size for one site. The ranking is re-run, the upgrades re-screened and the owner email
+re-drafted from the fixed template. Demo studies keep their fixed demo numbers.
+
+**Calibration (`GET /api/calibration`):** per measured field, it counts user corrections
+across saved studies and reports the median relative correction. With at least 3
+corrections it adds a reliability flag and a confidence multiplier (1 − median correction).
+This is correction history, not model retraining.
 
 ## Offline showcase
 

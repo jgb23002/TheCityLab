@@ -26,7 +26,9 @@ from pydantic import JsonValue
 
 from backend.agent import prompts
 from backend.agent.citations import verify_brief
-from backend.agent.events import REGRESSION_INCOMPLETE, citation_event, handoff_event, tool_call_event
+from backend.agent.events import (
+    REGRESSION_INCOMPLETE, citation_event, handoff_event, note_event, plan_event, tool_call_event,
+)
 from backend.agent.evidence import Ledger
 from backend.agent.registry import (
     DEFAULT_N, MAX_N, MODES, detect_intent, draft_ok, get_tools, parse_top_n, ranking_ok, redact,
@@ -35,14 +37,16 @@ from backend.agent.registry import (
 from backend.llm import get_chat_model
 from backend.schemas import Building, Measurement, OutreachDraft, SolarResult, StatsResult, StudyResult
 
-INTENT_CHOICES = ("auto", "research", "retrofit")
+INTENT_CHOICES = ("auto", "research", "retrofit", "property")
 
 SUBAGENT_TOOLS: dict[str, tuple[str, ...]] = {
     "sampler": ("sample_buildings",),
     "inspector": ("vexcel_detect", "vision_inspect"),
     "statistician": ("run_regression",),
-    "solar": ("solar_payback", "rank_buildings"),
+    "solar": ("solar_payback", "rank_buildings", "screen_upgrades"),
     "outreach": ("draft_email",),
+    "lookup": ("lookup_property",),
+    "interior": ("interior_inspect",),
     "writer": ("read_evidence", "list_evidence"),
 }
 _SUBAGENTS: dict[str, tuple[str, str]] = {
@@ -65,7 +69,19 @@ _RETROFIT_SUBAGENTS: dict[str, tuple[str, str]] = {
     "writer": ("Writes the retrofit brief with a cited ranking table from the evidence ledger.",
                prompts.RETROFIT_WRITER_PROMPT),
 }
-SUBAGENTS_BY_INTENT = {"research": _SUBAGENTS, "retrofit": _RETROFIT_SUBAGENTS}
+_PROPERTY_SUBAGENTS: dict[str, tuple[str, str]] = {
+    "lookup": ("Looks up ONE CoStar property by id or street address with lookup_property (call once).",
+               prompts.LOOKUP_PROMPT),
+    "inspector": _RETROFIT_SUBAGENTS["inspector"],
+    "interior": ("Optional: checks the property's Matterport scan with interior_inspect; skips cleanly "
+                 "when there is none.", prompts.INTERIOR_PROMPT),
+    "solar": ("Estimates rooftop solar (solar_payback), ranks it (rank_buildings) and screens all five "
+              "upgrades (screen_upgrades) for the property.", prompts.SOLAR_PROMPT),
+    "outreach": ("Drafts (never sends) the owner email with draft_email.", prompts.OUTREACH_PROMPT),
+    "writer": ("Writes the property report with cited numbers from the evidence ledger.",
+               prompts.PROPERTY_WRITER_PROMPT),
+}
+SUBAGENTS_BY_INTENT = {"research": _SUBAGENTS, "retrofit": _RETROFIT_SUBAGENTS, "property": _PROPERTY_SUBAGENTS}
 MOCK_LABEL = "(demo data)"
 # Ledger tools every research study must have run successfully, and who runs them.
 REQUIRED_STEPS: tuple[tuple[str, str], ...] = (
@@ -76,7 +92,12 @@ RETROFIT_REQUIRED_STEPS: tuple[tuple[str, str], ...] = (
     ("sample_buildings", "sampler"), ("vision_inspect", "inspector"),
     ("rank_buildings", "solar"), ("draft_email", "outreach"),
 )
-STEPS_BY_INTENT = {"research": REQUIRED_STEPS, "retrofit": RETROFIT_REQUIRED_STEPS}
+# A single-property report needs the property, an inspection and the upgrade screening.
+PROPERTY_REQUIRED_STEPS: tuple[tuple[str, str], ...] = (
+    ("lookup_property", "lookup"), ("vision_inspect", "inspector"), ("screen_upgrades", "solar"),
+)
+STEPS_BY_INTENT = {"research": REQUIRED_STEPS, "retrofit": RETROFIT_REQUIRED_STEPS,
+                   "property": PROPERTY_REQUIRED_STEPS}
 
 
 class Agent(Protocol):
@@ -98,6 +119,7 @@ class PlannerRun:
     verified: bool
     problems: list[str] = field(default_factory=list)
     handoffs: list[dict[str, str]] = field(default_factory=list)  # {subagent, task, ts}
+    planning: list[dict[str, Any]] = field(default_factory=list)  # plan / note events (write_todos, write_file)
     complete: bool = True  # False when a required step (e.g. a regression result) is missing
 
     def to_json(self) -> dict[str, JsonValue]:
@@ -122,11 +144,16 @@ def build_agent(tools: Sequence[BaseTool], model: BaseChatModel | str, intent: s
          "tools": [by_name[t] for t in SUBAGENT_TOOLS[name]]}
         for name, (description, prompt) in SUBAGENTS_BY_INTENT[intent].items()
     ]
+    from langchain.agents.middleware import TodoListMiddleware
+
+    # deepagents 0.7.38 does not add a to-do tool by default; TodoListMiddleware gives the
+    # orchestrator LangChain's real write_todos tool, which the UI shows as the plan.
     return create_deep_agent(
         model=model,
         tools=[by_name["list_evidence"], by_name["read_evidence"]],
         system_prompt=prompts.ORCHESTRATOR_PROMPT,
         subagents=subagents,
+        middleware=[TodoListMiddleware()],
         name="CityLab",
     )
 
@@ -142,23 +169,44 @@ class _HandOffPrinter(BaseCallbackHandler):
     raise_error = False
 
     def __init__(self, handoffs: list[dict[str, str]] | None = None,
-                 on_handoff: Callable[[dict[str, str]], None] | None = None) -> None:
+                 on_handoff: Callable[[dict[str, str]], None] | None = None,
+                 planning: list[dict[str, Any]] | None = None,
+                 on_planning: Callable[[dict[str, Any]], None] | None = None) -> None:
         """Collect each hand-off (subagent, redacted short task, ts) in *handoffs* and
-        pass it to *on_handoff* as it happens."""
+        pass it to *on_handoff* as it happens. DeepAgents' own planning tools
+        (write_todos, write_file) become plan / note events in *planning*."""
         super().__init__()
         self.handoffs = handoffs if handoffs is not None else []
         self.on_handoff = on_handoff
+        self.planning = planning if planning is not None else []
+        self.on_planning = on_planning
+
+    def _planning(self, name: str, inputs: dict[str, Any]) -> None:
+        """Record a write_todos plan or a write_file note (never file contents)."""
+        now = datetime.now(timezone.utc).isoformat()
+        if name == "write_todos":
+            event = plan_event(list(inputs.get("todos") or []), now)
+            print(f"PLAN {event['message']}", flush=True)
+        else:
+            event = note_event(str(inputs.get("file_path") or inputs.get("path") or ""), len(str(inputs.get("content") or "")), now)
+        self.planning.append(event)
+        if self.on_planning:
+            self.on_planning(event)
 
     def on_tool_start(self, serialized: dict[str, Any], input_str: str, *,
                       inputs: dict[str, Any] | None = None, **kwargs: Any) -> None:
-        """Print 'HAND-OFF -> <subagent>: <short task>' for task tool calls only."""
-        if (serialized or {}).get("name") != "task":
+        """Print 'HAND-OFF -> <subagent>: <short task>' for task calls; record plans and notes."""
+        name = (serialized or {}).get("name")
+        if name not in ("task", "write_todos", "write_file"):
             return
         if inputs is None:
             try:
                 inputs = json.loads(input_str)
             except (TypeError, ValueError):
                 inputs = {}
+        if name != "task":
+            self._planning(name, inputs or {})
+            return
         target = str((inputs or {}).get("subagent_type", "?"))
         description = " ".join(str((inputs or {}).get("description", "")).split())
         target, task = str(redact(target)), str(redact(description))[:100]
@@ -243,8 +291,13 @@ def _study(question: str, brief: str, ledger: Ledger, caveats: list[str], intent
     order) and outreach_drafts are the successful email drafts.
     """
     entries = [e for e in ledger.all() if "error" not in e["result"]]
-    samples = [e for e in entries if e["tool"] == "sample_buildings"]
-    buildings = [Building.model_validate(b) for b in samples[-1]["result"]["buildings"]] if samples else []
+    samples = [e for e in entries if e["tool"] in ("sample_buildings", "lookup_property")]
+    if not samples:
+        buildings = []
+    elif samples[-1]["tool"] == "lookup_property":  # a property report covers the one looked-up building
+        buildings = [Building.model_validate(samples[-1]["result"]["building"])]
+    else:
+        buildings = [Building.model_validate(b) for b in samples[-1]["result"]["buildings"]]
     latest: dict[Any, Measurement] = {}
     for e in entries:
         if e["tool"] == "vision_inspect":
@@ -253,7 +306,7 @@ def _study(question: str, brief: str, ledger: Ledger, caveats: list[str], intent
     is_mock = any(e["source"] == "mock" for e in ledger.all())
     solar_results: list[SolarResult] | None = None
     outreach_drafts: list[OutreachDraft] | None = None
-    if intent == "retrofit":
+    if intent in ("retrofit", "property"):
         stats = None
         rankings = [e for e in entries if e["tool"] == "rank_buildings" and ranking_ok(e["result"])]
         solar_results = [SolarResult.model_validate(r) for r in rankings[-1]["result"]["ranked"]] if rankings else []
@@ -304,7 +357,7 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
     tool_mode = resolve_mode(mode)
     study_intent = detect_intent(question, intent)
     n = max(1, min(int(n), MAX_N))
-    top_n = parse_top_n(question)
+    top_n = 1 if study_intent == "property" else parse_top_n(question)
     ledger = Ledger()
     emit = _safe_emitter(on_event)
 
@@ -317,11 +370,12 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
                       intent=study_intent, top_n=top_n)
     agent = (agent_factory or _default_factory(study_intent))(tools)
     handoffs: list[dict[str, str]] = []
-    printer = _HandOffPrinter(handoffs, on_handoff=lambda h: emit(handoff_event(h)))
+    planning: list[dict[str, Any]] = []
+    printer = _HandOffPrinter(handoffs, on_handoff=lambda h: emit(handoff_event(h)), planning=planning, on_planning=emit)
     run_config = {"callbacks": [printer], "recursion_limit": 1000}
 
     prompt = (f"Question: {question}\nIntent: {study_intent}.\nSample size n: {n} (max {MAX_N}).\n"
-              f"Tool mode: {tool_mode}." + (f"\nTop N for outreach drafts: {top_n}." if study_intent == "retrofit" else ""))
+              f"Tool mode: {tool_mode}." + (f"\nTop N for outreach drafts: {top_n}." if study_intent in ("retrofit", "property") else ""))
     state = agent.invoke({"messages": [HumanMessage(content=prompt)]}, config=run_config)
     messages = list(state.get("messages", []))
 
@@ -365,7 +419,7 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         brief = brief.rstrip() + "\n\n" + "\n".join(f"**{c}**" for c in incomplete) + "\n"
     study = _study(question, brief, ledger, caveats, study_intent)
     run = PlannerRun(study=study, ledger=ledger, verified=not problems and not missing,
-                     problems=problems + incomplete, handoffs=handoffs, complete=not missing)
+                     problems=problems + incomplete, handoffs=handoffs, complete=not missing, planning=planning)
     emit(citation_event(run.verified, run.complete, run.problems, datetime.now(timezone.utc).isoformat()))
     return run
 

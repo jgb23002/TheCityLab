@@ -38,6 +38,17 @@ JPEG_QUALITY = 80
 DROP_KEYS = {"raw_response"}  # large provider payloads never go into the showcase
 
 
+# The judging scenarios, recorded alongside Q1-Q3 (not shown as /api/questions chips).
+# n is smaller where every building needs fresh imagery and vision calls.
+SCENARIOS = [
+    {"id": "S1", "mode": "research", "n": 20,
+     "question": "Do office buildings with more parking spaces have higher vacancy rates in Houston?"},
+    {"id": "S2", "mode": "retrofit", "n": 15,
+     "question": "Which commercial buildings in Los Angeles have the best rooftop solar retrofit potential?"},
+    {"id": "S3", "mode": "property", "n": 1, "question": "Evaluate property 23453 for building upgrades"},
+]
+
+
 def showcase_dir() -> Path:
     """data/showcase (resolved at call time so tests can relocate it)."""
     return config.PROJECT_ROOT / "data" / "showcase"
@@ -131,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     from backend.agent import planner  # imported here so --help works without model settings
     from backend.agent import agent_api, events  # noqa: F401  load now, before any long run
 
-    questions = json.loads((showcase_dir() / "questions.json").read_text(encoding="utf-8"))["questions"]
+    questions = json.loads((showcase_dir() / "questions.json").read_text(encoding="utf-8"))["questions"] + SCENARIOS
     wanted = {x.strip().upper() for x in args.only.split(",") if x.strip()}
     for q in questions:
         if wanted and q["id"] not in wanted:
@@ -140,13 +151,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.images_only or (path.exists() and not args.force):
             print(f"{q['id']}: kept {path.name}" if path.exists() else f"{q['id']}: no result yet")
             continue
-        print(f"{q['id']}: running the planner (real mode, n={args.n}) ...", flush=True)
-        run = planner.run_question(q["question"], mode="real", n=args.n, intent=q["mode"])
+        print(f"{q['id']}: running the planner (real mode, n={q.get('n', args.n)}) ...", flush=True)
+        run = planner.run_question(q["question"], mode="real", n=q.get("n", args.n), intent=q["mode"])
+        incomplete_ok = q["id"] == "S1"  # S1 is expected to end incomplete: office vacancy is not in the data
+        if path.exists() and not (run.verified and run.complete) and not incomplete_ok:
+            print(f"{q['id']}: new run did not pass ({planner.verdict_line(run)}); kept the existing {path.name}", flush=True)
+            continue
         write_json(path, result_payload(q, run))
         print(f"{q['id']}: saved {path.name} - {planner.verdict_line(run)}", flush=True)
 
     counts = {"copied": 0, "kept": 0, "missing": 0}
-    for path in sorted((showcase_dir() / "results").glob("q*.json")):
+    for path in sorted((showcase_dir() / "results").glob("*.json")):
         study = json.loads(path.read_text(encoding="utf-8"))["study"]
         for building in study["buildings"]:
             counts[copy_image(building["id"], args.force)] += 1

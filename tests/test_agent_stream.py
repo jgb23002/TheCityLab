@@ -95,7 +95,7 @@ def test_frames_arrive_in_order_and_parse_as_sse(client: TestClient) -> None:
     tool_ids = [d["payload"]["evidence_id"] for k, d in frames if k == "tool_call"]
     assert tool_ids == [f"E{i}" for i in range(1, len(tool_ids) + 1)]
     first_tool = next(d for k, d in frames if k == "tool_call")
-    assert set(first_tool["payload"]) == {"evidence_id", "tool", "source", "cached", "failed"}
+    assert set(first_tool["payload"]) == {"evidence_id", "tool", "source", "cached", "failed", "property_id"}
     assert frames[-3][1]["message"] == "PASS"
 
 

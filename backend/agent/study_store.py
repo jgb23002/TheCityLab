@@ -74,3 +74,54 @@ def next_corrected_id(run: StudyRun) -> tuple[str, int]:
     while study_path(f"{root}-c{n}").exists():
         n += 1
     return f"{root}-c{n}", n
+
+
+# ---------------------------------------------------------------------------
+# Calibration from accumulated user corrections (no model retraining)
+# ---------------------------------------------------------------------------
+
+CALIBRATION_MIN_N = 3          # corrections needed before a field's reliability is judged
+LOW_RELIABILITY_ERROR = 0.25   # median relative correction above this flags a field as low reliability
+
+
+def calibration_summary() -> dict[str, Any]:
+    """Per measured field: how often users corrected it and by how much, across saved studies.
+
+    Each correct_measurement ledger entry (before -> after) is counted once per original
+    study. relative error = |after - before| / max(|before|, 1); bias = mean signed relative
+    change (positive: the model under-counted). confidence_multiplier = 1 - median relative
+    error (clamped to 0.1-1), offered as a transparent discount on the model's confidence;
+    it is a calibration heuristic from correction history, not retraining.
+    """
+    seen: set[tuple[str, str]] = set()
+    pairs: dict[str, list[tuple[float, float]]] = {}
+    folder = studies_dir()
+    for path in sorted(folder.glob("*.json")) if folder.exists() else []:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        root = str((data.get("meta") or {}).get("original_id") or (data.get("study") or {}).get("id"))
+        for entry in data.get("ledger") or []:
+            if entry.get("tool") != "correct_measurement" or (root, entry.get("id")) in seen:
+                continue
+            seen.add((root, entry.get("id")))
+            args = entry.get("args") or {}
+            for field_name, after in (args.get("after") or {}).items():
+                before = (args.get("before") or {}).get(field_name)
+                if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+                    pairs.setdefault(field_name, []).append((float(before), float(after)))
+    fields = {}
+    for name, values in pairs.items():
+        rel = sorted(abs(a - b) / max(abs(b), 1.0) for b, a in values)
+        median = rel[len(rel) // 2] if len(rel) % 2 else (rel[len(rel) // 2 - 1] + rel[len(rel) // 2]) / 2
+        bias = sum((a - b) / max(abs(b), 1.0) for b, a in values) / len(values)
+        judged = len(values) >= CALIBRATION_MIN_N
+        fields[name] = {
+            "corrections": len(values), "median_relative_error": round(median, 3), "mean_signed_change": round(bias, 3),
+            "reliability": ("low" if median > LOW_RELIABILITY_ERROR else "ok") if judged else "insufficient corrections",
+            "confidence_multiplier": round(min(1.0, max(0.1, 1 - median)), 3) if judged else None,
+        }
+    return {"fields": fields, "min_corrections": CALIBRATION_MIN_N,
+            "method": ("Correction history only: per field, the median relative size of user corrections. "
+                       "The vision model is not retrained.")}

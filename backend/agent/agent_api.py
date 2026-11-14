@@ -20,17 +20,17 @@ from datetime import datetime, timezone
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Path as PathParam, Query, Request
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend import config
 from backend.agent import planner
 from backend.agent.citations import verify_brief
 from backend.agent.correction import CorrectionError, apply_correction
-from backend.agent.events import citation_event, evidence_list, handoff_event, tool_call_event
-from backend.agent.registry import redact, regression_ok
+from backend.agent.events import citation_event, detail_event, evidence_list, handoff_event, tool_call_event
+from backend.agent.registry import is_property_query, ranking_ok, redact, regression_ok
 from backend.agent import showcase
-from backend.agent.study_store import StudyNotFound, StudyRun, load_study_run, save_study_run
+from backend.agent.study_store import StudyNotFound, StudyRun, calibration_summary, load_study_run, save_study_run
 from backend.schemas import AgentEvent, AskRequest, AskResponse, CorrectRequest, CorrectResponse
 
 log = logging.getLogger(__name__)
@@ -50,7 +50,9 @@ router = APIRouter()
 def events_from_run(run: planner.PlannerRun) -> list[AgentEvent]:
     """Build tool_call and handoff events in time order, then one citation_check event."""
     run_id = run.study.id
-    timeline = [tool_call_event(e) for e in run.ledger.all()] + [handoff_event(h) for h in run.handoffs]
+    entries = run.ledger.all()
+    timeline = ([tool_call_event(e) for e in entries] + [handoff_event(h) for h in run.handoffs]
+                + [d for d in (detail_event(e) for e in entries) if d] + list(getattr(run, "planning", []) or []))
     timeline.sort(key=lambda event: event["timestamp"] or "")  # stable: equal timestamps keep order
     timeline.append(citation_event(run.verified, run.complete, run.problems))
     return [AgentEvent(id=f"{run_id}-ev{i}", run_id=run_id, event_type=e["event_type"], message=e["message"],
@@ -60,8 +62,10 @@ def events_from_run(run: planner.PlannerRun) -> list[AgentEvent]:
 
 def _planner_kwargs(request: AskRequest) -> dict[str, Any]:
     """Tool mode, capped sample size and intent for one request."""
+    # AskRequest.mode is research | retrofit; a property id or street address is a one-building report.
+    intent = "property" if is_property_query(request.question) else request.mode
     return {"mode": "mock" if request.use_mock_tools else "auto",
-            "n": min(request.limit, MAX_AGENT_N), "intent": request.mode}
+            "n": min(request.limit, MAX_AGENT_N), "intent": intent}
 
 
 def _save(run: planner.PlannerRun) -> None:
@@ -100,9 +104,10 @@ async def ask_agent(request: AskRequest, replay: bool = Query(False, description
     saved = _showcase_for(request, replay)
     if saved is not None:
         try:
-            return await run_in_threadpool(showcase.response_from, saved)
+            replayed = await run_in_threadpool(showcase.response_from, saved)
         except Exception:  # noqa: BLE001
             raise HTTPException(status_code=503, detail=FAILURE_MESSAGE) from None
+        return JSONResponse(replayed.model_dump(mode="json"), headers=_replay_headers(saved))
     try:
         run = await run_in_threadpool(_run, request)
         return AskResponse(study=run.study, events=events_from_run(run))
@@ -128,6 +133,9 @@ def _replay_stream(saved: dict[str, Any], http_request: Request) -> StreamingRes
         except Exception:  # noqa: BLE001
             yield sse_frame("error", {"message": FAILURE_MESSAGE})
             return
+        # Tell the UI this is a recorded showcase run, never a live one.
+        yield sse_frame("replay", {"question_id": saved.get("question_id"), "generated_at": saved.get("generated_at"),
+                                   "message": "Offline showcase: replaying a recorded run, no live calls."})
         for event in response.events:
             if await http_request.is_disconnected():
                 return
@@ -137,7 +145,12 @@ def _replay_stream(saved: dict[str, Any], http_request: Request) -> StreamingRes
         yield sse_frame("evidence", {"evidence": saved.get("evidence") or []})
         yield sse_frame("result", response.model_dump(mode="json"))
 
-    return StreamingResponse(frames(), media_type="text/event-stream", headers=SSE_HEADERS)
+    return StreamingResponse(frames(), media_type="text/event-stream", headers={**SSE_HEADERS, **_replay_headers(saved)})
+
+
+def _replay_headers(saved: dict[str, Any]) -> dict[str, str]:
+    """Headers marking a replayed showcase response (with when the recorded run was made)."""
+    return {"X-CityLab-Replay": "true", "X-CityLab-Recorded-At": str(saved.get("generated_at") or "")}
 
 
 @router.post("/api/ask-stream")
@@ -217,7 +230,8 @@ def _correct(request: CorrectRequest) -> CorrectResponse:
     study, entry = result.run.study, result.regression_entry
     now = datetime.now(timezone.utc).isoformat()
     problems = verify_brief(study.brief_markdown, result.run.ledger)
-    complete = regression_ok(entry["result"])
+    complete = ranking_ok(entry["result"]) if entry["tool"] == "rank_buildings" else regression_ok(entry["result"])
+    calibration = calibration_summary()["fields"]
     fields = ", ".join(result.correction_entry["args"]["after"])
     raw = [
         {"event_type": "correction", "timestamp": now,
@@ -225,13 +239,21 @@ def _correct(request: CorrectRequest) -> CorrectResponse:
          "payload": {"study_id": study.id, "corrected_from": request.study_id,
                      "original_id": result.run.meta.get("original_id"), "measurement_id": request.measurement_id,
                      "evidence_id": result.correction_entry["id"], "previous_regression": result.previous_regression_entry["id"],
-                     "new_regression": entry["id"], "conclusion": result.conclusion, "changes": result.changes}},
+                     "new_regression": entry["id"], "conclusion": result.conclusion, "changes": result.changes,
+                     "recomputed": entry["tool"], "calibration": {f: calibration.get(f) for f in result.correction_entry["args"]["after"]}}},
         tool_call_event(entry),
+        *[d for d in [detail_event(e) for e in [getattr(result, "upgrade_entry", None)] if e] if d],
         citation_event(not problems and complete, complete, problems, now),
     ]
     events = [AgentEvent(id=f"{study.id}-ev{i}", run_id=study.id, event_type=e["event_type"], message=e["message"],
                          timestamp=e["timestamp"], payload=redact(e["payload"])) for i, e in enumerate(raw, start=1)]
     return CorrectResponse(study=study, events=events, corrected_measurement=result.corrected_measurement)
+
+
+@router.get("/api/calibration")
+def calibration() -> dict[str, Any]:
+    """Correction-history calibration per measured field (no model retraining)."""
+    return calibration_summary()
 
 
 @router.post("/api/correct", response_model=CorrectResponse)

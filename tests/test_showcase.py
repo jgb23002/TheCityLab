@@ -135,6 +135,7 @@ def test_cache_only_replays_ask_agent_offline_and_correction_works(
     body = AskResponse.model_validate(response.json())
     saved = json.loads((fake_showcase["root"] / "data" / "showcase" / "results" / "q1.json").read_text())
     assert body.study.id == saved["study"]["id"] and len(body.events) == len(saved["events"])
+    assert response.headers["x-citylab-replay"] == "true"
     mid = body.study.measurements[0].id
     corrected = client.post("/api/correct", json={"study_id": body.study.id, "measurement_id": mid,
                                                   "corrections": {"parking_space_count": 3}})
@@ -160,7 +161,9 @@ def test_replay_stream_sends_saved_events_with_delay_then_evidence_and_result(
         parsed = frames("".join(response.iter_text()))
     saved = json.loads((fake_showcase["root"] / "data" / "showcase" / "results" / "q1.json").read_text())
     kinds = [k for k, _ in parsed]
-    assert kinds[:-2] == [e["event_type"] for e in saved["events"]] and kinds[-2:] == ["evidence", "result"]
+    assert kinds[0] == "replay" and "recorded run" in parsed[0][1]["message"]  # never presented as live
+    assert kinds[1:-2] == [e["event_type"] for e in saved["events"]] and kinds[-2:] == ["evidence", "result"]
+    assert response.headers["x-citylab-replay"] == "true"
     assert sleeps == [0.15] * len(saved["events"])
     assert parsed[-2][1]["evidence"] == saved["evidence"]
     assert AskResponse.model_validate(parsed[-1][1]).study.id == saved["study"]["id"]
