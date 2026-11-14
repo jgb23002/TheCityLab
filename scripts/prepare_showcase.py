@@ -29,11 +29,39 @@ FIELD_SOURCES = {
     "max_rent": "apartment-listing.maxRent; dollars/month; zero or missing becomes unknown",
     "vacancy_percent": "commercial-property.propertyApartment.vacancyPercent; percent, including zero",
     "surface_parking_spaces": "sum(commercial-property.parking[].totalSpaces where parkingType in [1, 2]); unknown if absent or incomplete",
+    "gross_typical_floor_sq_ft": "commercial-property.grossTypicalFloorSquareFeet",
+    "num_stories_above_grade": "commercial-property.numStoriesAboveGrade",
+    "floor_areas_sq_ft": "commercial-property.floors[].floorSize.squareFeet; JSON list, per floor, not summed",
+    "building_height_ft": "commercial-property.buildingHeightInFeet",
+    "lot_size": "commercial-property.lotSize",
+    "lot_size_measurement_type": "commercial-property.lotSizeMeasurementType",
+    "building_construction_material": "commercial-property.buildingConstructionMaterial",
 }
 INTEGER_FIELDS = (
     "property_id", "market_id", "property_type", "total_num_units", "year_built",
     "building_class", "apartment_listing_id", "surface_parking_spaces",
+    "num_stories_above_grade", "lot_size_measurement_type", "building_construction_material",
 )
+# Geometry fields are enrichment only: they never gate eligibility or affect
+# which properties are sampled, so adding them cannot change the selected set.
+GEOMETRY_FIELDS = (
+    "gross_typical_floor_sq_ft", "num_stories_above_grade", "floor_areas_sq_ft",
+    "building_height_ft", "lot_size", "lot_size_measurement_type",
+    "building_construction_material",
+)
+
+
+def floor_areas_json(floors: object) -> str | None:
+    """Return floors[].floorSize.squareFeet as a JSON list, or None if none are known."""
+    if not isinstance(floors, list):
+        return None
+    areas = [
+        finite_number(floor["floorSize"]["squareFeet"])
+        for floor in floors
+        if isinstance(floor, dict) and isinstance(floor.get("floorSize"), dict)
+    ]
+    areas = [a for a in areas if a is not None]
+    return json.dumps(areas) if areas else None
 
 
 def finite_number(value: object) -> float | None:
@@ -117,6 +145,13 @@ def prepare_candidates(properties: pd.DataFrame, listings: pd.DataFrame) -> pd.D
             "max_rent": rent if rent is not None and rent > 0 else None,
             "vacancy_percent": vacancy if vacancy is not None and 0 <= vacancy <= 100 else None,
             "surface_parking_spaces": surface_parking_spaces(record.get("parking")),
+            "gross_typical_floor_sq_ft": finite_number(record.get("grossTypicalFloorSquareFeet")),
+            "num_stories_above_grade": finite_number(record.get("numStoriesAboveGrade")),
+            "floor_areas_sq_ft": floor_areas_json(record.get("floors")),
+            "building_height_ft": finite_number(record.get("buildingHeightInFeet")),
+            "lot_size": finite_number(record.get("lotSize")),
+            "lot_size_measurement_type": finite_number(record.get("lotSizeMeasurementType")),
+            "building_construction_material": finite_number(record.get("buildingConstructionMaterial")),
         })
     candidates = pd.DataFrame(rows, columns=list(FIELD_SOURCES))
     for column in INTEGER_FIELDS:

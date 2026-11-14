@@ -13,8 +13,9 @@ def offline(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 
 
 def test_fallback_payback_math_for_houston() -> None:
-    b = Building(id=1, market_id=14, latitude=29.7, longitude=-95.4, name="Test Tower")
-    m = Measurement(id="m-1", property_id=1, roof_area_sq_ft=10_000, observations={"rooftop_obstructions": "few"})
+    b = Building(id=1, market_id=14, latitude=29.7, longitude=-95.4, name="Test Tower",
+                 gross_typical_floor_sq_ft=10_000)
+    m = Measurement(id="m-1", property_id=1, observations={"rooftop_obstructions": "few"})
     r = solar.estimate_solar(b, m)
     assert r.usable_roof_area_sq_ft == 6000
     assert r.capacity_kw == 72.0
@@ -27,15 +28,57 @@ def test_fallback_payback_math_for_houston() -> None:
     assert any("regional average" in c for c in r.caveats)
 
 
+def test_estimate_solar_uses_parcel_bearing_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+
+    def fake_pvwatts(lat, lon, system_kw, azimuth_deg=solar.PANEL_AZIMUTH_DEG):
+        captured["azimuth"] = azimuth_deg
+        return {"ac_annual": 50_000.0, "ac_monthly": None, "station_info": None}
+
+    monkeypatch.setattr(solar, "pvwatts_result", fake_pvwatts)
+    b = Building(id=15, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000)
+    m = Measurement(id="m-15", property_id=15, observations={"parcel_bearing_deg": 37.5})
+    solar.estimate_solar(b, m)
+    assert captured["azimuth"] == 37.5
+
+
+def test_estimate_solar_falls_back_to_due_south_without_bearing(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+
+    def fake_pvwatts(lat, lon, system_kw, azimuth_deg=solar.PANEL_AZIMUTH_DEG):
+        captured["azimuth"] = azimuth_deg
+        return {"ac_annual": 50_000.0, "ac_monthly": None, "station_info": None}
+
+    monkeypatch.setattr(solar, "pvwatts_result", fake_pvwatts)
+    b = Building(id=16, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000)
+    r = solar.estimate_solar(b)
+    assert captured["azimuth"] == solar.PANEL_AZIMUTH_DEG
+    assert r.assumptions["azimuth_source"].startswith("assumed due south")
+
+
+def test_estimate_solar_runs_without_any_vision_result() -> None:
+    """Vision is optional enrichment only; the estimate must not require it."""
+    b = Building(id=14, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000)
+    r = solar.estimate_solar(b)
+    assert r.capacity_kw is not None
+    assert r.usable_roof_area_sq_ft == 6000  # default "none" obstruction fraction (0.60) applies
+
+
 def test_pvwatts_result_is_used_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(solar, "pvwatts_annual_kwh", lambda lat, lon, kw: 100_000.0)
-    r = solar.estimate_solar(Building(id=2, market_id=20, latitude=34, longitude=-118),
-                             Measurement(id="m-2", roof_area_sq_ft=10_000))
+    monkeypatch.setattr(solar, "pvwatts_result", lambda lat, lon, kw, azimuth_deg=solar.PANEL_AZIMUTH_DEG: {
+        "ac_annual": 100_000.0, "ac_monthly": [8_000.0] * 12,
+        "station_info": {"lat": 34.05, "lon": -118.25, "distance": 1200, "elev": 71},
+    })
+    r = solar.estimate_solar(Building(id=2, market_id=20, latitude=34, longitude=-118,
+                                      gross_typical_floor_sq_ft=10_000))
     assert r.annual_energy_kwh == 100_000
     assert r.assumptions["energy_source"] == "NREL PVWatts v8"
+    assert r.assumptions["ac_monthly_kwh"] == [8_000.0] * 12
+    assert r.assumptions["weather_station"]["distance"] == 1200
 
 
 def test_missing_roof_gives_no_estimate() -> None:
+    """No footprint fields on the Building (GBA alone, with no stories to divide by) means no estimate."""
     r = solar.estimate_solar(Building(id=3, building_size_sq_ft=50_000), Measurement(id="m-3"))
     assert r.capacity_kw is None and r.score is None and r.caveats
 

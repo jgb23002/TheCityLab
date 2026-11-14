@@ -23,6 +23,13 @@ class Building(BaseModel):
     max_rent: float | None = None
     vacancy_percent: float | None = None
     surface_parking_spaces: int | None = None
+    num_stories_above_grade: int | None = None
+    gross_typical_floor_sq_ft: float | None = None
+    floor_areas_sq_ft: list[float] | None = None
+    building_height_ft: float | None = None
+    lot_size: float | None = None
+    lot_size_measurement_type: int | None = None
+    building_construction_material: int | None = None
 
 
 class AerialImage(BaseModel):

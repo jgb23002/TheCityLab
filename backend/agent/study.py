@@ -97,8 +97,10 @@ def _measure(building: Building, use_mock: bool) -> tuple[Measurement, bool]:
             raise StudyUnavailable("Vision analysis was unavailable. Check the vision model and provider settings, then retry.")
     if result.property_id != building.id:
         raise StudyUnavailable("The measurement does not match the sampled building.")
+    bearing = None if use_mock else vexcel.parcel_bearing_deg(parcel)
     result = result.model_copy(update={"observations": {
         **(result.observations or {}), "vexcel_property_info_id": parcel.id,
+        "parcel_bearing_deg": bearing,
     }})
     if not use_mock and not (result.observations or {}).get("error"):
         path = config.CACHE_DIR / "vision" / f"m-{building.id}.json"

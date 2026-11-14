@@ -24,7 +24,14 @@
     "apartment_listing_id": "apartment-listing.id; joined on apartment-listing.propertyId == commercial-property.id",
     "max_rent": "apartment-listing.maxRent; dollars/month; zero or missing becomes unknown",
     "vacancy_percent": "commercial-property.propertyApartment.vacancyPercent; percent, including zero",
-    "surface_parking_spaces": "sum(commercial-property.parking[].totalSpaces where parkingType in [1, 2]); unknown if absent or incomplete"
+    "surface_parking_spaces": "sum(commercial-property.parking[].totalSpaces where parkingType in [1, 2]); unknown if absent or incomplete",
+    "gross_typical_floor_sq_ft": "commercial-property.grossTypicalFloorSquareFeet",
+    "num_stories_above_grade": "commercial-property.numStoriesAboveGrade",
+    "floor_areas_sq_ft": "commercial-property.floors[].floorSize.squareFeet; JSON list, per floor, not summed",
+    "building_height_ft": "commercial-property.buildingHeightInFeet",
+    "lot_size": "commercial-property.lotSize",
+    "lot_size_measurement_type": "commercial-property.lotSizeMeasurementType",
+    "building_construction_material": "commercial-property.buildingConstructionMaterial"
   },
   "cities": {
     "houston": {

@@ -16,6 +16,7 @@ import requests
 
 from backend import config
 from backend.schemas import Building, Measurement, SolarResult
+from backend.tools import geometry
 
 log = logging.getLogger(__name__)
 
@@ -42,46 +43,84 @@ def _cache_path(params: dict[str, Any]):
     return config.CACHE_DIR / "nrel" / f"pvwatts_{digest}.json"
 
 
-def pvwatts_annual_kwh(lat: float, lon: float, system_kw: float) -> float | None:
-    """Return PVWatts yearly AC kWh for a roof system, or None if unavailable."""
+def pvwatts_result(
+    lat: float, lon: float, system_kw: float, azimuth_deg: float = PANEL_AZIMUTH_DEG,
+) -> dict[str, Any] | None:
+    """Return the cached/fetched PVWatts result (annual + monthly kWh, station info), or None."""
     params = {
         "system_capacity": round(system_kw, 2), "module_type": 0, "losses": SYSTEM_LOSSES_PCT,
-        "array_type": 1, "tilt": PANEL_TILT_DEG, "azimuth": PANEL_AZIMUTH_DEG,
+        "array_type": 1, "tilt": PANEL_TILT_DEG, "azimuth": round(azimuth_deg, 1),
         "lat": round(lat, 5), "lon": round(lon, 5),
     }
     path = _cache_path(params)
     if path.exists():
-        return json.loads(path.read_text())["ac_annual"]
+        return json.loads(path.read_text())
     if config.USE_CACHE_ONLY or not config.NREL_API_KEY:
         return None
     try:
         resp = requests.get(PVWATTS_URL, params={**params, "api_key": config.NREL_API_KEY}, timeout=20)
         resp.raise_for_status()
-        ac_annual = float(resp.json()["outputs"]["ac_annual"])
+        body = resp.json()
+        outputs = body["outputs"]
+        result = {
+            "params": params,
+            "ac_annual": float(outputs["ac_annual"]),
+            "ac_monthly": [float(v) for v in outputs.get("ac_monthly", [])] or None,
+            "station_info": body.get("station_info"),
+        }
     except Exception as exc:  # never log the URL: it contains the key
         log.warning("PVWatts failed (%s); using fallback yield", type(exc).__name__)
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"params": params, "ac_annual": ac_annual}))
-    return ac_annual
+    path.write_text(json.dumps(result))
+    return result
+
+
+def pvwatts_annual_kwh(lat: float, lon: float, system_kw: float) -> float | None:
+    """Return PVWatts yearly AC kWh for a roof system, or None if unavailable."""
+    result = pvwatts_result(lat, lon, system_kw)
+    return result["ac_annual"] if result else None
 
 
 def payback(
     lat: float | None, lon: float | None, roof_area_sq_ft: float, market_id: int | None = None,
-    obstructions: str | None = None,
+    obstructions: str | None = None, bearing_deg: float | None = None,
 ) -> dict[str, Any]:
-    """Size a rooftop system for one roof and return output, cost, savings and payback."""
+    """Size a rooftop system for one roof and return output, cost, savings and payback.
+
+    ``bearing_deg`` is the roof's azimuth (e.g. from
+    ``backend.tools.vexcel.parcel_bearing_deg``); when unavailable, the stated
+    due-south assumption (``PANEL_AZIMUTH_DEG``) is used instead and noted.
+    """
     usable_fraction = USABLE_FRACTION.get(obstructions, USABLE_FRACTION[None])
     usable = roof_area_sq_ft * usable_fraction
     system_kw = usable * WATTS_PER_USABLE_SQ_FT / 1000
-    kwh = pvwatts_annual_kwh(lat, lon, system_kw) if lat is not None and lon is not None and system_kw >= 0.05 else None
+    azimuth = bearing_deg if bearing_deg is not None else PANEL_AZIMUTH_DEG
+    pvwatts = (pvwatts_result(lat, lon, system_kw, azimuth)
+               if lat is not None and lon is not None and system_kw >= 0.05 else None)
     source = "NREL PVWatts v8"
-    if kwh is None:
+    if pvwatts is None:
         kwh = system_kw * FALLBACK_KWH_PER_KW.get(market_id, DEFAULT_KWH_PER_KW)
         source = "fallback kWh per kW (PVWatts unavailable)"
+    else:
+        kwh = pvwatts["ac_annual"]
     price = PRICE_PER_KWH.get(market_id, DEFAULT_PRICE_PER_KWH)
     cost = system_kw * 1000 * INSTALLED_COST_PER_WATT * (1 - INCENTIVE_PERCENT / 100)
     savings = kwh * price
+    assumptions = {
+        "usable_fraction_of_roof": usable_fraction,
+        "watts_per_usable_sq_ft": WATTS_PER_USABLE_SQ_FT,
+        "installed_cost_usd_per_watt": INSTALLED_COST_PER_WATT,
+        "incentive_percent": INCENTIVE_PERCENT,
+        "electricity_price_usd_per_kwh": price,
+        "tilt_deg": PANEL_TILT_DEG, "azimuth_deg": azimuth,
+        "azimuth_source": "Vexcel parcel polygon" if bearing_deg is not None else "assumed due south (no parcel polygon available)",
+        "system_losses_pct": SYSTEM_LOSSES_PCT,
+        "energy_source": source,
+    }
+    if pvwatts:
+        assumptions["ac_monthly_kwh"] = pvwatts.get("ac_monthly")
+        assumptions["weather_station"] = pvwatts.get("station_info")
     return {
         "usable_roof_area_sq_ft": round(usable),
         "capacity_kw": round(system_kw, 1),
@@ -89,38 +128,34 @@ def payback(
         "estimated_cost_usd": round(cost),
         "estimated_annual_savings_usd": round(savings),
         "estimated_payback_years": round(cost / savings, 1) if savings > 0 else None,
-        "assumptions": {
-            "usable_fraction_of_roof": usable_fraction,
-            "watts_per_usable_sq_ft": WATTS_PER_USABLE_SQ_FT,
-            "installed_cost_usd_per_watt": INSTALLED_COST_PER_WATT,
-            "incentive_percent": INCENTIVE_PERCENT,
-            "electricity_price_usd_per_kwh": price,
-            "tilt_deg": PANEL_TILT_DEG, "azimuth_deg": PANEL_AZIMUTH_DEG,
-            "system_losses_pct": SYSTEM_LOSSES_PCT,
-            "energy_source": source,
-        },
+        "assumptions": assumptions,
     }
 
 
-def estimate_solar(building: Building, vision_result: Measurement) -> SolarResult:
+def estimate_solar(building: Building, vision_result: Measurement | None = None) -> SolarResult:
     """Estimate rooftop solar potential with explicit units and assumptions.
 
-    Uses the image-measured roof area only (never building floor area). The
-    Payback is exposed in ``payback_years`` for the planner. The existing
-    assumptions and score fields retain their payback/cost/savings values.
+    Roof area comes from CoStar footprint math (``backend.tools.geometry``),
+    never from a vision model: per the project's "math first, model last" rule,
+    arithmetic over CoStar's own fields is preferred over asking a model to
+    measure a roof from a photo. ``vision_result`` is optional and, when given,
+    is used only for caveats a formula can't derive (existing rooftop
+    obstructions or panels visible in an aerial image).
     """
     sid = f"solar-{building.id}"
-    obs = vision_result.observations or {}
-    roof = vision_result.roof_area_sq_ft
+    obs = (vision_result.observations or {}) if vision_result else {}
+    roof = geometry.roof_footprint_sq_ft(building)
     if not roof or roof <= 0:
         return SolarResult(id=sid, property_id=building.id,
-                           caveats=["No measured roof area for this building, so no solar estimate was made."])
+                           caveats=["No roof footprint could be computed for this building, so no solar estimate was made."])
     obstructions = obs.get("rooftop_obstructions")
+    bearing = obs.get("parcel_bearing_deg")
     est = payback(building.latitude, building.longitude, roof, building.market_id,
-                  obstructions if isinstance(obstructions, str) else None)
+                  obstructions if isinstance(obstructions, str) else None,
+                  bearing if isinstance(bearing, (int, float)) else None)
     caveats = [
         "All figures are estimates for screening, not a quote.",
-        "Roof area is measured from an aerial image and may include roof areas that cannot hold panels.",
+        "Roof area is estimated from CoStar building footprint fields (typical floor size, floor areas or gross building area divided by stories), not a measured roof photo.",
         "Payback is simple payback: no financing, degradation, demand charges, O&M or tax incentives.",
     ]
     if obs.get("solar_panels_present") is True:
@@ -131,7 +166,7 @@ def estimate_solar(building: Building, vision_result: Measurement) -> SolarResul
                    "estimated_cost_usd": est["estimated_cost_usd"],
                    "estimated_annual_savings_usd": est["estimated_annual_savings_usd"],
                    "estimated_payback_years": est["estimated_payback_years"],
-                   "measured_roof_area_sq_ft": roof}
+                   "estimated_roof_area_sq_ft": roof}
     return SolarResult(
         id=sid, property_id=building.id,
         usable_roof_area_sq_ft=est["usable_roof_area_sq_ft"], capacity_kw=est["capacity_kw"],
