@@ -56,6 +56,24 @@ def test_estimate_solar_falls_back_to_due_south_without_bearing(monkeypatch: pyt
     assert r.assumptions["azimuth_source"].startswith("assumed due south")
 
 
+def test_estimate_solar_prefers_vexcel_measured_roof_over_costar_math() -> None:
+    b = Building(id=17, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=99_999.0)
+    m = Measurement(id="m-17", property_id=17, roof_area_sq_ft=12_345.0,
+                     observations={"source": "Vexcel precomputed parcel attributes"})
+    r = solar.estimate_solar(b, m)
+    assert r.assumptions["estimated_roof_area_sq_ft"] == 12_345.0
+    assert r.assumptions["roof_area_source"] == "Vexcel detected structure footprint"
+
+
+def test_estimate_solar_ignores_unlabeled_roof_area_and_uses_costar_math() -> None:
+    """A roof_area_sq_ft without the Vexcel-measurement source tag is a vision reading, not used."""
+    b = Building(id=18, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000.0)
+    m = Measurement(id="m-18", property_id=18, roof_area_sq_ft=99_999.0, observations={})
+    r = solar.estimate_solar(b, m)
+    assert r.assumptions["estimated_roof_area_sq_ft"] == 10_000.0
+    assert r.assumptions["roof_area_source"].startswith("CoStar building footprint")
+
+
 def test_estimate_solar_runs_without_any_vision_result() -> None:
     """Vision is optional enrichment only; the estimate must not require it."""
     b = Building(id=14, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000)
