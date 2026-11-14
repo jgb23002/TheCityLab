@@ -66,3 +66,11 @@ def test_writer_controls_power_image_area_and_start_rules() -> None:
     assert "a small square around each address point" in text
     assert 'Start your reply at "## Question"' in text
     assert "80" not in text
+
+
+def test_writer_never_concludes_without_a_regression_result() -> None:
+    """With no successful regression the writer must report an incomplete study."""
+    text = prompts.WRITER_PROMPT
+    assert "NEVER state a conclusion" in text and "study is incomplete" in text
+    assert "statistician" in prompts.ORCHESTRATOR_PROMPT and "call it\n   ONCE" in prompts.ORCHESTRATOR_PROMPT
+    assert "Never pass buildings or measurements" in prompts.STATISTICIAN_PROMPT

@@ -118,6 +118,38 @@ def save_cached_measurement(measurement: Measurement) -> bool:
     return True
 
 
+# Complete-case sampling: stats.run_study drops rows missing any of these controls (and
+# building classes outside A/B/C/F), so the sample keeps only buildings that can enter
+# the regression. sample_buildings scans limit x SCAN_FACTOR candidates (by id).
+COMPLETE_FIELDS = ("total_num_units", "year_built", "building_class")
+_VALID_CLASSES = (1, 2, 3, 4)
+SCAN_FACTOR, MIN_SCAN, MAX_SCAN = 5, 50, 500
+
+
+def _is_complete(building: Building, required: list[str]) -> bool:
+    """True when every required field is known (and the class is A, B, C or F)."""
+    if any(getattr(building, f, None) is None for f in required):
+        return False
+    return building.building_class in _VALID_CLASSES
+
+
+def infer_study_fields(question: str | None) -> tuple[str | None, str | None]:
+    """Return (outcome, predictor) as stats.run_study infers them from the question words."""
+    if not question:
+        return None, None
+    from backend.tools import stats  # read-only use of the tool's own keyword tables
+
+    return stats._infer(question, stats._OUTCOME_WORDS), stats._infer(question, stats._PREDICTOR_WORDS)
+
+
+def regression_ok(result: dict[str, Any]) -> bool:
+    """True when a run_regression result has its predictor's coefficient and a sample size."""
+    predictor = result.get("predictor")
+    coefficients = result.get("coefficients") or {}
+    return ("error" not in result and bool(predictor) and coefficients.get(predictor) is not None
+            and bool(result.get("sample_size")))
+
+
 def _as_result(name: str, value: Any) -> dict[str, Any]:
     """Validate a tool return against its schema and convert it to a JSON dict."""
     adapter = TypeAdapter(BINDINGS[name][2])
@@ -186,27 +218,81 @@ class _Runner:
             self.on_call(entry)
         raise ToolException(f"{name} failed ({entry['id']}): {message}") from None
 
-    def vision(self, property_id: int, image_path: str) -> dict[str, Any]:
-        """vision_inspect with the data/cache/vision/m-<id>.json cache for real measurements.
+    def sample(self, market_id: int, property_type: int, limit: int, outcome: str | None) -> dict[str, Any]:
+        """sample_buildings restricted to complete cases: the first *limit* buildings (by id)
+        with every regression control and, when known, the question's outcome field."""
+        required = [*COMPLETE_FIELDS, *([outcome] if outcome else [])]
+        scan = min(max(limit * SCAN_FACTOR, MIN_SCAN), MAX_SCAN)
+        args = {"market_id": market_id, "property_type": property_type, "limit": limit,
+                "scanned_limit": scan, "required_fields": required}
+        try:
+            value, source = self._call("sample_buildings", {"market_id": market_id,
+                                                            "property_type": property_type, "limit": scan})
+            candidates = TypeAdapter(list[Building]).validate_python(value)
+        except NotImplementedError:
+            raise
+        except Exception as exc:
+            self._fail("sample_buildings", args, exc)
+        complete = [b for b in candidates if _is_complete(b, required)]
+        result = _as_result("sample_buildings", complete[:limit])
+        result.update({"candidates_scanned": len(candidates), "excluded_incomplete": len(candidates) - len(complete)})
+        return self._record("sample_buildings", args, result, source)
 
-        A valid cached measurement is returned (source "real", cached) without fetching
-        imagery or calling the model. With USE_CACHE_ONLY a miss is an error. Only
-        successful real measurements (no observations.error / is_mock) are saved.
+    def vision(self, property_id: int, image_path: str) -> dict[str, Any]:
+        """vision_inspect: resolve the image, then use the vision cache or the model.
+
+        An empty image_path first calls get_aerial for the sampled property (its own
+        ledger entry); if no image can be fetched, a ledger error is recorded and the
+        call fails. "" is never passed to vision. A valid cached real measurement
+        (data/cache/vision/m-<id>.json) is then returned (source "real", cached) without
+        a model call; with USE_CACHE_ONLY a miss is an error. Only successful real
+        measurements (no observations.error / is_mock) are saved.
         """
+        path = image_path.strip() if image_path else ""
+        if not path:
+            path = self.image_path_for(property_id)
+        args = {"image_path": path, "property_id": property_id}
         if self.mode != "mock":
             cached = load_cached_measurement(property_id)
             if cached is not None:
-                args = {"image_path": image_path, "property_id": property_id}
                 return self._record("vision_inspect", args, _as_result("vision_inspect", cached), "real", cached=True)
             if config.USE_CACHE_ONLY:
-                self._fail("vision_inspect", {"image_path": image_path, "property_id": property_id},
+                self._fail("vision_inspect", args,
                            CacheMiss(f"no cached vision measurement for {property_id} and USE_CACHE_ONLY=true"))
-        path = image_path or self.image_path_for(property_id)
-        args = {"image_path": path, "property_id": property_id}
         out = self.run("vision_inspect", args, args)
         if out["source"] == "real":
             save_cached_measurement(Measurement.model_validate(self.ledger.get(out["evidence_id"])["result"]))
         return out
+
+    def regression(self, question: str, model_rows: int) -> dict[str, Any]:
+        """run_regression over exactly the inspected properties, joined by property_id.
+
+        Idempotent per run: a successful regression already in the ledger for the same
+        outcome and predictor is returned (same evidence id) instead of running again.
+        """
+        outcome, predictor = infer_study_fields(question)
+        for entry in reversed(self.ledger.all()):
+            result = entry["result"]
+            if (entry["tool"] == "run_regression" and regression_ok(result)
+                    and (outcome, predictor) == (result.get("outcome"), result.get("predictor"))):
+                log.info("run_regression reused %s for outcome=%s predictor=%s", entry["id"], outcome, predictor)
+                visible = {k: v for k, v in result.items() if k not in _HIDDEN_FROM_MODEL}
+                return {**visible, "evidence_id": entry["id"], "source": entry["source"], "reused": True}
+
+        measured = {m.property_id: m for m in self.measurements()}
+        sampled = self.sampled_buildings()
+        buildings = [b for b in sampled if b.id in measured]
+        measurements = [measured[b.id] for b in buildings]
+        record = {"question": question, "property_ids": [b.id for b in buildings],
+                  "sampled_buildings": len(sampled), "inspected_properties": len(measured),
+                  "joined_rows": len(buildings), "measurement_count": len(measurements),
+                  "model_supplied_rows_ignored": model_rows}
+        log.info("run_regression joined %d rows (%d sampled, %d inspected)", len(buildings), len(sampled), len(measured))
+        if not buildings:
+            self._fail("run_regression", record,
+                       ValueError("no inspected properties match the sampled buildings; run sampler and inspector first"))
+        return self.run("run_regression", {"question": question, "buildings": buildings,
+                                           "measurements": measurements}, record)
 
     # ---- ledger lookups used to fill omitted arguments --------------------------------
 
@@ -227,33 +313,40 @@ class _Runner:
         return list(latest.values())
 
     def image_path_for(self, property_id: int) -> str:
-        """Fetch (and record) the aerial image for a sampled building."""
+        """Fetch (and record) the aerial image for a sampled building; fail loudly without one."""
         building = next((b for b in self.sampled_buildings() if b.id == property_id), None)
         if building is None or building.latitude is None or building.longitude is None:
-            raise ToolException(f"Property {property_id} is not a geocoded building from sample_buildings.")
+            self._fail("get_aerial", {"property_id": property_id},
+                       ValueError(f"property {property_id} is not a geocoded building from sample_buildings"))
         args = {"lat": building.latitude, "lon": building.longitude, "property_id": property_id}
         image = self.run("get_aerial", args, args)
-        return str(image["image_path"])
+        path = str(image.get("image_path") or "").strip()
+        if not path:
+            self._fail("vision_inspect", {"image_path": "", "property_id": property_id},
+                       ValueError(f"get_aerial ({image['evidence_id']}) returned no image for {property_id}"))
+        return path
 
 
 def get_tools(
     mode: str | None, ledger: Ledger, n: int = DEFAULT_N,
-    on_call: Callable[[dict[str, Any]], None] | None = None,
+    on_call: Callable[[dict[str, Any]], None] | None = None, question: str | None = None,
 ) -> list[BaseTool]:
     """Return the CityLab LangChain tools bound to one run's ledger.
 
     Tools: sample_buildings, vexcel_detect, vision_inspect, run_regression,
     solar_payback, draft_email, read_evidence and list_evidence. *n* is the
     default sample size (capped at MAX_N). *on_call* receives each new entry.
+    *question* (the run's research question) tells sampling which outcome must be known.
     """
     runner = _Runner(resolve_mode(mode), ledger, on_call)
     default_n = max(1, min(int(n), MAX_N))
+    outcome, _ = infer_study_fields(question)
 
     def sample_buildings(market_id: int, property_type: int, limit: int = default_n) -> dict[str, Any]:
         """Sample buildings from CoStar for a market (Houston 14, Los Angeles 20) and
-        property type (apartments/multifamily 11). limit is capped at 60."""
-        args = {"market_id": market_id, "property_type": property_type, "limit": max(1, min(limit, MAX_N))}
-        return runner.run("sample_buildings", args, args)
+        property type (apartments/multifamily 11). limit is capped at 60. Only complete
+        cases are returned: buildings with units, year built, class and the outcome."""
+        return runner.sample(market_id, property_type, max(1, min(limit, MAX_N)), outcome)
 
     def vexcel_detect(lat: float, lon: float) -> dict[str, Any]:
         """Get Vexcel's precomputed parcel and structure evidence for a building's location."""
@@ -268,13 +361,12 @@ def get_tools(
     def run_regression(
         question: str, buildings: list[Building] | None = None, measurements: list[Measurement] | None = None,
     ) -> dict[str, Any]:
-        """Fit the study regression. Name the outcome and predictor in question. Omit
-        buildings and measurements to use this run's sampled and inspected records."""
-        b = buildings if buildings else runner.sampled_buildings()
-        m = measurements if measurements is not None else runner.measurements()
-        record = {"question": question, "property_ids": [x.id for x in b],
-                  "measurement_count": len(m)}
-        return runner.run("run_regression", {"question": question, "buildings": b, "measurements": m}, record)
+        """Fit the study regression. Name the outcome and predictor in question. Do not
+        pass buildings or measurements: the tool always uses this run's sampled buildings
+        and inspected measurements from the ledger, joined by property_id (any values
+        passed are ignored). Calling it again for the same outcome and predictor returns
+        the first successful result."""
+        return runner.regression(question, len(buildings or []) + len(measurements or []))
 
     def solar_payback(building: Building, vision_result: Measurement) -> dict[str, Any]:
         """Estimate rooftop solar capacity, energy and simple payback for one building."""

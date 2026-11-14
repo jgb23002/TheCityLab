@@ -27,7 +27,9 @@ from pydantic import JsonValue
 from backend.agent import prompts
 from backend.agent.citations import verify_brief
 from backend.agent.evidence import Ledger
-from backend.agent.registry import DEFAULT_N, MAX_N, MODES, get_tools, redact, resolve_mode, short_args
+from backend.agent.registry import (
+    DEFAULT_N, MAX_N, MODES, get_tools, redact, regression_ok, resolve_mode, short_args,
+)
 from backend.llm import get_chat_model
 from backend.schemas import Building, Measurement, StatsResult, StudyResult
 
@@ -73,11 +75,12 @@ class PlannerRun:
     verified: bool
     problems: list[str] = field(default_factory=list)
     handoffs: list[dict[str, str]] = field(default_factory=list)  # {subagent, task, ts}
+    complete: bool = True  # False when a required step (e.g. a regression result) is missing
 
     def to_json(self) -> dict[str, JsonValue]:
         """Return the study, ledger and verification result as JSON data."""
         return {"study": self.study.model_dump(mode="json"), "ledger": self.ledger.to_json(),
-                "verified": self.verified, "problems": list(self.problems)}
+                "verified": self.verified, "complete": self.complete, "problems": list(self.problems)}
 
 
 def build_agent(tools: Sequence[BaseTool], model: BaseChatModel | str) -> Any:
@@ -173,10 +176,29 @@ def _problems(brief: str, ledger: Ledger) -> list[str]:
     return problems
 
 
+REGRESSION_INCOMPLETE = "Study incomplete: regression did not produce a result"
+
+
+def _step_done(entry: dict[str, Any]) -> bool:
+    """A step counts only if it succeeded; a regression must also have produced a result."""
+    if "error" in entry["result"]:
+        return False
+    return regression_ok(entry["result"]) if entry["tool"] == "run_regression" else True
+
+
 def missing_steps(ledger: Ledger) -> list[str]:
-    """Return REQUIRED_STEPS tools with no successful (non-error) ledger entry."""
-    done = {e["tool"] for e in ledger.all() if "error" not in e["result"]}
+    """Return REQUIRED_STEPS tools with no successful ledger entry.
+
+    run_regression counts only when its result contains the predictor's coefficient
+    and a sample_size (a StatsResult with findings.error is not a result).
+    """
+    done = {e["tool"] for e in ledger.all() if _step_done(e)}
     return [tool for tool, _ in REQUIRED_STEPS if tool not in done]
+
+
+def _incomplete_caveat(step: str) -> str:
+    """Return the caveat for one missing required step."""
+    return REGRESSION_INCOMPLETE if step == "run_regression" else f"Study incomplete: {step} was not run."
 
 
 def _study(question: str, brief: str, ledger: Ledger, caveats: list[str]) -> StudyResult:
@@ -190,7 +212,9 @@ def _study(question: str, brief: str, ledger: Ledger, caveats: list[str]) -> Stu
             m = Measurement.model_validate(e["result"])
             latest[m.property_id] = m
     regressions = [e for e in entries if e["tool"] == "run_regression"]
-    stats = StatsResult.model_validate(regressions[-1]["result"]) if regressions else None
+    successful = [e for e in regressions if regression_ok(e["result"])]
+    chosen = (successful or regressions)[-1] if regressions else None
+    stats = StatsResult.model_validate(chosen["result"]) if chosen else None
     is_mock = any(e["source"] == "mock" for e in ledger.all())
     all_caveats = list((stats.caveats if stats else None) or [])
     if is_mock:
@@ -213,7 +237,7 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
     tool_mode = resolve_mode(mode)
     n = max(1, min(int(n), MAX_N))
     ledger = Ledger()
-    tools = get_tools(tool_mode, ledger, n=n, on_call=_print_tool_call)
+    tools = get_tools(tool_mode, ledger, n=n, on_call=_print_tool_call, question=question)
     agent = (agent_factory or _default_factory)(tools)
     handoffs: list[dict[str, str]] = []
     run_config = {"callbacks": [_HandOffPrinter(handoffs)], "recursion_limit": 1000}
@@ -227,10 +251,11 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         owners = dict(REQUIRED_STEPS)
         names = ", ".join(missing)
         who = ", then ".join(owners[m] for m in missing)
-        print(f"STEP GUARD: {names} was not run; asking the orchestrator once to run it.", flush=True)
+        print(f"STEP GUARD: {names} was not run or produced no result; asking the orchestrator once.", flush=True)
         guard = HumanMessage(content=(
-            f"The study is incomplete: {names} was not run. Delegate to the {who} now, then to "
-            "the writer for an updated brief that uses the new evidence. Return only the brief."))
+            f"The study is incomplete: {names} was not run or did not produce a result. Delegate to "
+            f"the {who} now, then to the writer for an updated brief that uses the new evidence. "
+            "Return only the brief."))
         state = agent.invoke({"messages": [*messages, guard]}, config=run_config)
         messages = list(state.get("messages", []))
         missing = missing_steps(ledger)
@@ -250,23 +275,30 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         brief = str(redact(_brief_from(list(state.get("messages", [])))))
         problems = _problems(brief, ledger)
 
-    caveats = [f"Study incomplete: {step} was not run." for step in missing]
+    incomplete = [_incomplete_caveat(step) for step in missing]
+    caveats = list(incomplete)
     if problems:
         caveat = "Unverified numbers: " + "; ".join(problems)
         caveats.append(caveat)
         brief = brief.rstrip() + "\n\n**Unverified numbers** (failed the automatic citation check):\n" + \
             "\n".join(f"- {p}" for p in problems) + "\n"
-    if missing:
-        brief = brief.rstrip() + "\n\n" + "\n".join(f"**{c}**" for c in caveats if c.startswith("Study incomplete")) + "\n"
+    if incomplete:
+        brief = brief.rstrip() + "\n\n" + "\n".join(f"**{c}**" for c in incomplete) + "\n"
     study = _study(question, brief, ledger, caveats)
     return PlannerRun(study=study, ledger=ledger, verified=not problems and not missing,
-                      problems=problems + [f"Study incomplete: {s} was not run." for s in missing],
-                      handoffs=handoffs)
+                      problems=problems + incomplete, handoffs=handoffs, complete=not missing)
 
 
 def plan_research(question: str) -> dict[str, JsonValue]:
     """Retain the scaffold entry point as a JSON wrapper around run_question."""
     return run_question(question).to_json()
+
+
+def verdict_line(run: PlannerRun) -> str:
+    """Return the CLI verdict; an incomplete study always fails, whatever the citations."""
+    if not run.complete:
+        return "CITATION CHECK: FAIL (study incomplete)"
+    return "CITATION CHECK: PASS" if run.verified else f"CITATION CHECK: FAIL ({len(run.problems)} problems)"
 
 
 def tools_used(ledger: Ledger) -> list[tuple[str, str, int]]:
@@ -292,7 +324,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, f"CityLab could not complete the question ({type(exc).__name__}); "
                        "check model settings and tool availability.\n")
     print("\n" + run.study.brief_markdown.rstrip() + "\n")
-    print("CITATION CHECK: PASS" if run.verified else f"CITATION CHECK: FAIL ({len(run.problems)} problems)")
+    print(verdict_line(run))
     rows = tools_used(run.ledger)
     width = max([len("tool"), *(len(r[0]) for r in rows)])
     print("TOOLS USED:")

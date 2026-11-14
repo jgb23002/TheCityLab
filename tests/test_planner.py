@@ -129,8 +129,10 @@ def test_missing_regression_triggers_one_guard_then_caveat(capsys: pytest.Captur
     assert agent.calls == 2  # initial run + exactly one corrective message
     assert "run_regression was not run" in agent.prompts[1] and "statistician" in agent.prompts[1]
     assert run.verified is False
-    assert "Study incomplete: run_regression was not run." in run.study.caveats
-    assert "Study incomplete: run_regression was not run." in run.study.brief_markdown
+    assert run.complete is False
+    assert "Study incomplete: regression did not produce a result" in run.study.caveats
+    assert "Study incomplete: regression did not produce a result" in run.study.brief_markdown
+    assert planner.verdict_line(run) == "CITATION CHECK: FAIL (study incomplete)"
     assert run.study.stats is None
     assert "STEP GUARD: run_regression" in capsys.readouterr().out
 
@@ -149,6 +151,50 @@ def test_guard_passes_when_the_retry_runs_the_missing_step() -> None:
     run = planner.run_question(QUESTION, mode="mock", agent_factory=LateAgent)
     assert run.verified is True
     assert not any(c.startswith("Study incomplete") for c in run.study.caveats)
+
+
+class NoResultRegressionAgent(SkipRegressionAgent):
+    """Runs run_regression, but on a question the tool cannot use (no outcome), twice."""
+
+    def invoke(self, inputs: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+        state = super().invoke(inputs, config)
+        self.no_result = self.tools["run_regression"].invoke({"question": "Is anything associated with parking?"})
+        return state
+
+
+def test_regression_without_a_result_is_incomplete_not_pass(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A StatsResult with no coefficient (findings.error) must not count as a finished study."""
+    from backend.schemas import StatsResult
+    from backend.tools import mock as mock_tools
+
+    monkeypatch.setattr(mock_tools, "run_study", lambda question, buildings, measurements=None: StatsResult(
+        id="s", predictor="parking_space_count", sample_size=0, findings={"error": "not enough complete rows (n=0)"}))
+    agents: list[NoResultRegressionAgent] = []
+    run = planner.run_question(
+        QUESTION, mode="mock", agent_factory=lambda t: agents.append(NoResultRegressionAgent(t)) or agents[-1])
+    assert agents[0].calls == 2  # the guard fires once even though run_regression was called
+    assert "did not produce a result" in agents[0].prompts[1]
+    assert run.verified is False and run.complete is False
+    assert run.problems[-1] == "Study incomplete: regression did not produce a result"
+    assert run.study.stats is not None and run.study.stats.coefficients is None
+
+
+def test_cli_fails_and_exits_nonzero_for_incomplete_study(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The CLI prints FAIL (study incomplete) and exits non-zero."""
+    real_run = planner.run_question
+    monkeypatch.setattr(planner, "run_question", lambda q, mode=None, n=40: real_run(
+        q, mode=mode, n=n, agent_factory=SkipRegressionAgent))
+    assert planner.main([QUESTION, "--mode", "mock"]) != 0
+    assert "CITATION CHECK: FAIL (study incomplete)" in capsys.readouterr().out
+
+
+def test_complete_study_verdict_still_passes() -> None:
+    """A complete, cited study prints PASS."""
+    run = planner.run_question(QUESTION, mode="mock", agent_factory=FakeAgent)
+    assert run.complete and run.verified
+    assert planner.verdict_line(run) == "CITATION CHECK: PASS"
 
 
 def test_build_agent_wires_four_subagents_with_their_own_tools(monkeypatch: pytest.MonkeyPatch) -> None:
