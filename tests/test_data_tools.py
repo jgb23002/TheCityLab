@@ -125,14 +125,25 @@ class FakeClient:
     def request_json(self, method: str, endpoint: str, payload: dict[str, Any], timeout: int = 30) -> dict:
         assert payload["wkt"].startswith(("POINT(-95.", "POLYGON ((-95."))  # longitude first
         if endpoint == vexcel_detect.DETECT_ENDPOINT:
-            min_lon, min_lat, max_lon, max_lat = vexcel._square_bounds(LAT, LON)
+            # Shape from notes/vexcel/vexcel_quickstart.py step 3.
+            assert payload["images"][0]["endpoint"] == "ortho/extract"
+            assert payload["model-input"]["elements"][0]["label"] == "parking space"
+            min_lon, min_lat, max_lon, max_lat = vexcel._square_bounds(LAT, LON, half_m=vexcel.SQUARE_HALF_M)
             w, h = max_lon - min_lon, max_lat - min_lat
-            sq = [[min_lon + w * 0.1, min_lat + h * 0.1], [min_lon + w * 0.2, min_lat + h * 0.1],
-                  [min_lon + w * 0.2, min_lat + h * 0.2], [min_lon + w * 0.1, min_lat + h * 0.2]]
-            return {"features": [
-                {"geometry": {"type": "Polygon", "coordinates": [sq]}, "properties": {"score": 0.9}},
-                {"bbox": [min_lon, min_lat, min_lon + w / 2, min_lat + h / 2], "properties": {}},
-            ]}
+
+            def wkt(x0: float, y0: float, x1: float, y1: float) -> str:
+                a, b, c, d = min_lon + w * x0, min_lat + h * y0, min_lon + w * x1, min_lat + h * y1
+                return f"POLYGON(({a} {b},{c} {b},{c} {d},{a} {d},{a} {b}))"
+
+            return {
+                "images": [{"image-id": "ortho-1"}, {"image-id": "obl-1"}],
+                "features": [{"properties": {"label": "parking space", "detections": [
+                    {"imageId": "ortho-1", "confidence": 0.9, "bbox": wkt(0.1, 0.1, 0.2, 0.2)},
+                    {"imageId": "ortho-1", "confidence": 0.7, "bbox": wkt(0.0, 0.0, 0.5, 0.5)},
+                    {"imageId": "obl-1", "confidence": 0.8, "bbox": wkt(0.3, 0.3, 0.4, 0.4)},
+                    {"imageId": "ortho-1", "confidence": 0.6, "bbox": "not wkt"},
+                ]}}],
+            }
 
         def parcel(dx: float, tree: float) -> dict:
             ring = [[LON + dx - 1e-4, LAT - 1e-4], [LON + dx + 1e-4, LAT - 1e-4],
@@ -188,6 +199,7 @@ def test_detect_counts_and_annotates(fake_vexcel: FakeClient) -> None:
     left, top, right, bottom = first.bbox
     assert 0 <= left < right <= 200 and 0 <= top < bottom <= 200
     assert top > 100  # south part of the square is drawn lower in the image
+    assert (left, top, right, bottom) == (20.0, 160.0, 40.0, 180.0)
     assert Path(run.annotated_image_path).exists()
     json.loads(run.model_dump_json())
 
@@ -199,8 +211,8 @@ def test_detect_needs_prompts(fake_vexcel: FakeClient) -> None:
 
 def test_parse_detections_handles_empty() -> None:
     bounds = (0.0, 0.0, 1.0, 1.0)
-    assert vexcel_detect.parse_detections({}, ["pool"], 1, bounds, (10, 10)) == []
-    assert vexcel_detect.parse_detections({"features": [{"properties": {}}]}, ["pool"], 1, bounds, (10, 10)) == []
+    assert vexcel_detect.parse_detections({}, 1, bounds, (10, 10)) == []
+    assert vexcel_detect.parse_detections({"features": [{"properties": {}}]}, 1, bounds, (10, 10)) == []
 
 
 # ---------------------------------------------------------------------------
