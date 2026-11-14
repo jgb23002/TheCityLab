@@ -26,6 +26,7 @@ from pydantic import JsonValue
 
 from backend.agent import prompts
 from backend.agent.citations import verify_brief
+from backend.agent.events import REGRESSION_INCOMPLETE, citation_event, handoff_event, tool_call_event
 from backend.agent.evidence import Ledger
 from backend.agent.registry import (
     DEFAULT_N, MAX_N, MODES, detect_intent, draft_ok, get_tools, parse_top_n, ranking_ok, redact,
@@ -140,10 +141,13 @@ class _HandOffPrinter(BaseCallbackHandler):
 
     raise_error = False
 
-    def __init__(self, handoffs: list[dict[str, str]] | None = None) -> None:
-        """Optionally collect each hand-off (subagent, redacted short task, ts) in *handoffs*."""
+    def __init__(self, handoffs: list[dict[str, str]] | None = None,
+                 on_handoff: Callable[[dict[str, str]], None] | None = None) -> None:
+        """Collect each hand-off (subagent, redacted short task, ts) in *handoffs* and
+        pass it to *on_handoff* as it happens."""
         super().__init__()
         self.handoffs = handoffs if handoffs is not None else []
+        self.on_handoff = on_handoff
 
     def on_tool_start(self, serialized: dict[str, Any], input_str: str, *,
                       inputs: dict[str, Any] | None = None, **kwargs: Any) -> None:
@@ -158,8 +162,11 @@ class _HandOffPrinter(BaseCallbackHandler):
         target = str((inputs or {}).get("subagent_type", "?"))
         description = " ".join(str((inputs or {}).get("description", "")).split())
         target, task = str(redact(target)), str(redact(description))[:100]
-        self.handoffs.append({"subagent": target, "task": task, "ts": datetime.now(timezone.utc).isoformat()})
+        record = {"subagent": target, "task": task, "ts": datetime.now(timezone.utc).isoformat()}
+        self.handoffs.append(record)
         print(f"HAND-OFF -> {target}: {task}", flush=True)
+        if self.on_handoff:
+            self.on_handoff(record)
 
 
 def _print_tool_call(entry: dict[str, Any]) -> None:
@@ -201,7 +208,6 @@ def _problems(brief: str, ledger: Ledger) -> list[str]:
     return problems
 
 
-REGRESSION_INCOMPLETE = "Study incomplete: regression did not produce a result"
 
 
 _RESULT_CHECKS = {"run_regression": regression_ok, "rank_buildings": ranking_ok, "draft_email": draft_ok}
@@ -269,14 +275,29 @@ def _study(question: str, brief: str, ledger: Ledger, caveats: list[str], intent
                        outreach_drafts=outreach_drafts, is_mock=is_mock)
 
 
+def _safe_emitter(on_event: Callable[[dict[str, Any]], None] | None) -> Callable[[dict[str, Any]], None]:
+    """Wrap on_event so a failing listener can never break the run."""
+    def emit(event: dict[str, Any]) -> None:
+        if on_event is None:
+            return
+        try:
+            on_event(event)
+        except Exception:  # noqa: BLE001 - a listener error must not stop the study
+            pass
+    return emit
+
+
 def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
-                 agent_factory: AgentFactory | None = None, intent: str = "auto") -> PlannerRun:
+                 agent_factory: AgentFactory | None = None, intent: str = "auto",
+                 on_event: Callable[[dict[str, Any]], None] | None = None) -> PlannerRun:
     """Run one question through the agent, verify the brief's citations, return a PlannerRun.
 
     PlannerRun.study is the StudyResult; PlannerRun.ledger and .verified carry the
     evidence and citation-check outcome, which StudyResult has no fields for.
     intent "auto" picks retrofit when the question mentions solar, rooftop, retrofit or
-    "best candidates", else research.
+    "best candidates", else research. *on_event*, if given, receives each handoff,
+    tool_call (after it is recorded in the ledger) and the final citation_check event
+    live, in the shape backend.agent.events builds; without it nothing changes.
     """
     if not question.strip():
         raise ValueError("Provide a nonempty research question.")
@@ -285,11 +306,19 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
     n = max(1, min(int(n), MAX_N))
     top_n = parse_top_n(question)
     ledger = Ledger()
-    tools = get_tools(tool_mode, ledger, n=n, on_call=_print_tool_call, question=question,
+    emit = _safe_emitter(on_event)
+
+    def on_call(entry: dict[str, Any]) -> None:
+        """Print the recorded tool call, then stream it."""
+        _print_tool_call(entry)
+        emit(tool_call_event(entry))
+
+    tools = get_tools(tool_mode, ledger, n=n, on_call=on_call, question=question,
                       intent=study_intent, top_n=top_n)
     agent = (agent_factory or _default_factory(study_intent))(tools)
     handoffs: list[dict[str, str]] = []
-    run_config = {"callbacks": [_HandOffPrinter(handoffs)], "recursion_limit": 1000}
+    printer = _HandOffPrinter(handoffs, on_handoff=lambda h: emit(handoff_event(h)))
+    run_config = {"callbacks": [printer], "recursion_limit": 1000}
 
     prompt = (f"Question: {question}\nIntent: {study_intent}.\nSample size n: {n} (max {MAX_N}).\n"
               f"Tool mode: {tool_mode}." + (f"\nTop N for outreach drafts: {top_n}." if study_intent == "retrofit" else ""))
@@ -335,8 +364,10 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
     if incomplete:
         brief = brief.rstrip() + "\n\n" + "\n".join(f"**{c}**" for c in incomplete) + "\n"
     study = _study(question, brief, ledger, caveats, study_intent)
-    return PlannerRun(study=study, ledger=ledger, verified=not problems and not missing,
-                      problems=problems + incomplete, handoffs=handoffs, complete=not missing)
+    run = PlannerRun(study=study, ledger=ledger, verified=not problems and not missing,
+                     problems=problems + incomplete, handoffs=handoffs, complete=not missing)
+    emit(citation_event(run.verified, run.complete, run.problems, datetime.now(timezone.utc).isoformat()))
+    return run
 
 
 def plan_research(question: str) -> dict[str, JsonValue]:
