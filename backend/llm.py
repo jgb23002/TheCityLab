@@ -3,6 +3,7 @@
 import argparse
 import base64
 from pathlib import Path
+from typing import Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -10,14 +11,18 @@ from langchain_core.messages import HumanMessage
 from backend import config
 
 
-def get_chat_model() -> BaseChatModel:
-    """Create the configured Bedrock, Google or Anthropic model using .env settings."""
+def get_chat_model(role: Literal["chat", "vision"] = "chat") -> BaseChatModel:
+    """Create a provider model using LLM_MODEL for chat or VISION_MODEL for vision."""
+    if role not in {"chat", "vision"}:
+        raise ValueError("Model role must be chat or vision.")
     provider = (config.LLM_PROVIDER or "").strip().lower()
-    model = (config.LLM_MODEL or "").strip()
+    setting = "LLM_MODEL" if role == "chat" else "VISION_MODEL"
+    model = (config.LLM_MODEL if role == "chat" else config.VISION_MODEL) or ""
+    model = model.strip()
     if provider not in {"bedrock", "google", "anthropic"}:
         raise ValueError("Set LLM_PROVIDER to bedrock, google, or anthropic in .env.")
     if not model:
-        raise ValueError("Set LLM_MODEL in .env.")
+        raise ValueError(f"Set {setting} in .env.")
 
     # Load only the selected provider; importing this module makes no model calls.
     if provider == "bedrock":
@@ -50,7 +55,7 @@ def ask_with_image(prompt: str, image_path: str) -> str:
             "mime_type": "image/jpeg",
         },
     ])
-    reply = get_chat_model().invoke([message])
+    reply = get_chat_model("vision").invoke([message])
     return str(reply.text)
 
 

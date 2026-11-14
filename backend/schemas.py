@@ -133,6 +133,7 @@ class SolarResult(SolarEstimate):
     """Solar output extending SolarEstimate without renaming its fields or units."""
 
     score: float | None = None
+    payback_years: float | None = Field(default=None, ge=0)
     caveats: list[str] | None = None
 
 
