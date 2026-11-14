@@ -90,7 +90,8 @@ def test_every_tool_signature_matches_contracts() -> None:
     documented = documented_tools()
     actual = {}
     for path in sorted((ROOT / "backend" / "tools").glob("*.py")):
-        if path.name == "__init__.py":
+        if path.name in {"__init__.py", "mock.py"}:
+            # Implemented mocks mirror these contracts; they are not real-tool stubs.
             continue
         module = importlib.import_module(f"backend.tools.{path.stem}")
         for name, function in inspect.getmembers(module, inspect.isfunction):

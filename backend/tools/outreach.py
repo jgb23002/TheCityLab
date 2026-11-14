@@ -40,7 +40,7 @@ def _facts(building: Building, solar: SolarResult) -> dict[str, Any]:
         "yearly_output_kwh": solar.annual_energy_kwh,
         "yearly_savings_usd": a.get("estimated_annual_savings_usd"),
         "installed_cost_usd": a.get("estimated_cost_usd"),
-        "simple_payback_years": a.get("estimated_payback_years"),
+        "simple_payback_years": solar.payback_years if solar.payback_years is not None else a.get("estimated_payback_years"),
     }
 
 
