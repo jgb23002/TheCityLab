@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage
 from pydantic import BaseModel, TypeAdapter
 
 from backend.agent import planner
-from backend.schemas import SolarResult
+from backend.schemas import Building, SolarResult
 from backend.tools import mock
 
 
@@ -78,7 +78,7 @@ def test_every_mock_matches_a_contract_and_returns_schema_objects() -> None:
         real_module = __import__(f"backend.tools.{module_name}", fromlist=[function_name])
         real = getattr(real_module, function_name)
         function = getattr(mock, function_name)
-        assert inspect.signature(function) == inspect.signature(real), function_name
+        assert inspect.signature(function, eval_str=True) == inspect.signature(real, eval_str=True), function_name
         result = function(**arguments[function_name])
         objects = result if isinstance(result, list) else [result]
         assert all(isinstance(item, BaseModel) for item in objects), function_name
@@ -149,10 +149,17 @@ def test_build_agent_selects_the_correct_tool_implementations(
         tool.args_schema.model_json_schema()
 
 
-def test_real_tool_mode_does_not_silently_fall_back_to_mocks() -> None:
-    """The unfinished real sampler remains an explicit failure in live-tool mode."""
+def test_real_tool_mode_does_not_silently_fall_back_to_mocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A real data-source failure remains explicit even after real tools are implemented."""
+    from backend.tools import costar_data
+
+    def unavailable(market_id: int, property_type: int, limit: int = 20) -> list[Building]:
+        """Represent an unavailable real data source without reading the local kit."""
+        raise RuntimeError("real data unavailable")
+
+    monkeypatch.setattr(costar_data, "find_buildings", unavailable)
     tools = {tool.name: tool for tool in planner._build_tools(False)}
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(RuntimeError, match="real data unavailable"):
         tools["sample_buildings"].invoke({"market_id": 14, "property_type": 11, "limit": 1})
 
 
