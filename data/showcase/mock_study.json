@@ -1,0 +1,684 @@
+{
+  "id": "mock-houston-green-cover-001",
+  "question": "In Houston, do apartment communities with more green cover have higher maximum monthly asking rents, controlling for units, year built and building class?",
+  "buildings": [
+    {
+      "id": 990001,
+      "name": "Mock Houston Community 01",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7604,
+      "longitude": -95.3698,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 124000,
+      "year_built": 1984,
+      "building_class": 2,
+      "total_num_units": 124,
+      "max_rent": 1950,
+      "vacancy_percent": 8,
+      "surface_parking_spaces": 148
+    },
+    {
+      "id": 990002,
+      "name": "Mock Houston Community 02",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7518,
+      "longitude": -95.3902,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 182000,
+      "year_built": 1998,
+      "building_class": 2,
+      "total_num_units": 176,
+      "max_rent": 2180,
+      "vacancy_percent": 6,
+      "surface_parking_spaces": 205
+    },
+    {
+      "id": 990003,
+      "name": "Mock Houston Community 03",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7852,
+      "longitude": -95.4113,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 240000,
+      "year_built": 2007,
+      "building_class": 1,
+      "total_num_units": 228,
+      "max_rent": 2590,
+      "vacancy_percent": 5,
+      "surface_parking_spaces": 260
+    },
+    {
+      "id": 990004,
+      "name": "Mock Houston Community 04",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7309,
+      "longitude": -95.4318,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 161000,
+      "year_built": 1989,
+      "building_class": 2,
+      "total_num_units": 156,
+      "max_rent": 2080,
+      "vacancy_percent": 7,
+      "surface_parking_spaces": 179
+    },
+    {
+      "id": 990005,
+      "name": "Mock Houston Community 05",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.8141,
+      "longitude": -95.4537,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 315000,
+      "year_built": 2012,
+      "building_class": 1,
+      "total_num_units": 304,
+      "max_rent": 2820,
+      "vacancy_percent": 4,
+      "surface_parking_spaces": 315
+    },
+    {
+      "id": 990006,
+      "name": "Mock Houston Community 06",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.6993,
+      "longitude": -95.4209,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 288000,
+      "year_built": 2003,
+      "building_class": 2,
+      "total_num_units": 280,
+      "max_rent": 2510,
+      "vacancy_percent": 5,
+      "surface_parking_spaces": 340
+    },
+    {
+      "id": 990007,
+      "name": "Mock Houston Community 07",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.843,
+      "longitude": -95.5224,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 98000,
+      "year_built": 1978,
+      "building_class": 3,
+      "total_num_units": 96,
+      "max_rent": 1690,
+      "vacancy_percent": 11,
+      "surface_parking_spaces": 130
+    },
+    {
+      "id": 990008,
+      "name": "Mock Houston Community 08",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7621,
+      "longitude": -95.5489,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 205000,
+      "year_built": 1995,
+      "building_class": 2,
+      "total_num_units": 196,
+      "max_rent": 2320,
+      "vacancy_percent": 6,
+      "surface_parking_spaces": 225
+    },
+    {
+      "id": 990009,
+      "name": "Mock Houston Community 09",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.6828,
+      "longitude": -95.4872,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 352000,
+      "year_built": 2001,
+      "building_class": 2,
+      "total_num_units": 336,
+      "max_rent": 2370,
+      "vacancy_percent": 9,
+      "surface_parking_spaces": 398
+    },
+    {
+      "id": 990010,
+      "name": "Mock Houston Community 10",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.8714,
+      "longitude": -95.3997,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 135000,
+      "year_built": 1986,
+      "building_class": 3,
+      "total_num_units": 132,
+      "max_rent": 1810,
+      "vacancy_percent": 10,
+      "surface_parking_spaces": 165
+    },
+    {
+      "id": 990011,
+      "name": "Mock Houston Community 11",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7206,
+      "longitude": -95.3428,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 264000,
+      "year_built": 2018,
+      "building_class": 1,
+      "total_num_units": 252,
+      "max_rent": 2970,
+      "vacancy_percent": 3,
+      "surface_parking_spaces": 278
+    },
+    {
+      "id": 990012,
+      "name": "Mock Houston Community 12",
+      "property_type": 11,
+      "market_id": 14,
+      "latitude": 29.7935,
+      "longitude": -95.3531,
+      "primary_address": {
+        "city": "Houston",
+        "state": "TX",
+        "researchMarketId": 14
+      },
+      "building_size_sq_ft": 86000,
+      "year_built": 1991,
+      "building_class": 2,
+      "total_num_units": 84,
+      "max_rent": 2140,
+      "vacancy_percent": 5,
+      "surface_parking_spaces": 105
+    }
+  ],
+  "measurements": [
+    {
+      "id": "mock-measurement-01",
+      "property_id": 990001,
+      "roof_area_sq_ft": 30500,
+      "confidence": 0.88,
+      "green_cover_percent": 16,
+      "paved_surface_percent": 50,
+      "parking_space_count": 152,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-01",
+          "property_id": 990001,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-02",
+      "property_id": 990002,
+      "roof_area_sq_ft": 43500,
+      "confidence": 0.9,
+      "green_cover_percent": 22,
+      "paved_surface_percent": 44,
+      "parking_space_count": 199,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-02",
+          "property_id": 990002,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-03",
+      "property_id": 990003,
+      "roof_area_sq_ft": 58800,
+      "confidence": 0.92,
+      "green_cover_percent": 29,
+      "paved_surface_percent": 36,
+      "parking_space_count": 268,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-03",
+          "property_id": 990003,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-04",
+      "property_id": 990004,
+      "roof_area_sq_ft": 38200,
+      "confidence": 0.94,
+      "green_cover_percent": 24,
+      "paved_surface_percent": 43,
+      "parking_space_count": 175,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-04",
+          "property_id": 990004,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-05",
+      "property_id": 990005,
+      "roof_area_sq_ft": 76300,
+      "confidence": 0.86,
+      "green_cover_percent": 37,
+      "paved_surface_percent": 29,
+      "parking_space_count": 307,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-05",
+          "property_id": 990005,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-06",
+      "property_id": 990006,
+      "roof_area_sq_ft": 70100,
+      "confidence": 0.88,
+      "green_cover_percent": 33,
+      "paved_surface_percent": 31,
+      "parking_space_count": 348,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-06",
+          "property_id": 990006,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-07",
+      "property_id": 990007,
+      "roof_area_sq_ft": 23800,
+      "confidence": 0.9,
+      "green_cover_percent": 18,
+      "paved_surface_percent": 49,
+      "parking_space_count": 126,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-07",
+          "property_id": 990007,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-08",
+      "property_id": 990008,
+      "roof_area_sq_ft": 49600,
+      "confidence": 0.92,
+      "green_cover_percent": 28,
+      "paved_surface_percent": 38,
+      "parking_space_count": 219,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-08",
+          "property_id": 990008,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-09",
+      "property_id": 990009,
+      "roof_area_sq_ft": 85900,
+      "confidence": 0.94,
+      "green_cover_percent": 21,
+      "paved_surface_percent": 47,
+      "parking_space_count": 405,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-09",
+          "property_id": 990009,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-10",
+      "property_id": 990010,
+      "roof_area_sq_ft": 32200,
+      "confidence": 0.86,
+      "green_cover_percent": 20,
+      "paved_surface_percent": 46,
+      "parking_space_count": 171,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-10",
+          "property_id": 990010,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-11",
+      "property_id": 990011,
+      "roof_area_sq_ft": 64200,
+      "confidence": 0.88,
+      "green_cover_percent": 41,
+      "paved_surface_percent": 24,
+      "parking_space_count": 271,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-11",
+          "property_id": 990011,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mock-measurement-12",
+      "property_id": 990012,
+      "roof_area_sq_ft": 20700,
+      "confidence": 0.9,
+      "green_cover_percent": 35,
+      "paved_surface_percent": 28,
+      "parking_space_count": 109,
+      "is_corrected": false,
+      "observations": {
+        "source": "synthetic fixture; no imagery analyzed",
+        "area_basis": "fictional whole-community parcel, not an 80 m probe square",
+        "image_available": false
+      },
+      "detections": [
+        {
+          "id": "mock-detection-12",
+          "property_id": 990012,
+          "label": "roof",
+          "confidence": 0.9,
+          "bbox": [
+            40,
+            60,
+            320,
+            250
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "id": "mock-stats-001",
+    "question": "In Houston, do apartment communities with more green cover have higher maximum monthly asking rents, controlling for units, year built and building class?",
+    "property_ids": [
+      990001,
+      990002,
+      990003,
+      990004,
+      990005,
+      990006,
+      990007,
+      990008,
+      990009,
+      990010,
+      990011,
+      990012
+    ],
+    "method": "Illustrative OLS-shaped output; not computed",
+    "findings": {
+      "synthetic": true,
+      "regression_fitted": false
+    },
+    "sample_size": 12,
+    "outcome": "max_rent",
+    "predictor": "green_cover_percent",
+    "controls": [
+      "total_num_units",
+      "year_built",
+      "building_class (categorical; C baseline)"
+    ],
+    "coefficients": {
+      "intercept": -3100,
+      "green_cover_percent": 18,
+      "total_num_units": 0.45,
+      "year_built": 2.3,
+      "building_class_A": 190,
+      "building_class_B": 85
+    },
+    "p_values": {
+      "intercept": 0.17,
+      "green_cover_percent": 0.09,
+      "total_num_units": 0.22,
+      "year_built": 0.14,
+      "building_class_A": 0.12,
+      "building_class_B": 0.35
+    },
+    "confidence_intervals": {
+      "intercept": [
+        -7600,
+        1400
+      ],
+      "green_cover_percent": [
+        -4.1,
+        40.1
+      ],
+      "total_num_units": [
+        -0.35,
+        1.25
+      ],
+      "year_built": [
+        -1.1,
+        5.7
+      ],
+      "building_class_A": [
+        -70,
+        450
+      ],
+      "building_class_B": [
+        -100,
+        270
+      ]
+    },
+    "r_squared": 0.68,
+    "interpretation": "Synthetic display example with uncertain association; no analysis was run.",
+    "caveats": [
+      "Synthetic values selected for UI development, not estimated from the buildings.",
+      "No causal inference; no imagery, regression or paid API calls were used."
+    ]
+  },
+  "brief_markdown": "This mock study illustrates a CityLab research result for 12 fictional Houston apartment communities. The property identifiers, rents, aerial measurements and statistics are synthetic and are not observed CoStar or Vexcel results. The example question compares green cover with maximum monthly asking rent while controlling for community units, construction year and categorical building class.\n\nThe illustrative adjusted association is $18 per month for each additional percentage point of green cover, with a 95% interval from -$4.10 to $40.10 and a p-value of 0.09. These numbers were chosen to demonstrate the response format; no regression was fitted. The interval crosses zero, so even this illustrative output would not justify a clear positive finding.\n\nA real study would review the measurement area, imagery dates, rent pricing bases and control completeness before interpreting the result. The interface should let reviewers inspect synthetic detections and propose corrections, while future handlers refresh the statistics and brief. Twelve communities are a small observational sample, and this example provides no causal conclusion or investment recommendation.",
+  "caveats": [
+    "All building ids, measurements, rents and statistical results are synthetic; they are not CoStar records or Vexcel observations.",
+    "The illustrative statistics were not fitted and must not be used as research evidence.",
+    "A real analysis must align measurement areas, imagery dates and rent pricing bases; maximum asking rent is not typical or achieved rent.",
+    "The mock does not supply actual image files, and observed associations would not establish causation."
+  ],
+  "solar_results": null,
+  "is_mock": true
+}
