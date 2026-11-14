@@ -29,7 +29,7 @@ def test_confirms_vexcel_boxes_and_adds_missed_spaces(image: str, monkeypatch: p
     ask = Mock(return_value="Here you go:\n" + json.dumps(GOOD))
     monkeypatch.setattr(vision.llm, "ask_with_image", ask)
     m = vision.inspect(image, 7, DETECT)
-    assert m.parking_space_count == 3  # boxes 1 and 3 confirmed, one valid extra, 99 ignored
+    assert m.parking_space_count == 3  # Claude's stall count; boxes 1 and 3 confirmed, one extra, 99 ignored
     assert [d.id for d in m.detections] == ["7-v1", "7-v3", "7-c1"]
     assert m.detections[0].confidence == 0.9
     # 100 px over 100 m -> 10,000 m2 image; 25% of it in sq ft
