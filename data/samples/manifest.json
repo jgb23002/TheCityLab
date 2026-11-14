@@ -1,0 +1,58 @@
+{
+  "sample_size_per_city": 50,
+  "seed": 42,
+  "method": "Uniform sample without replacement using pandas sample(random_state=seed), after sorting by property_id.",
+  "sampling_unit": "One CoStar Multifamily property/community, potentially containing multiple physical buildings.",
+  "base_eligibility": "propertyType == 11; market 14 or 20; finite valid coordinates; positive units; construction event 2 year; known buildingClass in 1..4.",
+  "outcome_eligibility": "Houston requires maxRent > 0 and reported vacancyPercent in [0, 100]. Los Angeles does not require either outcome.",
+  "missing_values": "Blank CSV cells are unknown, never measured zero. Vacancy zero and explicitly reported zero surface spaces are valid.",
+  "year_built_rule": "Earliest constructionEvents[].year with eventType == 2 (ConstructionComplete); exclude renovations.",
+  "surface_parking_types": {
+    "1": "Surface",
+    "2": "SurfaceTandem"
+  },
+  "parking_validation": "Use only rows with known surface_parking_spaces; parking completeness does not determine sample selection.",
+  "field_sources": {
+    "property_id": "commercial-property.id",
+    "market_id": "commercial-property.primaryAddress.researchMarketId",
+    "property_type": "commercial-property.propertyType",
+    "latitude": "commercial-property.primaryAddress.latitude",
+    "longitude": "commercial-property.primaryAddress.longitude",
+    "total_num_units": "commercial-property.propertyApartment.totalNumUnits",
+    "year_built": "commercial-property.constructionEvents[].year where eventType == 2; earliest completion year",
+    "building_class": "commercial-property.buildingClass",
+    "apartment_listing_id": "apartment-listing.id; joined on apartment-listing.propertyId == commercial-property.id",
+    "max_rent": "apartment-listing.maxRent; dollars/month; zero or missing becomes unknown",
+    "vacancy_percent": "commercial-property.propertyApartment.vacancyPercent; percent, including zero",
+    "surface_parking_spaces": "sum(commercial-property.parking[].totalSpaces where parkingType in [1, 2]); unknown if absent or incomplete"
+  },
+  "cities": {
+    "houston": {
+      "market_id": 14,
+      "controls_complete_count": 1243,
+      "eligible_count": 732,
+      "selected_count": 50,
+      "required_outcomes": [
+        "max_rent",
+        "vacancy_percent"
+      ],
+      "selected_with_rent": 50,
+      "selected_with_vacancy": 50,
+      "selected_with_zero_vacancy": 3,
+      "selected_with_surface_parking": 33,
+      "file": "houston.csv"
+    },
+    "los_angeles": {
+      "market_id": 20,
+      "controls_complete_count": 1258,
+      "eligible_count": 1258,
+      "selected_count": 50,
+      "required_outcomes": [],
+      "selected_with_rent": 30,
+      "selected_with_vacancy": 27,
+      "selected_with_zero_vacancy": 4,
+      "selected_with_surface_parking": 5,
+      "file": "los_angeles.csv"
+    }
+  }
+}
