@@ -275,20 +275,34 @@ def _fake_report(width: int = 2860, height: int = 2855) -> bytes:
 
 
 def test_roof_view_summary_crops_out_the_calculation_text(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    """The summary image is only the top annotated-panel strip, much shorter than the full report."""
+    """The summary image drops the title/caption band and starts at the annotated panels.
+
+    Marks the title band a distinct color from the panel row below it in the fake report,
+    so a crop that keeps the top of the image (instead of cutting it off) is caught.
+    """
     from io import BytesIO
 
+    from backend.agent import agent_api
     from PIL import Image
 
     monkeypatch.setattr(config, "CACHE_DIR", tmp_path)
     folder = tmp_path / "roof_view"
     folder.mkdir()
-    (folder / "property_23453_report.jpg").write_bytes(_fake_report())
+    width, height = 2860, 2855
+    image = Image.new("RGB", (width, height), (10, 200, 10))  # panel row: green
+    band_h = agent_api._REPORT_TITLE_H + agent_api._REPORT_CAP_H
+    image.paste(Image.new("RGB", (width, band_h), (200, 10, 10)), (0, 0))  # title/caption band: red
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    (folder / "property_23453_report.jpg").write_bytes(buffer.getvalue())
+
     response = TestClient(main.app).get("/api/roof-view/23453/summary")
     assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
     cropped = Image.open(BytesIO(response.content))
     assert cropped.width == 2860
     assert cropped.height < 1600  # well short of the full 2855 px report
+    r, g, b = cropped.getpixel((width // 2, 30))  # past the crop's small kept margin below the band
+    assert g > r  # the row is the panel strip, not the red title band
 
 
 def test_roof_view_summary_missing_is_404(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
