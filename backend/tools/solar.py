@@ -1,17 +1,17 @@
 """Rooftop solar estimation and ranking interfaces."""
 
-from pydantic import JsonValue
+from backend.schemas import Building, Measurement, SolarResult
 
 
 def estimate_solar(
-    building: dict[str, JsonValue], vision_result: dict[str, JsonValue]
-) -> dict[str, JsonValue]:
+    building: Building, vision_result: Measurement
+) -> SolarResult:
     """TODO: Estimate rooftop solar potential with explicit units and assumptions."""
-    ...
+    raise NotImplementedError
 
 
 def rank_buildings(
-    estimates: list[dict[str, JsonValue]],
-) -> list[dict[str, JsonValue]]:
+    estimates: list[SolarResult],
+) -> list[SolarResult]:
     """TODO: Rank buildings by a documented rooftop solar metric."""
-    ...
+    raise NotImplementedError
