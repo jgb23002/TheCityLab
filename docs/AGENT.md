@@ -21,6 +21,11 @@ writes a markdown brief in which every number is cited to a tool result (`E1`, `
 **Research:** sampler (`sample_buildings`; complete cases only) -> inspector
 (`vexcel_detect`, `vision_inspect`) per building -> statistician (`run_regression` once,
 over the inspected buildings joined by property_id) -> writer.
+The regression (`backend/tools/stats.py`) is statsmodels OLS with HC3 errors. Controls:
+building size and year built, plus units and building class (categorical) when present.
+A control that is >90% missing or collinear (VIF > 10; the later one is dropped) is
+named in the caveats. Rows with missing values are dropped (listwise) and counted;
+`sample_size` is the number of rows analyzed. Fewer rows than parameters + 5 is a failure.
 
 **Retrofit (no regression):** sampler -> inspector (needs `roof_area_sq_ft`) -> solar
 (`solar_payback` per inspected building, then `rank_buildings` once) -> outreach
@@ -50,6 +55,17 @@ Provider calls cache under `data/cache/` (git-ignored). Real vision measurements
 from `data/cache/vision/m-<property_id>.json`, so a repeat run makes no vision model call
 (real outreach drafts still call the model). Errors and mocks are never cached.
 `USE_CACHE_ONLY=true` turns a cache miss into an error.
+
+## Measuring the sample
+
+`python scripts/measure_sample.py --city houston|los_angeles [--n 50] [--workers 3] [--dry-run]`
+measures each building in `data/samples/<city>.csv` once: Vexcel attributes, aerial
+image, element detections (parking space, car, tree, pool, solar panel), then the vision
+measurement. It saves `data/cache/vision/m-<id>.json`, which the agent, the web study and
+the accuracy check all reuse. The run can be resumed: cached buildings are skipped,
+failures are retried once and then recorded in `data/cache/measure_status.json` (rerun
+them with `--retry-errors`), and errors or mocks are never cached. `--dry-run` estimates
+paid calls without making any. With `USE_CACHE_ONLY=true` it only reports what is cached.
 
 ## Commands
 
