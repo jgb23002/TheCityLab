@@ -31,7 +31,11 @@
     "building_height_ft": "commercial-property.buildingHeightInFeet",
     "lot_size": "commercial-property.lotSize",
     "lot_size_measurement_type": "commercial-property.lotSizeMeasurementType",
-    "building_construction_material": "commercial-property.buildingConstructionMaterial"
+    "building_construction_material": "commercial-property.buildingConstructionMaterial",
+    "last_sale_price": "commercial-sale-comp.soldForPrice of the latest priced sale whose entities[].propertyId is this property (an entity's allocatedPrice in a portfolio sale)",
+    "last_sale_price_status": "commercial-sale-comp.salePriceStatus of that sale",
+    "last_sale_price_per_unit": "commercial-sale-comp.pricePerUnit of that sale; unknown for portfolio sales",
+    "last_sale_date": "commercial-sale-comp.soldDate of that sale (date part)"
   },
   "cities": {
     "houston": {
@@ -47,6 +51,7 @@
       "selected_with_vacancy": 50,
       "selected_with_zero_vacancy": 3,
       "selected_with_surface_parking": 33,
+      "selected_with_last_sale": 28,
       "file": "houston.csv"
     },
     "los_angeles": {
@@ -59,6 +64,7 @@
       "selected_with_vacancy": 27,
       "selected_with_zero_vacancy": 4,
       "selected_with_surface_parking": 5,
+      "selected_with_last_sale": 25,
       "file": "los_angeles.csv"
     }
   }

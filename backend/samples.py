@@ -25,9 +25,10 @@ CITY_FILES = {
 }
 _INT_FIELDS = ("market_id", "property_type", "total_num_units", "year_built",
                "building_class", "surface_parking_spaces", "num_stories_above_grade",
-               "lot_size_measurement_type", "building_construction_material")
+               "lot_size_measurement_type", "building_construction_material", "last_sale_price_status")
 _FLOAT_FIELDS = ("latitude", "longitude", "max_rent", "vacancy_percent",
-                  "gross_typical_floor_sq_ft", "building_height_ft", "lot_size")
+                  "gross_typical_floor_sq_ft", "building_height_ft", "lot_size",
+                  "last_sale_price", "last_sale_price_per_unit")
 
 
 def _value(raw: object, as_int: bool) -> int | float | None:
@@ -81,6 +82,8 @@ def sample_buildings(
         fields = {k: _value(row.get(k), True) for k in _INT_FIELDS}
         fields.update({k: _value(row.get(k), False) for k in _FLOAT_FIELDS})
         fields["floor_areas_sq_ft"] = _floor_areas(row.get("floor_areas_sq_ft"))
+        sale_date = row.get("last_sale_date")
+        fields["last_sale_date"] = sale_date if isinstance(sale_date, str) and sale_date.strip() else None
         building = Building(id=int(row["property_id"]), **fields)
         if outcome is None or getattr(building, outcome) is not None:
             buildings.append(building)

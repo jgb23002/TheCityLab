@@ -74,6 +74,47 @@ def test_estimate_solar_ignores_unlabeled_roof_area_and_uses_costar_math() -> No
     assert r.assumptions["roof_area_source"].startswith("CoStar building footprint")
 
 
+def test_sun_context_reports_geometry_climate_and_plane_when_climate_is_known(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend import sun
+
+    monkeypatch.setattr(sun, "climate", lambda lat, lon: {
+        "sunlight_kwh_m2_day": 4.65, "clear_sky_kwh_m2_day": 6.03, "cloud_cover_percent": 52.0,
+        "cloud_loss_percent": 23.0, "source": "test climate"})
+    monkeypatch.setattr(sun, "sky_year", lambda lat, lon, **kw: [
+        {"month": 0, "elevation_deg": 45.0, "azimuth_deg": 180.0, "ghi": 800.0, "dhi": 200.0, "dni": 848.5, "hours": 10.0}])
+    b = Building(id=21, market_id=14, latitude=29.76, longitude=-95.37, gross_typical_floor_sq_ft=10_000)
+    s = solar.estimate_solar(b).assumptions["sun"]
+    assert s["cloud_loss_percent"] == 23.0 and s["climate_source"] == "test climate"
+    assert s["best_fixed_tilt_deg"] == round(0.76 * 29.76 + 3.1, 1)
+    assert s["plane_kwh_m2_year"] > 0 and s["plane_facing_deg"] == solar.PANEL_AZIMUTH_DEG
+
+
+def test_sun_context_without_climate_keeps_geometry_but_skips_the_plane_figure() -> None:
+    b = Building(id=22, market_id=14, latitude=29.76, longitude=-95.37, gross_typical_floor_sq_ft=10_000)
+    s = solar.estimate_solar(b).assumptions["sun"]
+    assert s["best_panel_azimuth_deg"] == 180.0 and s["summer_solstice"]
+    assert "plane_kwh_m2_year" not in s and "sunlight_kwh_m2_day" not in s
+
+
+def test_owner_framing_uses_last_sale_price_and_units() -> None:
+    b = Building(id=23, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000,
+                 total_num_units=100, last_sale_price=12_000_000.0, last_sale_date="2024-05-01")
+    a = solar.estimate_solar(b).assumptions
+    assert a["system_cost_pct_of_last_sale_price"] == round(100 * a["estimated_cost_usd"] / 12_000_000, 1)
+    assert a["savings_per_unit_per_month_usd"] == round(a["estimated_annual_savings_usd"] / 100 / 12, 2)
+    assert a["last_sale_date"] == "2024-05-01"
+
+
+def test_matterpak_cross_checks_pass_through_with_an_interior_caveat() -> None:
+    b = Building(id=24, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000)
+    m = Measurement(id="m-24", property_id=24, observations={
+        "matterpak_interior_height_ft": 9.6, "matterpak_interior_footprint_sq_ft": 8800.0})
+    r = solar.estimate_solar(b, m)
+    assert r.assumptions["matterpak_interior_height_ft"] == 9.6
+    assert r.assumptions["matterpak_interior_footprint_sq_ft"] == 8800.0
+    assert any("inside scan, not the roof" in c for c in r.caveats)
+
+
 def test_estimate_solar_runs_without_any_vision_result() -> None:
     """Vision is optional enrichment only; the estimate must not require it."""
     b = Building(id=14, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000)

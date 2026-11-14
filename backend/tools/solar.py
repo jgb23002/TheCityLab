@@ -14,7 +14,7 @@ from typing import Any
 
 import requests
 
-from backend import config
+from backend import config, sun
 from backend.schemas import Building, Measurement, SolarResult
 from backend.tools import geometry
 
@@ -138,6 +138,46 @@ def payback(
 _MEASURED_ROOF_SOURCES = ("Vexcel precomputed parcel attributes",)
 
 
+def sun_context(lat: float | None, lon: float | None, tilt_deg: float, facing_deg: float) -> dict[str, Any] | None:
+    """Sun geometry, NASA POWER climate and our own yearly kWh/m2 on this roof's tilt and facing.
+
+    Pure math and public data (``backend.sun``), no model. When the climate is
+    unknown (NASA POWER uncached in cache-only mode) the plane figure is skipped
+    rather than reported from clear-sky assumptions.
+    """
+    if lat is None or lon is None:
+        return None
+    try:
+        conditions = sun.solar_conditions(lat, lon)
+    except Exception as exc:
+        log.warning("sun context unavailable (%s)", type(exc).__name__)
+        return None
+    sky = conditions.get("sun") or {}
+    climate = conditions.get("climate")
+    facts: dict[str, Any] = {
+        "best_fixed_tilt_deg": sky.get("best_fixed_tilt_deg"),
+        "best_panel_azimuth_deg": sky.get("best_panel_azimuth_deg"),
+        "summer_solstice": sky.get("summer_solstice"),
+        "winter_solstice": sky.get("winter_solstice"),
+        "method": sky.get("method"),
+    }
+    if climate:
+        facts.update({
+            "sunlight_kwh_m2_day": climate.get("sunlight_kwh_m2_day"),
+            "clear_sky_kwh_m2_day": climate.get("clear_sky_kwh_m2_day"),
+            "cloud_cover_percent": climate.get("cloud_cover_percent"),
+            "cloud_loss_percent": climate.get("cloud_loss_percent"),
+            "climate_source": climate.get("source"),
+        })
+        try:
+            plane = sun.plane_sunlight(sun.sky_year(lat, lon), tilt_deg, facing_deg)
+            facts.update({"plane_kwh_m2_year": plane.get("kwh_m2_year"),
+                          "plane_tilt_deg": tilt_deg, "plane_facing_deg": facing_deg})
+        except Exception as exc:
+            log.warning("plane sunlight unavailable (%s)", type(exc).__name__)
+    return facts
+
+
 def estimate_solar(building: Building, vision_result: Measurement | None = None) -> SolarResult:
     """Estimate rooftop solar potential with explicit units and assumptions.
 
@@ -185,12 +225,29 @@ def estimate_solar(building: Building, vision_result: Measurement | None = None)
     else:
         height = geometry.building_height_ft(building)
         height_source = "CoStar stories above grade times an assumed floor-to-floor height" if height else None
+    # Interior cross-checks from the MatterPak point cloud, when the showcase batch fetched one.
+    cross_checks = {key: obs[key] for key in ("matterpak_interior_height_ft", "matterpak_interior_footprint_sq_ft")
+                    if isinstance(obs.get(key), (int, float)) and obs[key] > 0}
+    if cross_checks:
+        caveats.append("The Matterport point cloud gives an interior height and footprint cross-check; "
+                       "it is an inside scan, not the roof.")
+    # What the numbers mean to the owner: cost against the last sale, savings per unit per month.
+    owner: dict[str, Any] = {}
+    if building.last_sale_price and building.last_sale_price > 0:
+        owner.update({"last_sale_price_usd": building.last_sale_price, "last_sale_date": building.last_sale_date,
+                      "system_cost_pct_of_last_sale_price": round(100 * est["estimated_cost_usd"] / building.last_sale_price, 1)})
+    if building.total_num_units and building.total_num_units > 0:
+        owner["savings_per_unit_per_month_usd"] = round(est["estimated_annual_savings_usd"] / building.total_num_units / 12, 2)
     assumptions = {**est["assumptions"],
                    "estimated_cost_usd": est["estimated_cost_usd"],
                    "estimated_annual_savings_usd": est["estimated_annual_savings_usd"],
                    "estimated_payback_years": est["estimated_payback_years"],
                    "estimated_roof_area_sq_ft": roof, "roof_area_source": roof_source,
-                   "estimated_building_height_ft": height, "building_height_source": height_source}
+                   "estimated_building_height_ft": height, "building_height_source": height_source,
+                   **cross_checks, **owner}
+    sun_facts = sun_context(building.latitude, building.longitude, PANEL_TILT_DEG, est["assumptions"]["azimuth_deg"])
+    if sun_facts:
+        assumptions["sun"] = sun_facts
     return SolarResult(
         id=sid, property_id=building.id,
         usable_roof_area_sq_ft=est["usable_roof_area_sq_ft"], capacity_kw=est["capacity_kw"],

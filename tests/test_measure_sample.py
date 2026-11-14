@@ -104,7 +104,7 @@ def test_measures_all_and_writes_the_study_cache_format(tools: dict[str, Any]) -
         assert cached.observations["vexcel_detect_counts"]["parking space"] == 1
     assert summary["skipped_no_coordinates"] == [3]
     assert sum(1 for line in lines if line.split(" ")[0].endswith("/4")) == 4
-    assert any(line.startswith("TOTALS: ok 3, cached 0, failed 0, skipped 1") for line in lines)
+    assert any(line.startswith("TOTALS: ok 3, cached 0, enriched 0, failed 0, skipped 1") for line in lines)
     status = json.loads((tools["tmp"] / "measure_status.json").read_text())
     assert status["houston"]["ok"] == 3 and status["houston"]["failed_ids"] == []
 
@@ -155,6 +155,27 @@ def test_parcel_values_sums_footprints_and_checks_ranges(props: dict, expected: 
     """Footprints sum (zeros and junk ignored); out-of-range percentages become unknown."""
     values = ms.parcel_values(props)
     assert {k: values[k] for k in expected} == expected
+
+
+def test_enrich_parcels_upgrades_cached_vision_only_measurements_without_vision_calls(tools: dict[str, Any]) -> None:
+    """--enrich-parcels adds the Vexcel footprint, green and paved to cached measurements that lack them."""
+    run(n=1)  # vision-only cache for building 1 (no parcel matched yet)
+    assert "source" not in _cached_measurement(b(1)).observations
+    tools["lot_acres"][1] = 1.0
+    tools["parcel"] = MATCHED_PARCEL
+    tools["calls"] = {k: 0 for k in tools["calls"]}
+    lines: list[str] = []
+    summary = run(lines, n=1, enrich=True)
+    assert summary["enriched"] == 1 and summary["cached"] == 0 and summary["ok"] == 0
+    assert tools["calls"]["vision"] == 0 and tools["calls"]["parcel"] == 1
+    cached = _cached_measurement(b(1))
+    assert cached.roof_area_sq_ft == 2000.5 and cached.parking_space_count == 10
+    assert cached.observations["source"] == ms.SOURCE
+    assert cached.observations["sky_inspector"]["roof_area_sq_ft"] == 5000.0  # vision's reading kept
+    assert cached.observations["enriched_by"].endswith("--enrich-parcels")
+    assert any(line.endswith("property 1 enriched") for line in lines)
+    again = run(n=1, enrich=True)  # already tagged: nothing left to enrich
+    assert again["enriched"] == 0 and again["cached"] == 1
 
 
 def test_resume_skips_cached_buildings(tools: dict[str, Any]) -> None:
@@ -238,7 +259,7 @@ def test_dry_run_estimates_and_makes_no_calls(tools: dict[str, Any]) -> None:
     assert summary["would_measure"] == [2, 4] and summary["cached"] == 1
     assert summary["estimated_vexcel_calls_max"] == 2 * ms.VEXCEL_CALLS_PER_BUILDING
     assert summary["estimated_model_calls"] == 2
-    assert lines[-1].startswith("DRY RUN: 2 to measure, 1 cached, 1 skipped")
+    assert lines[-1].startswith("DRY RUN: 2 to measure, 0 to enrich, 1 cached, 1 skipped")
 
 
 def test_failure_reasons_never_contain_secrets(tools: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
