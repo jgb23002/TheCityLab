@@ -5,6 +5,14 @@ from unittest.mock import Mock
 
 import pytest
 
+INFO = {"building_name": "Sky Plaza", "address": "1 Main St, Houston, TX", "owner": "Acme Holdings",
+        "owner_source": "CoStar owner record"}
+
+
+@pytest.fixture(autouse=True)
+def fake_owner_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(outreach.owners, "lookup", lambda pid: dict(INFO))
+
 from backend.schemas import Building, SolarResult
 from backend.tools import outreach
 
@@ -19,7 +27,9 @@ def test_uses_model_draft_when_it_follows_rules(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(outreach.llm, "ask_text", ask)
     d = outreach.draft_outreach(B, S)
     assert d.subject == "Solar at Sky Plaza" and "72 kW" in d.body_markdown
-    assert '"system_size_kw": 72.0' in ask.call_args.args[0]
+    prompt = ask.call_args.args[0]
+    assert '"system_size_kw": 72.0' in prompt and '"owner_company": "Acme Holdings"' in prompt
+    assert '"Acme Holdings team"' in prompt
 
 
 @pytest.mark.parametrize("body", ["Call me at (713) 555-1234.", "Email bob@example.com", "word " * 200])
@@ -30,9 +40,20 @@ def test_falls_back_to_template_when_rules_broken(body: str, monkeypatch: pytest
     assert any("template" in c for c in d.caveats)
 
 
-def test_model_error_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_model_error_falls_back_with_owner_and_address(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(outreach.llm, "ask_text", Mock(side_effect=RuntimeError("x")))
-    assert "Owner of Sky Plaza" in outreach.draft_outreach(B, S).body_markdown
+    d = outreach.draft_outreach(B, S)
+    assert d.body_markdown.startswith("Dear Acme Holdings team,")
+    assert "Sky Plaza (1 Main St, Houston, TX)" in d.body_markdown
+    assert any("Acme Holdings" in c and "CoStar owner record" in c for c in d.caveats)
+
+
+def test_no_owner_uses_building_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(outreach.owners, "lookup", lambda pid: {**INFO, "owner": None, "owner_source": None})
+    monkeypatch.setattr(outreach.llm, "ask_text", Mock(side_effect=RuntimeError("x")))
+    d = outreach.draft_outreach(Building(id=9), S)
+    assert d.body_markdown.startswith("Dear Owner of Sky Plaza,")
+    assert any("No owner company" in c for c in d.caveats)
 
 
 def test_no_estimate_no_email() -> None:
