@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -36,7 +37,7 @@
         <p class="eyebrow"><i></i> Aerial photos + CoStar data</p>
         <h1>Got a hunch about a city?<br><em>Let's go check the rooftops.</em></h1>
         <p class="lede">Ask in plain English. We measure real aerial photos, run the numbers, and tell you what the evidence says.</p>
-        <p class="demo-note" role="note">Real data runs the selected city's CoStar sample through aerial analysis. Cached measurements are reused. Choose Mock demo to explore with synthetic numbers.</p>
+        <p class="demo-note" role="note">Real data runs CoStar buildings through aerial analysis, reusing cached measurements. Name the city in your question. Turn on Demo mode to explore with synthetic numbers and no paid calls.</p>
         <form id="ask-form" class="search">
           <input id="question" type="text" autocomplete="off" aria-label="Your question"
                  placeholder="Do greener buildings charge more rent?">
@@ -45,8 +46,8 @@
         <div class="study-options">
           <label>City<select id="market"><option value="14">Houston</option><option value="20">Los Angeles</option></select></label>
           <label>Study<select id="mode"><option value="research">Research</option><option value="retrofit">Solar screening</option></select></label>
-          <label>Data<select id="data-source"><option value="real">Real data</option><option value="mock">Mock demo</option></select></label>
           <label>Buildings<input id="sample-limit" form="ask-form" type="number" min="1" max="50" value="50" required></label>
+          <label class="toggle"><input id="demo-mode" type="checkbox" checked> <span>Demo mode <small>(synthetic data, no paid calls)</small></span></label>
         </div>
         <div class="chips-label">Or start with a sample question</div>
         <div id="chips" class="chips"></div>
@@ -94,23 +95,118 @@
         <p id="preview-count" class="stat-note" aria-live="polite">Loading the selected sample...</p>
         <div class="table-wrap"><table id="sample-preview"></table></div>
       </details>
-      <section id="progress-card" class="steps-card" hidden>
-        <div class="steps-title">Study steps</div>
-        <ol id="progress" class="steps"></ol>
+      <div id="error-banner" class="error-banner" role="alert" hidden>
+        <strong id="error-title">Something went wrong.</strong> <span id="error-text"></span>
+        <p id="error-hint" class="error-hint" hidden></p>
+        <div class="banner-actions">
+          <button type="button" id="retry" class="link-btn" hidden>Retry</button>
+          <button type="button" id="show-demo" class="link-btn">Show the saved demo study</button>
+        </div>
+      </div>
+
+      <div id="dashboard" class="dashboard" hidden>
+        <section id="progress-card" class="steps-card panel-left" hidden aria-live="polite">
+          <div class="progress-head">
+            <span id="spinner" class="spinner" aria-hidden="true"></span>
+            <span class="steps-title">Agent activity</span>
+            <span id="tool-count" class="counter">0 tool calls</span>
+            <button type="button" id="cancel" class="cancel-btn">Cancel</button>
+          </div>
+          <p id="run-status" class="run-status" role="status"></p>
+          <div id="plan-box" class="plan-box" hidden>
+            <h4>Planner to-do list <small>(DeepAgents write_todos)</small></h4>
+            <ol id="plan" class="plan"></ol>
+          </div>
+          <h4 class="activity-title">Delegations and tool calls</h4>
+          <ul id="progress" class="live-list"></ul>
+          <div id="citation" class="citation" hidden>
+            <button type="button" id="citation-badge" class="citation-badge" aria-expanded="false"></button>
+            <ul id="citation-problems" class="citation-problems" hidden></ul>
+          </div>
+        </section>
+
+        <section class="card panel-center">
+          <div class="map-head">
+            <h3>Where we looked</h3>
+            <label class="inline-control">Colour by
+              <select id="color-by" aria-label="Colour map markers by">
+                <option value="auto">study measure</option>
+                <option value="parking_space_count">parking spaces</option>
+                <option value="green_cover_percent">green cover</option>
+                <option value="paved_surface_percent">paved surface</option>
+                <option value="roof_area_sq_ft">roof area</option>
+                <option value="payback_years">solar payback</option>
+              </select></label>
+            <label class="inline-control">Show
+              <select id="map-filter" aria-label="Filter buildings">
+                <option value="all">all buildings</option>
+                <option value="measured">measured only</option>
+                <option value="corrected">corrected only</option>
+              </select></label>
+          </div>
+          <div id="map"><p class="map-empty">Sampled buildings appear here when the study finishes.</p></div>
+          <p id="map-legend" class="map-legend" aria-live="polite"></p>
+        </section>
+
+        <aside id="inspector" class="card panel-right" aria-live="polite">
+          <h3>Building inspection</h3>
+          <div id="inspector-body"><p class="stat-note">Select a building on the map, in a table or on a card.</p></div>
+        </aside>
+      </div>
+
+      <section id="skeleton" class="card" hidden aria-hidden="true">
+        <div class="skel-line wide"></div>
+        <div class="cards">
+          <div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div>
+          <div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div>
+        </div>
       </section>
 
       <div id="results" hidden>
         <div class="report-head">
           <span class="stamp">Field report</span>
           <span id="mock-badge" class="badge" hidden>Demo data</span>
+          <span id="replay-badge" class="badge replay" hidden>Offline showcase replay</span>
         </div>
         <h2 id="study-question" class="study-question"></h2>
+
+        <section id="what-changed" class="what-changed" hidden aria-live="polite">
+          <div class="wc-head">
+            <h3>What changed after your correction</h3>
+            <button type="button" id="undo" class="undo-btn">Undo</button>
+          </div>
+          <p id="wc-conclusion" class="wc-conclusion"></p>
+          <ul id="wc-list" class="wc-list"></ul>
+          <p id="wc-calibration" class="wc-calibration"></p>
+        </section>
 
         <section id="verdict" class="verdict"></section>
         <div id="kpis" class="kpis"></div>
 
-        <section class="card brief-card">
-          <h3>The story in detail</h3>
+        <div class="grid">
+          <section class="card">
+            <h3 id="chart-title">How it lines up</h3>
+            <p id="chart-message" class="stat-note" hidden></p>
+            <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Result chart"></canvas></div>
+            <p id="chart-summary" class="chart-summary"></p>
+          </section>
+          <section class="card">
+            <h3 id="chart2-title">A second view</h3>
+            <div class="chart-wrap"><canvas id="chart2" role="img" aria-label="Second result chart"></canvas></div>
+            <p id="chart2-summary" class="chart-summary"></p>
+          </section>
+        </div>
+
+        <section class="card brief-card" id="report-card">
+          <div class="report-actions-head">
+            <h3 id="report-title">Research brief</h3>
+            <div class="report-actions">
+              <button type="button" id="copy-report" class="action-btn">Copy</button>
+              <button type="button" id="download-report" class="action-btn">Download .md</button>
+              <button type="button" id="print-report" class="action-btn">Print / save PDF</button>
+              <span id="report-status" class="copy-status" aria-live="polite"></span>
+            </div>
+          </div>
           <div id="brief"></div>
           <div id="caveat-box" class="notice">
             <strong>Handle with care</strong>
@@ -118,17 +214,10 @@
           </div>
         </section>
 
-        <div class="grid">
-          <section class="card">
-            <h3>Where we looked</h3>
-            <div id="map"></div>
-          </section>
-          <section class="card">
-            <h3>How it lines up</h3>
-            <p id="chart-message" class="stat-note" hidden></p>
-            <div class="chart-wrap"><canvas id="chart"></canvas></div>
-          </section>
-        </div>
+        <section id="upgrades-card" class="card" hidden>
+          <h3>Recommended upgrades <small id="upgrades-for"></small></h3>
+          <div id="upgrades"></div>
+        </section>
 
         <section id="stats-card" class="card">
           <h3>The statistics, if you want them</h3>
@@ -137,18 +226,41 @@
 
         <section id="solar-card" class="card" hidden>
           <h3>Rooftop solar shortlist</h3>
+          <p class="stat-note">Click a row or a numbered map pin to select a building and see its owner email draft.</p>
           <div class="table-wrap"><table id="solar-ranking"></table></div>
-          <p class="stat-note">Screening estimates only; compare the returned assumptions and caveats.</p>
+          <p class="stat-note">Screening estimates only: payback ignores incentives and financing.</p>
         </section>
 
         <section id="outreach-card" class="card" hidden>
-          <h3>Owner email draft — for review</h3>
+          <div class="email-head">
+            <h3>Owner email</h3>
+            <span class="not-sent">Draft for review - not sent</span>
+            <button type="button" id="copy-email" class="copy-btn">Copy</button>
+            <button type="button" id="download-email" class="action-btn">Download .txt</button>
+            <span id="copy-status" class="copy-status" aria-live="polite"></span>
+          </div>
+          <p class="stat-note">Edit the draft below before sending it yourself; CityLab never sends email.</p>
           <div id="outreach"></div>
         </section>
 
         <section class="card">
           <h3>Every building we measured</h3>
-          <div class="table-wrap"><table id="evidence"></table></div>
+          <p class="stat-note">Click a card to inspect it. Boxes show the detections the vision model confirmed on the aerial image.</p>
+          <div id="cards" class="cards"></div>
+          <div id="cards-sentinel" class="cards-sentinel"></div>
+          <button type="button" id="more-cards" class="more-btn" hidden>Show more buildings</button>
+          <details class="table-details">
+            <summary>Show all buildings as a table</summary>
+            <div class="table-wrap"><table id="evidence"></table></div>
+          </details>
+        </section>
+
+        <section id="ledger-card" class="card">
+          <h3>Evidence ledger</h3>
+          <p class="stat-note">Every tool call, with the id the brief cites. Click an [E#] tag in the brief to jump here.</p>
+          <input id="ledger-filter" class="filter" type="search" placeholder="Filter by id, tool, source or summary" aria-label="Filter the evidence ledger">
+          <div class="table-wrap"><table id="ledger"></table></div>
+          <p id="ledger-empty" class="stat-note" hidden></p>
         </section>
       </div>
 

@@ -11,6 +11,9 @@ from langchain_core.messages import HumanMessage
 from backend import config
 
 
+BEDROCK_MAX_ATTEMPTS = 10
+
+
 def get_chat_model(
     role: Literal["chat", "vision"] = "chat", *, model_id: str | None = None,
 ) -> BaseChatModel:
@@ -28,9 +31,13 @@ def get_chat_model(
 
     # Load only the selected provider; importing this module makes no model calls.
     if provider == "bedrock":
+        from botocore.config import Config
         from langchain_aws import ChatBedrockConverse
 
-        return ChatBedrockConverse(model=model, region_name=config.AWS_REGION)
+        # Parallel subagents can exceed Bedrock's request rate; botocore's default of 2
+        # retries gives up on ThrottlingException, so back off adaptively instead.
+        retries = Config(retries={"max_attempts": BEDROCK_MAX_ATTEMPTS, "mode": "adaptive"})
+        return ChatBedrockConverse(model=model, region_name=config.AWS_REGION, config=retries)
     if provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
