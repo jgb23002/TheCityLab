@@ -125,8 +125,14 @@ def draw_detections(image_path: str, detections: list[Detection], out_path: Any)
     return str(out_path)
 
 
-def detect(lat: float, lon: float, prompts: list[str], property_id: int) -> DetectionRun:
-    """Detect *prompts* (e.g. ``["parking space"]``) in the ~80 m square around a point.
+def detect(
+    lat: float, lon: float, prompts: list[str], property_id: int,
+    half_m: float = vexcel.SQUARE_HALF_M,
+) -> DetectionRun:
+    """Detect *prompts* (e.g. ``["parking space"]``) in a square around a point.
+
+    The square is ``2 * half_m`` metres across (default ~80 m). For a whole
+    property, size it from CoStar ``lotSize``: half_m = sqrt(acres * 4047) / 2.
 
     Returns counts per prompt, the Detections, the clean image path and an
     annotated copy with numbered boxes.
@@ -135,7 +141,7 @@ def detect(lat: float, lon: float, prompts: list[str], property_id: int) -> Dete
     if not prompts:
         raise ValueError("detect() needs at least one prompt")
 
-    bounds = vexcel._square_bounds(lat, lon, half_m=vexcel.SQUARE_HALF_M)
+    bounds = vexcel._square_bounds(lat, lon, half_m=half_m)
     area_wkt = box(*bounds).wkt
     data = vexcel._client.request_json(
         "POST", DETECT_ENDPOINT, _detect_payload(area_wkt, prompts), timeout=300
@@ -148,14 +154,15 @@ def detect(lat: float, lon: float, prompts: list[str], property_id: int) -> Dete
     )
     img_dir = config.CACHE_DIR / "vexcel" / "detect"
     img_dir.mkdir(parents=True, exist_ok=True)
-    image_path = img_dir / f"property_{property_id}.jpg"
+    tag = "" if half_m == vexcel.SQUARE_HALF_M else f"_{round(2 * half_m)}m"
+    image_path = img_dir / f"property_{property_id}{tag}.jpg"
     image_path.write_bytes(img_bytes)
     with Image.open(image_path) as img:
         size = img.size
 
     detections = parse_detections(data, property_id, bounds, size)
     annotated = draw_detections(
-        str(image_path), detections, img_dir / f"property_{property_id}_boxes.jpg"
+        str(image_path), detections, img_dir / f"property_{property_id}{tag}_boxes.jpg"
     )
 
     counts = {p: 0 for p in prompts}
