@@ -1,8 +1,10 @@
 """Check that every number in a research brief is cited to matching ledger evidence.
 
 Rule: each numeric token (ignoring years 1900-2100, the E# inside tags, list or
-heading enumerators such as "1.", "1)" and "(1)", the fixed phrase "95% CI", and
-METHOD_CONSTANT_PATTERNS such as "80 m") must sit in a sentence with an
+heading enumerators such as "1.", "1)" and "(1)", the fixed phrase "95% CI",
+METHOD_CONSTANT_PATTERNS such as "80 m", ranks 1-10 in a table's "Rank" column, and
+the body of the "## Question" section, which restates the user's question)
+must sit in a sentence (or table row: one unit per row) with an
 [E#] tag that exists in the ledger, and must match a number in that evidence's
 JSON (its args or result). The governing tag is the first one after the number in
 the sentence, else the last one before it. A match is within 1% relative
@@ -35,12 +37,55 @@ METHOD_CONSTANT_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=\S)")
 _TOLERANCE = 0.01
+_EXACT_SIG_DIGITS = 5
+
+
+_HEADING = re.compile(r"^\s*#{1,6}\s+(.*?)\s*#*\s*$")
+_TABLE_SEPARATOR = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$")
+# A bare rank 1-10 (optionally "#1") in a table column headed "Rank" is ordering, not data.
+_RANK_CELL = re.compile(r"^\s*#?(10|[1-9])\s*$")
+_MAX_RANK = 10
+
+
+def _cells(row: str) -> list[str]:
+    """Split a markdown table row into cells (leading/trailing pipes optional)."""
+    return row.strip().strip("|").split("|")
 
 
 def _sentences(brief_md: str) -> list[str]:
-    """Split markdown into lines, then lines into sentences (decimals stay intact)."""
+    """Split markdown into checkable units: one per table row, else one per sentence.
+
+    The body of a "## Question" section is skipped: it restates the user's question
+    (e.g. "Which 10 ... buildings"), which is not a claim from evidence.
+    A table row is one unit, so a [E#] tag anywhere in the row covers its numbers.
+    In a table whose header has a "Rank" column, a bare rank 1-10 in that column is
+    blanked. Other lines are split into sentences (decimals stay intact).
+    """
+    lines = brief_md.splitlines()
     out: list[str] = []
-    for line in brief_md.splitlines():
+    rank_col: int | None = None
+    in_question = False
+    for i, line in enumerate(lines):
+        heading = _HEADING.match(line)
+        if heading:
+            in_question = heading.group(1).strip().lower().rstrip(":") == "question"
+        elif in_question:
+            continue  # the "## Question" body restates the user's question, not evidence
+        if line.lstrip().startswith("|"):
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if _TABLE_SEPARATOR.match(line):
+                continue
+            if _TABLE_SEPARATOR.match(nxt):  # header row: find the Rank column, check nothing else
+                headers = [c.strip().lower() for c in _cells(line)]
+                rank_col = next((j for j, h in enumerate(headers) if h.startswith("rank")), None)
+                out.append(line)
+                continue
+            cells = _cells(line)
+            if rank_col is not None and rank_col < len(cells) and _RANK_CELL.match(cells[rank_col]):
+                cells[rank_col] = " " * len(cells[rank_col])
+            out.append("|" + "|".join(cells) + "|")
+            continue
+        rank_col = None  # any non-table line ends the table
         line = _LIST_MARKER.sub(r"\1", line)
         out.extend(part for part in _SENTENCE_END.split(line) if part.strip())
     return out
@@ -75,7 +120,13 @@ def _round_sig(value: float, sig: int) -> float:
 
 
 def _matches(written: float, decimals: int, sig: int, evidence: list[float]) -> bool:
-    """Return True when a written magnitude equals some evidence value as allowed."""
+    """Return True when a written magnitude equals some evidence value as allowed.
+
+    Whole numbers with 5+ significant digits (ids, exact counts) must match exactly:
+    a 1% tolerance would let property 990103 pass as 990102.
+    """
+    if decimals == 0 and sig >= _EXACT_SIG_DIGITS:
+        return any(abs(e) == written for e in evidence)
     for scale, extra in ((1.0, 0), (0.01, 2), (100.0, -2)):
         v = written * scale
         d = max(decimals + extra, 0)

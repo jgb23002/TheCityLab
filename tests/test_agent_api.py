@@ -45,9 +45,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     real = planner.run_question
     calls: list[dict[str, Any]] = []
 
-    def fake_run(question: str, mode: str | None = None, n: int = 40) -> planner.PlannerRun:
-        calls.append({"mode": mode, "n": n})
-        return real(question, mode=mode, n=n, agent_factory=ScriptedAgent)
+    def fake_run(question: str, mode: str | None = None, n: int = 40, intent: str = "auto") -> planner.PlannerRun:
+        calls.append({"mode": mode, "n": n, "intent": intent})
+        factory = RetrofitScriptedAgent if intent == "retrofit" else ScriptedAgent
+        return real(question, mode=mode, n=n, agent_factory=factory, intent=intent)
 
     monkeypatch.setattr(planner, "run_question", fake_run)
     test_client = TestClient(main.app)
@@ -61,7 +62,7 @@ def test_success_returns_ask_response_with_events(client: TestClient) -> None:
     assert response.status_code == 200, response.text
     result = AskResponse.model_validate(response.json())
     assert result.study.question == QUESTION and result.study.is_mock
-    assert client.calls == [{"mode": "mock", "n": 50}]  # type: ignore[attr-defined]
+    assert client.calls == [{"mode": "mock", "n": 50, "intent": "research"}]  # type: ignore[attr-defined]
 
     tool_events = [e for e in result.events if e.event_type == "tool_call"]
     assert tool_events[0].message == "sample_buildings [mock]"
@@ -79,7 +80,7 @@ def test_success_returns_ask_response_with_events(client: TestClient) -> None:
 def test_default_mode_is_auto_and_limit_is_passed(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """use_mock_tools false selects auto mode; limit below the cap passes through."""
     seen: list[tuple[str | None, int]] = []
-    monkeypatch.setattr(planner, "run_question", lambda q, mode=None, n=40: seen.append((mode, n)) or
+    monkeypatch.setattr(planner, "run_question", lambda q, mode=None, n=40, intent="auto": seen.append((mode, n)) or
                         (_ for _ in ()).throw(RuntimeError("stop")))
     client.post("/api/ask-agent", json={"question": QUESTION, "limit": 12})
     assert seen == [("auto", 12)]
@@ -105,10 +106,63 @@ def test_request_validation_is_unchanged(client: TestClient, body: dict) -> None
     assert client.calls == []  # type: ignore[attr-defined]
 
 
-def test_retrofit_is_not_wired_yet(client: TestClient) -> None:
-    """Retrofit is Phase 4, so the agent route rejects it clearly instead of running research."""
-    response = client.post("/api/ask-agent", json={"question": QUESTION, "mode": "retrofit"})
-    assert response.status_code == 422 and client.calls == []  # type: ignore[attr-defined]
+RETROFIT_Q = "Which 10 Los Angeles apartment buildings are the best rooftop-solar candidates?"
+
+
+class RetrofitScriptedAgent:
+    """sampler -> inspector -> solar -> outreach -> writer over the registry tools."""
+
+    def __init__(self, tools: list[Any]) -> None:
+        self.tools = {t.name: t for t in tools}
+
+    def invoke(self, inputs: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+        printer = config["callbacks"][0]
+        handoff = lambda name: printer.on_tool_start({"name": "task"}, "", inputs={"subagent_type": name, "description": name})
+        handoff("sampler")
+        s = self.tools["sample_buildings"].invoke({"market_id": 20, "property_type": 11})
+        handoff("inspector")
+        for b in s["buildings"]:
+            self.tools["vision_inspect"].invoke({"property_id": b["id"]})
+        handoff("solar")
+        for b in s["buildings"]:
+            self.tools["solar_payback"].invoke({"property_id": b["id"]})
+        rank = self.tools["rank_buildings"].invoke({})
+        handoff("outreach")
+        top = rank["ranked"][0]
+        draft = self.tools["draft_email"].invoke({"property_id": top["property_id"]})
+        handoff("writer")
+        e = rank["evidence_id"]
+        brief = (f"## Question\n{RETROFIT_Q}\n\n## Answer\nProperty {top['property_id']} [{e}] ranks first (demo data).\n\n"
+                 "## Ranking\n| Rank | Property id | Usable roof area (sq ft) | Capacity (kW) | Annual energy (kWh) | Payback (years) |\n"
+                 "|---|---|---|---|---|---|\n"
+                 f"| 1 | {top['property_id']} [{e}] | {top['usable_roof_area_sq_ft']} [{e}] | {top['capacity_kw']} [{e}] | "
+                 f"{top['annual_energy_kwh']} [{e}] | {top['payback_years']} [{e}] |\n\n"
+                 f"## Next step\nDraft {draft['evidence_id']} is ready for review (demo data).\n")
+        return {"messages": [*inputs["messages"], AIMessage(content=brief)]}
+
+
+def test_retrofit_returns_solar_results_and_drafts(client: TestClient) -> None:
+    """mode=retrofit now returns 200 with ranked solar_results, drafts and solar/outreach hand-offs."""
+    response = client.post("/api/ask-agent", json={"question": RETROFIT_Q, "mode": "retrofit", "use_mock_tools": True})
+    assert response.status_code == 200, response.text
+    result = AskResponse.model_validate(response.json())
+    assert client.calls == [{"mode": "mock", "n": 50, "intent": "retrofit"}]  # type: ignore[attr-defined]
+    study = result.study
+    assert study.stats is None and study.solar_results and study.outreach_drafts
+    assert [r.rank for r in study.solar_results] == sorted(r.rank for r in study.solar_results)
+    assert study.outreach_drafts[0].property_id == study.solar_results[0].property_id
+    handoffs = [e.payload["subagent"] for e in result.events if e.event_type == "handoff"]
+    assert handoffs == ["sampler", "inspector", "solar", "outreach", "writer"]
+    assert result.events[-1].event_type == "citation_check" and result.events[-1].message == "PASS"
+
+
+@pytest.mark.parametrize("body", [{"question": RETROFIT_Q, "mode": "retrofit", "limit": 0},
+                                  {"question": "", "mode": "retrofit"},
+                                  {"question": RETROFIT_Q, "mode": "solar"}])
+def test_retrofit_bad_bodies_still_422(client: TestClient, body: dict) -> None:
+    """Retrofit requests are validated exactly like research ones."""
+    assert client.post("/api/ask-agent", json=body).status_code == 422
+    assert client.calls == []  # type: ignore[attr-defined]
 
 
 def test_events_redact_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -138,8 +192,8 @@ class IncompleteAgent(ScriptedAgent):
 
 def test_incomplete_study_reports_fail_citation_check(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """No regression result: the citation_check event says FAIL with the incomplete reason."""
-    monkeypatch.setattr(planner, "run_question", lambda question, mode=None, n=40: _REAL_RUN(
-        question, mode=mode, n=n, agent_factory=IncompleteAgent))
+    monkeypatch.setattr(planner, "run_question", lambda question, mode=None, n=40, intent="auto": _REAL_RUN(
+        question, mode=mode, n=n, agent_factory=IncompleteAgent, intent=intent))
     response = client.post("/api/ask-agent", json={"question": QUESTION, "use_mock_tools": True})
     assert response.status_code == 200, response.text
     check = AskResponse.model_validate(response.json()).events[-1]

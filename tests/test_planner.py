@@ -184,8 +184,8 @@ def test_cli_fails_and_exits_nonzero_for_incomplete_study(
 ) -> None:
     """The CLI prints FAIL (study incomplete) and exits non-zero."""
     real_run = planner.run_question
-    monkeypatch.setattr(planner, "run_question", lambda q, mode=None, n=40: real_run(
-        q, mode=mode, n=n, agent_factory=SkipRegressionAgent))
+    monkeypatch.setattr(planner, "run_question", lambda q, mode=None, n=40, intent="auto": real_run(
+        q, mode=mode, n=n, agent_factory=SkipRegressionAgent, intent=intent))
     assert planner.main([QUESTION, "--mode", "mock"]) != 0
     assert "CITATION CHECK: FAIL (study incomplete)" in capsys.readouterr().out
 
@@ -247,8 +247,8 @@ def test_cli_prints_check_and_tools_table(
     """The CLI prints the brief, the citation verdict, the tools table and writes JSON."""
     real_run = planner.run_question
 
-    def run(question: str, mode: str | None = None, n: int = 40) -> planner.PlannerRun:
-        return real_run(question, mode=mode, n=n, agent_factory=FakeAgent)
+    def run(question: str, mode: str | None = None, n: int = 40, intent: str = "auto") -> planner.PlannerRun:
+        return real_run(question, mode=mode, n=n, agent_factory=FakeAgent, intent=intent)
 
     monkeypatch.setattr(planner, "run_question", run)
     path = tmp_path / "out.json"
@@ -353,3 +353,117 @@ def test_solar_rankings_use_payback_and_preserve_inputs() -> None:
     assert [result.id for result in ranked] == ["fast", "slow", "unknown"]
     assert [result.rank for result in ranked] == [1, 2, 3]
     assert all(result.rank is None for result in inputs)
+
+
+# ---- retrofit mode -------------------------------------------------------------------
+
+RETROFIT_Q = "Which 10 Los Angeles apartment buildings are the best rooftop-solar candidates?"
+
+
+class RetrofitAgent:
+    """Fake retrofit orchestrator; skip_drafts leaves out the outreach step."""
+
+    def __init__(self, tools: list[Any], skip_drafts: bool = False) -> None:
+        self.tools = {t.name: t for t in tools}
+        self.skip_drafts = skip_drafts
+        self.calls = 0
+        self.prompts: list[str] = []
+
+    def invoke(self, inputs: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+        self.calls += 1
+        self.prompts.append(str(inputs["messages"][-1].content))
+        if self.calls == 1:
+            s = self.tools["sample_buildings"].invoke({"market_id": 20, "property_type": 11})
+            for b in s["buildings"]:
+                self.tools["vision_inspect"].invoke({"property_id": b["id"]})
+                self.tools["solar_payback"].invoke({"property_id": b["id"]})
+            self.rank = self.tools["rank_buildings"].invoke({})
+            if not self.skip_drafts:
+                for r in self.rank["ranked"][:10]:
+                    self.tools["draft_email"].invoke({"property_id": r["property_id"]})
+        e = self.rank["evidence_id"]
+        rows = "\n".join(
+            f"| {r['rank']} | {r['property_id']} [{e}] | {r['usable_roof_area_sq_ft']} [{e}] | "
+            f"{r['capacity_kw']} [{e}] | {r['annual_energy_kwh']} [{e}] | {r['payback_years']} [{e}] |"
+            for r in self.rank["ranked"][:10])
+        brief = (f"## Question\n{RETROFIT_Q}\n\n## Answer\nProperty {self.rank['ranked'][0]['property_id']} [{e}] "
+                 "is the top candidate (demo data).\n\n## Ranking\n"
+                 "| Rank | Property id | Usable roof area (sq ft) | Capacity (kW) | Annual energy (kWh) | Payback (years) |\n"
+                 f"|---|---|---|---|---|---|\n{rows}\n\n## Caveats\n1. Payback ignores incentives and financing.\n"
+                 f"2. Roof area is image-measured; {self.rank['skipped_no_roof']} [{e}] skipped.\n\n"
+                 "## Next step\nThe first email draft is available for review.\n")
+        return {"messages": [*inputs["messages"], AIMessage(content=brief)]}
+
+
+def test_retrofit_run_builds_ranked_study_with_drafts() -> None:
+    """Retrofit: stats None, ranked solar_results, ten drafts, verified table citations."""
+    run = planner.run_question(RETROFIT_Q, mode="mock", agent_factory=RetrofitAgent)
+    assert run.verified and run.complete, run.problems
+    study = run.study
+    StudyResult.model_validate(study.model_dump(mode="json"))
+    assert study.stats is None and len(study.solar_results) == 12 and len(study.outreach_drafts) == 10
+    assert [r.rank for r in study.solar_results] == list(range(1, 13))
+    assert {d.property_id for d in study.outreach_drafts} == {r.property_id for r in study.solar_results[:10]}
+    assert len(study.measurements) == 12 and len(study.buildings) == 12
+    assert "run_regression" not in [e["tool"] for e in run.ledger.all()]
+    assert planner.verdict_line(run) == "CITATION CHECK: PASS"
+
+
+def test_retrofit_without_drafts_is_incomplete() -> None:
+    """No outreach draft: guard fires once, then caveat and FAIL."""
+    agents: list[RetrofitAgent] = []
+    run = planner.run_question(RETROFIT_Q, mode="mock", intent="retrofit",
+                               agent_factory=lambda t: agents.append(RetrofitAgent(t, skip_drafts=True)) or agents[-1])
+    assert agents[0].calls == 2 and "outreach" in agents[0].prompts[1]
+    assert run.verified is False and run.complete is False
+    assert "Study incomplete: draft_email was not run." in run.study.caveats
+    assert planner.verdict_line(run) == "CITATION CHECK: FAIL (study incomplete)"
+
+
+def test_retrofit_missing_ranking_is_incomplete() -> None:
+    """A ledger without a successful rank_buildings is incomplete for retrofit."""
+    from backend.agent.evidence import Ledger
+
+    ledger = Ledger()
+    ledger.add("sample_buildings", {}, {"buildings": [], "count": 0}, "mock")
+    ledger.add("vision_inspect", {}, {"id": "m", "property_id": 1}, "mock")
+    ledger.add("rank_buildings", {}, {"error": "no solar estimates"}, "mock")
+    assert planner.missing_steps(ledger, "retrofit") == ["rank_buildings", "draft_email"]
+    assert planner.missing_steps(ledger, "research") == ["run_regression"]
+
+
+def test_intent_auto_and_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """auto detects retrofit from the question; explicit intent overrides it; CLI passes --intent."""
+    seen: list[str] = []
+
+    def factory(intent: str):
+        seen.append(intent)
+        return FakeAgent if intent == "research" else RetrofitAgent
+
+    monkeypatch.setattr(planner, "_default_factory", factory)
+    assert planner.run_question(RETROFIT_Q, mode="mock").study.solar_results
+    assert planner.run_question(QUESTION, mode="mock").study.stats is not None
+    planner.run_question(QUESTION, mode="mock", intent="research")
+    assert seen == ["retrofit", "research", "research"]
+    run = Mock(return_value=planner.run_question(RETROFIT_Q, mode="mock"))
+    monkeypatch.setattr(planner, "run_question", run)
+    planner.main([RETROFIT_Q, "--mode", "mock", "--intent", "retrofit"])
+    assert run.call_args.kwargs["intent"] == "retrofit"
+
+
+def test_build_agent_retrofit_subagents(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retrofit wires sampler, inspector, solar, outreach and the retrofit writer."""
+    from backend.agent import prompts
+    from backend.agent.evidence import Ledger
+    from backend.agent.registry import get_tools
+
+    creator = Mock(return_value="agent")
+    monkeypatch.setattr(planner, "create_deep_agent", creator)
+    planner.build_agent(get_tools("mock", Ledger(), intent="retrofit"), object(), "retrofit")
+    subs = {s["name"]: s for s in creator.call_args.kwargs["subagents"]}
+    assert {n: [t.name for t in s["tools"]] for n, s in subs.items()} == {
+        "sampler": ["sample_buildings"], "inspector": ["vexcel_detect", "vision_inspect"],
+        "solar": ["solar_payback", "rank_buildings"], "outreach": ["draft_email"],
+        "writer": ["read_evidence", "list_evidence"]}
+    assert subs["writer"]["system_prompt"] == prompts.RETROFIT_WRITER_PROMPT
+    assert "statistician" not in subs

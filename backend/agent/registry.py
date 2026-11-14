@@ -30,6 +30,8 @@ from backend.schemas import (
 log = logging.getLogger(__name__)
 
 MODES = ("auto", "real", "mock")
+INTENTS = ("research", "retrofit")
+MAX_TOP_N = 10
 DEFAULT_N = 40
 MAX_N = 60
 
@@ -41,6 +43,7 @@ BINDINGS: dict[str, tuple[str, str, Any]] = {
     "vision_inspect": ("vision", "measure_building", Measurement),
     "run_regression": ("stats", "run_study", StatsResult),
     "solar_payback": ("solar", "estimate_solar", SolarResult),
+    "rank_buildings": ("solar", "rank_buildings", list[SolarResult]),
     "draft_email": ("outreach", "draft_outreach", OutreachDraft),
 }
 
@@ -130,7 +133,7 @@ def _is_complete(building: Building, required: list[str]) -> bool:
     """True when every required field is known (and the class is A, B, C or F)."""
     if any(getattr(building, f, None) is None for f in required):
         return False
-    return building.building_class in _VALID_CLASSES
+    return "building_class" not in required or building.building_class in _VALID_CLASSES
 
 
 def infer_study_fields(question: str | None) -> tuple[str | None, str | None]:
@@ -150,12 +153,44 @@ def regression_ok(result: dict[str, Any]) -> bool:
             and bool(result.get("sample_size")))
 
 
+def ranking_ok(result: dict[str, Any]) -> bool:
+    """True when a rank_buildings result ranked at least one building."""
+    return "error" not in result and any(r.get("rank") is not None for r in result.get("ranked") or [])
+
+
+def draft_ok(result: dict[str, Any]) -> bool:
+    """True when a draft_email result contains an email body."""
+    return "error" not in result and bool((result.get("body_markdown") or "").strip())
+
+
+_RETROFIT_WORDS = re.compile(r"\b(solar|rooftop|retrofit)|best candidates", re.I)
+
+
+def detect_intent(question: str, intent: str | None = "auto") -> str:
+    """Resolve intent: explicit research/retrofit, or auto from the question's words."""
+    value = (intent or "auto").strip().lower()
+    if value == "auto":
+        return "retrofit" if _RETROFIT_WORDS.search(question) else "research"
+    if value not in INTENTS:
+        raise ValueError("intent must be auto, research or retrofit.")
+    return value
+
+
+def parse_top_n(question: str, default: int = MAX_TOP_N) -> int:
+    """Return the requested number of candidates (first non-year integer), capped at 10."""
+    for match in re.finditer(r"(?<![\d.])(\d{1,4})(?![\d.])", question):
+        value = int(match.group(1))
+        if not 1900 <= value <= 2100 and value > 0:
+            return min(value, MAX_TOP_N)
+    return default
+
+
 def _as_result(name: str, value: Any) -> dict[str, Any]:
     """Validate a tool return against its schema and convert it to a JSON dict."""
     adapter = TypeAdapter(BINDINGS[name][2])
     data = adapter.dump_python(adapter.validate_python(value), mode="json")
     if isinstance(data, list):
-        key = "buildings" if name == "sample_buildings" else "items"
+        key = {"sample_buildings": "buildings", "rank_buildings": "ranked"}.get(name, "items")
         return {key: data, "count": len(data)}
     return data
 
@@ -218,10 +253,10 @@ class _Runner:
             self.on_call(entry)
         raise ToolException(f"{name} failed ({entry['id']}): {message}") from None
 
-    def sample(self, market_id: int, property_type: int, limit: int, outcome: str | None) -> dict[str, Any]:
+    def sample(self, market_id: int, property_type: int, limit: int, required: list[str]) -> dict[str, Any]:
         """sample_buildings restricted to complete cases: the first *limit* buildings (by id)
-        with every regression control and, when known, the question's outcome field."""
-        required = [*COMPLETE_FIELDS, *([outcome] if outcome else [])]
+        with every *required* field known (research: regression controls and outcome;
+        retrofit: none beyond the geocoding find_buildings already enforces)."""
         scan = min(max(limit * SCAN_FACTOR, MIN_SCAN), MAX_SCAN)
         args = {"market_id": market_id, "property_type": property_type, "limit": limit,
                 "scanned_limit": scan, "required_fields": required}
@@ -294,6 +329,81 @@ class _Runner:
         return self.run("run_regression", {"question": question, "buildings": buildings,
                                            "measurements": measurements}, record)
 
+    # ---- retrofit: solar estimate, ranking, outreach drafts ----------------------------
+
+    def _building(self, property_id: int) -> Building | None:
+        """Return the sampled Building with this id, if any."""
+        return next((b for b in self.sampled_buildings() if b.id == property_id), None)
+
+    def solar(self, property_id: int) -> dict[str, Any]:
+        """solar_payback for one inspected building, from ledger records only.
+
+        Uses the image-measured roof (Measurement.roof_area_sq_ft), never floor area. A
+        building with no measured roof is recorded as skipped instead of estimated.
+        """
+        building = self._building(property_id)
+        measurement = next((m for m in self.measurements() if m.property_id == property_id), None)
+        args: dict[str, Any] = {"property_id": property_id}
+        if building is None or measurement is None:
+            self._fail("solar_payback", args, ValueError(
+                f"property {property_id} needs a sample_buildings record and a successful vision_inspect first"))
+        roof = measurement.roof_area_sq_ft
+        args["roof_area_sq_ft"] = roof
+        if roof is None or roof <= 0:
+            source: Source = "mock" if self.mode == "mock" else "real"
+            return self._record("solar_payback", args, {"property_id": property_id, "skipped": True,
+                                "reason": "no measured roof area"}, source)
+        return self.run("solar_payback", {"building": building, "vision_result": measurement}, args)
+
+    def solar_estimates(self) -> list[SolarResult]:
+        """Latest successful (non-skipped) solar_payback result per property."""
+        latest: dict[Any, SolarResult] = {}
+        for entry in self.ledger.all():
+            result = entry["result"]
+            if entry["tool"] == "solar_payback" and "error" not in result and not result.get("skipped"):
+                estimate = SolarResult.model_validate(result)
+                latest[estimate.property_id] = estimate
+        return list(latest.values())
+
+    def rank(self) -> dict[str, Any]:
+        """rank_buildings once over every solar estimate in the ledger (payback order)."""
+        estimates = self.solar_estimates()
+        skipped = {e["result"]["property_id"] for e in self.ledger.all()
+                   if e["tool"] == "solar_payback" and e["result"].get("skipped")}
+        args = {"estimates": len(estimates), "skipped_no_roof": len(skipped)}
+        if not estimates:
+            self._fail("rank_buildings", args, ValueError("no solar estimates to rank; run solar_payback first"))
+        try:
+            value, source = self._call("rank_buildings", {"estimates": estimates})
+            result = _as_result("rank_buildings", value)
+        except NotImplementedError:
+            raise
+        except Exception as exc:
+            self._fail("rank_buildings", args, exc)
+        result.update({"estimated": len(estimates), "skipped_no_roof": len(skipped)})
+        return self._record("rank_buildings", args, result, source)
+
+    def latest_ranking(self) -> list[SolarResult]:
+        """SolarResults from the latest successful rank_buildings entry, in rank order."""
+        for entry in reversed(self.ledger.all()):
+            if entry["tool"] == "rank_buildings" and ranking_ok(entry["result"]):
+                return [SolarResult.model_validate(r) for r in entry["result"]["ranked"]]
+        return []
+
+    def draft(self, property_id: int, top_n: int) -> dict[str, Any]:
+        """draft_email for a top-N ranked building; never sends anything."""
+        args = {"property_id": property_id, "top_n": top_n}
+        ranking = self.latest_ranking()
+        estimate = next((r for r in ranking if r.property_id == property_id), None)
+        building = self._building(property_id)
+        if estimate is None or building is None:
+            self._fail("draft_email", args, ValueError(f"property {property_id} is not in the latest ranking"))
+        if estimate.rank is None or estimate.rank > top_n:
+            self._fail("draft_email", args, ValueError(
+                f"property {property_id} has rank {estimate.rank}; drafts are only for the top {top_n}"))
+        args["rank"] = estimate.rank
+        return self.run("draft_email", {"building": building, "solar_estimate": estimate}, args)
+
     # ---- ledger lookups used to fill omitted arguments --------------------------------
 
     def sampled_buildings(self) -> list[Building]:
@@ -330,23 +440,28 @@ class _Runner:
 def get_tools(
     mode: str | None, ledger: Ledger, n: int = DEFAULT_N,
     on_call: Callable[[dict[str, Any]], None] | None = None, question: str | None = None,
+    intent: str = "research", top_n: int = MAX_TOP_N,
 ) -> list[BaseTool]:
     """Return the CityLab LangChain tools bound to one run's ledger.
 
     Tools: sample_buildings, vexcel_detect, vision_inspect, run_regression,
-    solar_payback, draft_email, read_evidence and list_evidence. *n* is the
+    solar_payback, rank_buildings, draft_email, read_evidence and list_evidence. *n* is the
     default sample size (capped at MAX_N). *on_call* receives each new entry.
     *question* (the run's research question) tells sampling which outcome must be known.
+    *intent* "research" samples complete regression cases; "retrofit" needs none. *top_n*
+    (capped at 10) limits which ranked buildings draft_email accepts.
     """
     runner = _Runner(resolve_mode(mode), ledger, on_call)
     default_n = max(1, min(int(n), MAX_N))
     outcome, _ = infer_study_fields(question)
+    required = [*COMPLETE_FIELDS, *([outcome] if outcome else [])] if intent == "research" else []
+    top_n = max(1, min(int(top_n), MAX_TOP_N))
 
     def sample_buildings(market_id: int, property_type: int, limit: int = default_n) -> dict[str, Any]:
         """Sample buildings from CoStar for a market (Houston 14, Los Angeles 20) and
-        property type (apartments/multifamily 11). limit is capped at 60. Only complete
-        cases are returned: buildings with units, year built, class and the outcome."""
-        return runner.sample(market_id, property_type, max(1, min(limit, MAX_N)), outcome)
+        property type (apartments/multifamily 11). limit is capped at 60. For research,
+        only complete cases are returned (units, year built, class and the outcome)."""
+        return runner.sample(market_id, property_type, max(1, min(limit, MAX_N)), required)
 
     def vexcel_detect(lat: float, lon: float) -> dict[str, Any]:
         """Get Vexcel's precomputed parcel and structure evidence for a building's location."""
@@ -368,15 +483,20 @@ def get_tools(
         the first successful result."""
         return runner.regression(question, len(buildings or []) + len(measurements or []))
 
-    def solar_payback(building: Building, vision_result: Measurement) -> dict[str, Any]:
-        """Estimate rooftop solar capacity, energy and simple payback for one building."""
-        kwargs = {"building": building, "vision_result": vision_result}
-        return runner.run("solar_payback", kwargs, _jsonable(kwargs))
+    def solar_payback(property_id: int) -> dict[str, Any]:
+        """Estimate rooftop solar (usable roof, capacity kW, annual kWh, simple payback years)
+        for ONE inspected building, using its image-measured roof area from the ledger
+        (never floor area). Buildings with no measured roof are recorded as skipped."""
+        return runner.solar(property_id)
 
-    def draft_email(building: Building, solar_estimate: SolarResult) -> dict[str, Any]:
-        """Draft (never send) an owner email about a rooftop solar estimate."""
-        kwargs = {"building": building, "solar_estimate": solar_estimate}
-        return runner.run("draft_email", kwargs, _jsonable(kwargs))
+    def rank_buildings() -> dict[str, Any]:
+        """Rank every solar_payback estimate in the ledger by payback (missing last). Call
+        once, after all estimates. Reports how many buildings were skipped for no roof."""
+        return runner.rank()
+
+    def draft_email(property_id: int) -> dict[str, Any]:
+        """Draft (never send) an owner email for one building in the latest ranking's top N."""
+        return runner.draft(property_id, top_n)
 
     def read_evidence(evidence_id: str) -> dict[str, Any]:
         """Return one ledger entry (id, tool, args, result, source) by id, e.g. "E3"."""
@@ -397,6 +517,6 @@ def get_tools(
         return rows
 
     functions = [sample_buildings, vexcel_detect, vision_inspect, run_regression,
-                 solar_payback, draft_email, read_evidence, list_evidence]
+                 solar_payback, rank_buildings, draft_email, read_evidence, list_evidence]
     return [StructuredTool.from_function(func=f, name=f.__name__, description=(f.__doc__ or "").strip(),
                                          handle_tool_error=True) for f in functions]
