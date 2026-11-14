@@ -78,11 +78,17 @@ are preserved: usable roof area in square feet, capacity in kW, annual energy in
 kWh. `score` is a future documented ranking metric and `rank` is 1-based.
 `payback_years` is optional simple payback in years, with its assumptions in
 `assumptions`. Missing payback is unknown and sorts after known paybacks.
-Report assumptions and caveats. Roof area is computed from CoStar building
-footprint fields (`backend.tools.geometry.roof_footprint_sq_ft`), never asked of
-a vision model: math first, model last. `vision_result` is optional and used
-only for caveats a formula can't derive (existing rooftop obstructions or
-visible solar panels); its absence never blocks an estimate.
+Report assumptions and caveats; `assumptions.roof_area_source` names which one
+was used. Roof area prefers a real measurement — `vision_result.roof_area_sq_ft`
+when `vision_result.observations["source"]` is a tagged real-measurement source
+(e.g. Vexcel's detected structure footprint; see `scripts/measure_sample.py`) —
+else falls back to CoStar building footprint fields
+(`backend.tools.geometry.roof_footprint_sq_ft`). A vision *model's* photo-read
+roof area (untagged `roof_area_sq_ft`) is never used as the roof-area source:
+math first, model last. `vision_result` is optional; besides a measured roof
+area, it supplies only caveats a formula can't derive (existing rooftop
+obstructions or visible solar panels) and `observations["parcel_bearing_deg"]`
+for azimuth. Its absence never blocks an estimate.
 
 ### backend.tools.stats
 

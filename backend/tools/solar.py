@@ -132,19 +132,33 @@ def payback(
     }
 
 
+# observations["source"] values that represent a real measurement (Vexcel
+# structure-footprint detection, parcel attributes) rather than a vision
+# model's photo reading. Keep in sync with scripts/measure_sample.py's SOURCE.
+_MEASURED_ROOF_SOURCES = ("Vexcel precomputed parcel attributes",)
+
+
 def estimate_solar(building: Building, vision_result: Measurement | None = None) -> SolarResult:
     """Estimate rooftop solar potential with explicit units and assumptions.
 
-    Roof area comes from CoStar footprint math (``backend.tools.geometry``),
-    never from a vision model: per the project's "math first, model last" rule,
-    arithmetic over CoStar's own fields is preferred over asking a model to
-    measure a roof from a photo. ``vision_result`` is optional and, when given,
-    is used only for caveats a formula can't derive (existing rooftop
-    obstructions or panels visible in an aerial image).
+    Roof area prefers a real measurement when one is available: Vexcel's
+    detected structure footprint on ``vision_result`` (see
+    ``scripts/measure_sample.py``), else CoStar footprint math
+    (``backend.tools.geometry``). Per the project's "math first, model last"
+    rule, a vision model's photo-read roof area is never used as the roof-area
+    source; ``vision_result`` otherwise only supplies caveats a formula can't
+    derive (existing rooftop obstructions or panels visible in an aerial image).
     """
     sid = f"solar-{building.id}"
     obs = (vision_result.observations or {}) if vision_result else {}
-    roof = geometry.roof_footprint_sq_ft(building)
+    measured_roof = vision_result.roof_area_sq_ft if vision_result else None
+    is_measured = obs.get("source") in _MEASURED_ROOF_SOURCES
+    roof_source = "Vexcel detected structure footprint"
+    if measured_roof and measured_roof > 0 and is_measured:
+        roof = measured_roof
+    else:
+        roof = geometry.roof_footprint_sq_ft(building)
+        roof_source = "CoStar building footprint fields (typical floor size, floor areas or gross building area divided by stories)"
     if not roof or roof <= 0:
         return SolarResult(id=sid, property_id=building.id,
                            caveats=["No roof footprint could be computed for this building, so no solar estimate was made."])
@@ -155,7 +169,7 @@ def estimate_solar(building: Building, vision_result: Measurement | None = None)
                   bearing if isinstance(bearing, (int, float)) else None)
     caveats = [
         "All figures are estimates for screening, not a quote.",
-        "Roof area is estimated from CoStar building footprint fields (typical floor size, floor areas or gross building area divided by stories), not a measured roof photo.",
+        f"Roof area is estimated from {roof_source}, not a measured roof photo.",
         "Payback is simple payback: no financing, degradation, demand charges, O&M or tax incentives.",
     ]
     if obs.get("solar_panels_present") is True:
@@ -166,7 +180,7 @@ def estimate_solar(building: Building, vision_result: Measurement | None = None)
                    "estimated_cost_usd": est["estimated_cost_usd"],
                    "estimated_annual_savings_usd": est["estimated_annual_savings_usd"],
                    "estimated_payback_years": est["estimated_payback_years"],
-                   "estimated_roof_area_sq_ft": roof}
+                   "estimated_roof_area_sq_ft": roof, "roof_area_source": roof_source}
     return SolarResult(
         id=sid, property_id=building.id,
         usable_roof_area_sq_ft=est["usable_roof_area_sq_ft"], capacity_kw=est["capacity_kw"],
