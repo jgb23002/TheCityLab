@@ -176,11 +176,21 @@ def estimate_solar(building: Building, vision_result: Measurement | None = None)
         caveats.append("The aerial image suggests solar panels are already on this roof.")
     if est["assumptions"]["energy_source"].startswith("fallback"):
         caveats.append("Yearly output uses a regional average because PVWatts was unavailable.")
+    # Reported context only; height is not a payback input. Prefers a Matterport
+    # room-scan median (real per-room measurement, see backend.tools.matterport)
+    # when the caller supplied one, else CoStar story-count math.
+    matterport_height = obs.get("matterport_building_height_ft")
+    if isinstance(matterport_height, (int, float)) and matterport_height > 0:
+        height, height_source = matterport_height, "Matterport room scan (median room height)"
+    else:
+        height = geometry.building_height_ft(building)
+        height_source = "CoStar stories above grade times an assumed floor-to-floor height" if height else None
     assumptions = {**est["assumptions"],
                    "estimated_cost_usd": est["estimated_cost_usd"],
                    "estimated_annual_savings_usd": est["estimated_annual_savings_usd"],
                    "estimated_payback_years": est["estimated_payback_years"],
-                   "estimated_roof_area_sq_ft": roof, "roof_area_source": roof_source}
+                   "estimated_roof_area_sq_ft": roof, "roof_area_source": roof_source,
+                   "estimated_building_height_ft": height, "building_height_source": height_source}
     return SolarResult(
         id=sid, property_id=building.id,
         usable_roof_area_sq_ft=est["usable_roof_area_sq_ft"], capacity_kw=est["capacity_kw"],

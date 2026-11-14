@@ -122,7 +122,20 @@ def get_model(model_id: str) -> MatterportModel: ...
 
 Return schema: **MatterportModel**. This optional tool is included so that every
 tool stub in the package is covered. Its `id` is the Matterport model id and its
-provider data belongs in `metadata` / `raw_response`.
+provider data belongs in `metadata` / `raw_response`. Requests each room's and
+floor's `dimensionEstimates` (`area`, `width`, `depth`, `height`,
+`lowerElevation`, `units`); `metadata["rooms"]`/`metadata["floors"]` hold the
+raw GraphQL lists. Cached by model id via `backend.cache.cached_json_call`.
+
+`building_height_ft(model: MatterportModel) -> float | None` (internal helper,
+not a `###`-checked contract since it returns `float | None`) is the median of
+rooms' positive `dimensionEstimates.height`; a room whose ceiling plane
+couldn't be resolved reports `height: 0.0` and is excluded, not treated as a
+real zero height. Used by `backend.agent.study` as a real-measurement height
+source (`SolarResult.assumptions["estimated_building_height_ft"]`) for
+buildings with a known `matterport_model_id`, falling back to
+`backend.tools.geometry.building_height_ft`'s CoStar-story-count math
+otherwise. Height is reported context only; it is not a `payback` input.
 
 ## Building field mappings
 
