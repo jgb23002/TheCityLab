@@ -10,10 +10,13 @@ from langchain_core.messages import HumanMessage
 from backend import config
 
 
-def get_chat_model() -> BaseChatModel:
-    """Create the configured Bedrock, Google or Anthropic model using .env settings."""
+def get_chat_model(model_id: str | None = None) -> BaseChatModel:
+    """Create the configured Bedrock, Google or Anthropic model using .env settings.
+
+    ``model_id`` overrides LLM_MODEL, e.g. with VISION_MODEL for image tasks.
+    """
     provider = (config.LLM_PROVIDER or "").strip().lower()
-    model = (config.LLM_MODEL or "").strip()
+    model = (model_id or config.LLM_MODEL or "").strip()
     if provider not in {"bedrock", "google", "anthropic"}:
         raise ValueError("Set LLM_PROVIDER to bedrock, google, or anthropic in .env.")
     if not model:
@@ -37,7 +40,18 @@ def get_chat_model() -> BaseChatModel:
     return ChatAnthropic(model=model)
 
 
-def ask_with_image(prompt: str, image_path: str) -> str:
+def vision_model_id() -> str | None:
+    """Return VISION_MODEL when set, else None so LLM_MODEL is used."""
+    return (config.VISION_MODEL or "").strip() or None
+
+
+def ask_text(prompt: str, model_id: str | None = None) -> str:
+    """Send one text prompt and return only the reply text."""
+    model = get_chat_model(model_id) if model_id else get_chat_model()
+    return str(model.invoke([HumanMessage(content=prompt)]).text)
+
+
+def ask_with_image(prompt: str, image_path: str, model_id: str | None = None) -> str:
     """Send text plus a base64 JPEG in a standard multimodal HumanMessage."""
     image_bytes = Path(image_path).read_bytes()
     if not image_bytes.startswith(b"\xff\xd8\xff"):
@@ -50,7 +64,8 @@ def ask_with_image(prompt: str, image_path: str) -> str:
             "mime_type": "image/jpeg",
         },
     ])
-    reply = get_chat_model().invoke([message])
+    model = get_chat_model(model_id) if model_id else get_chat_model()
+    reply = model.invoke([message])
     return str(reply.text)
 
 
