@@ -1,7 +1,7 @@
 # CityLab contracts
 
 These are application contracts, not provider response field names. Existing
-schema classes and fields are preserved. All tool functions below are stubs
+schema classes and fields are preserved. The canonical real tool functions below are stubs
 whose only behavior is to raise `NotImplementedError`; no file loading, network,
 vision, statistical, solar or outreach logic is implemented here.
 
@@ -65,8 +65,10 @@ def rank_buildings(estimates: list[SolarResult]) -> list[SolarResult]: ...
 
 Return schema: **SolarResult**, extending **SolarEstimate**. Existing unit fields
 are preserved: usable roof area in square feet, capacity in kW, annual energy in
-kWh. `score` is a future documented ranking metric and `rank` is 1-based. Report
-assumptions and caveats; a floor-area control is not a measured roof area.
+kWh. `score` is a future documented ranking metric and `rank` is 1-based.
+`payback_years` is optional simple payback in years, with its assumptions in
+`assumptions`. Missing payback is unknown and sorts after known paybacks.
+Report assumptions and caveats; a floor-area control is not a measured roof area.
 
 ### backend.tools.stats
 
@@ -164,6 +166,41 @@ statistics. It sets `is_mock: true`, labels the brief and caveats as synthetic,
 and makes no claim that these ids, imagery, measurements or statistics are real.
 The brief contains three paragraphs. This fixture is for consumers to build
 against; it does not result from running any tool.
+
+## Mock tools and agent names
+
+`backend/tools/mock.py` implements the same eleven canonical signatures with
+fixed synthetic values and schema-object returns. It reads only the committed
+mock study, adds a fictional Los Angeles cohort, and makes no network/model
+calls or credential reads. Mock image references are `mock://` placeholders,
+not image files. Regression output is explicitly marked as fixed fake numbers;
+no regression is fitted. Solar paybacks are fixed examples, not calculations.
+
+The agent's LangChain adapters serialize schema objects to JSON and expose these
+aliases; other tool names match their canonical function names:
+
+| Agent tool | Canonical contracted function |
+|---|---|
+| `sample_buildings` | `costar_data.find_buildings` |
+| `vexcel_detect` | `vexcel.get_property_info` (precomputed detection evidence) |
+| `vision_inspect` | `vision.measure_building` |
+| `run_regression` | `stats.run_study` |
+
+`USE_MOCK_TOOLS=true` (default) selects the mock functions; false routes to the
+real stubs, which currently fail explicitly. This flag substitutes the tools,
+not the chat model: normal CLI runs still use the configured provider. Tests
+inject a scripted fake chat model and prohibit network access.
+
+The installed Deep Agents 0.7.38 `create_deep_agent` signature and docstring were
+inspected before integration: CityLab supplies `model`, `tools`, `system_prompt`
+and `name`; the default backend is in-memory StateBackend, not the host
+filesystem. `get_chat_model("chat")` selects LLM_MODEL;
+`get_chat_model("vision")` selects VISION_MODEL. The no-argument form still
+selects chat for compatibility.
+
+```sh
+USE_MOCK_TOOLS=true python -m backend.agent.planner "Do greener Houston apartments have higher asking rents?"
+```
 
 ```sh
 pytest -q tests/test_contracts.py
