@@ -377,7 +377,7 @@ def roof_view_summary_image(property_id: int = PathParam(ge=0)) -> Response:
         panel_height = full.width // 2 - 30  # the square aerial panel, from the known W*2+60 canvas width
         top = _REPORT_TITLE_H + _REPORT_CAP_H - 10
         bottom = min(top + panel_height, full.height)
-        cropped = full.crop((0, 0, full.width, bottom))
+        cropped = full.crop((0, top, full.width, bottom))
         buffer = BytesIO()
         cropped.convert("RGB").save(buffer, format="JPEG", quality=88)
     return Response(buffer.getvalue(), media_type="image/jpeg")
