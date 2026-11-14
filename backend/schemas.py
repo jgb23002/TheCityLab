@@ -133,6 +133,7 @@ class SolarResult(SolarEstimate):
     """Solar output extending SolarEstimate without renaming its fields or units."""
 
     score: float | None = None
+    payback_years: float | None = Field(default=None, ge=0)
     caveats: list[str] | None = None
 
 
@@ -178,11 +179,12 @@ class StudyResult(BaseModel):
     brief_markdown: str
     caveats: list[str]
     solar_results: list[SolarResult] | None = None
+    outreach_drafts: list[OutreachDraft] | None = None
     is_mock: bool = False
 
 
 class AskRequest(BaseModel):
-    """Reserved JSON request body for POST /api/ask."""
+    """Request a city study using real tools or an explicit synthetic demonstration."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -191,6 +193,7 @@ class AskRequest(BaseModel):
     property_type: int | None = None
     limit: int = Field(default=50, ge=1, le=500)
     mode: Literal["research", "retrofit"] = "research"
+    use_mock_tools: bool = False
 
 
 class AskResponse(BaseModel):

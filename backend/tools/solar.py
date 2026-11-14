@@ -106,8 +106,8 @@ def estimate_solar(building: Building, vision_result: Measurement) -> SolarResul
     """Estimate rooftop solar potential with explicit units and assumptions.
 
     Uses the image-measured roof area only (never building floor area). The
-    payback, cost and savings live in ``assumptions`` and ``score`` is the
-    simple payback in years (lower is better).
+    Payback is exposed in ``payback_years`` for the planner. The existing
+    assumptions and score fields retain their payback/cost/savings values.
     """
     sid = f"solar-{building.id}"
     obs = vision_result.observations or {}
@@ -136,17 +136,22 @@ def estimate_solar(building: Building, vision_result: Measurement) -> SolarResul
         id=sid, property_id=building.id,
         usable_roof_area_sq_ft=est["usable_roof_area_sq_ft"], capacity_kw=est["capacity_kw"],
         annual_energy_kwh=est["annual_energy_kwh"], assumptions=assumptions,
+        payback_years=est["estimated_payback_years"],
         score=est["estimated_payback_years"], caveats=caveats,
     )
 
 
 def rank_buildings(estimates: list[SolarResult]) -> list[SolarResult]:
-    """Rank buildings by simple payback (score, years; shorter first); ties by bigger system.
+    """Rank by payback_years, falling back to legacy score; ties by bigger system.
 
     Buildings without a payback go last with rank None.
     """
-    scored = [e for e in estimates if e.score is not None]
-    unscored = [e for e in estimates if e.score is None]
-    scored.sort(key=lambda e: (e.score, -(e.annual_energy_kwh or 0)))
+    def years(estimate: SolarResult) -> float | None:
+        """Prefer the shared payback field while accepting pre-integration estimates."""
+        return estimate.payback_years if estimate.payback_years is not None else estimate.score
+
+    scored = [e for e in estimates if years(e) is not None]
+    unscored = [e for e in estimates if years(e) is None]
+    scored.sort(key=lambda e: (years(e), -(e.annual_energy_kwh or 0)))
     ranked = [e.model_copy(update={"rank": i}) for i, e in enumerate(scored, start=1)]
     return ranked + [e.model_copy(update={"rank": None}) for e in unscored]

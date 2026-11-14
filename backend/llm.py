@@ -3,6 +3,7 @@
 import argparse
 import base64
 from pathlib import Path
+from typing import Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
@@ -10,17 +11,20 @@ from langchain_core.messages import HumanMessage
 from backend import config
 
 
-def get_chat_model(model_id: str | None = None) -> BaseChatModel:
-    """Create the configured Bedrock, Google or Anthropic model using .env settings.
-
-    ``model_id`` overrides LLM_MODEL, e.g. with VISION_MODEL for image tasks.
-    """
+def get_chat_model(
+    role: Literal["chat", "vision"] = "chat", *, model_id: str | None = None,
+) -> BaseChatModel:
+    """Choose a chat/vision model, optionally overriding its id for an AI tool."""
+    if role not in {"chat", "vision"}:
+        raise ValueError("Model role must be chat or vision.")
     provider = (config.LLM_PROVIDER or "").strip().lower()
-    model = (model_id or config.LLM_MODEL or "").strip()
+    setting = "LLM_MODEL" if role == "chat" else "VISION_MODEL"
+    configured = config.LLM_MODEL if role == "chat" else config.VISION_MODEL
+    model = ((model_id if model_id is not None else configured) or "").strip()
     if provider not in {"bedrock", "google", "anthropic"}:
         raise ValueError("Set LLM_PROVIDER to bedrock, google, or anthropic in .env.")
     if not model:
-        raise ValueError("Set LLM_MODEL in .env.")
+        raise ValueError(f"Set {setting} in .env.")
 
     # Load only the selected provider; importing this module makes no model calls.
     if provider == "bedrock":
@@ -41,13 +45,13 @@ def get_chat_model(model_id: str | None = None) -> BaseChatModel:
 
 
 def vision_model_id() -> str | None:
-    """Return VISION_MODEL when set, else None so LLM_MODEL is used."""
+    """Return the configured vision override, or None when it is absent."""
     return (config.VISION_MODEL or "").strip() or None
 
 
 def ask_text(prompt: str, model_id: str | None = None) -> str:
     """Send one text prompt and return only the reply text."""
-    model = get_chat_model(model_id) if model_id else get_chat_model()
+    model = get_chat_model(model_id=model_id) if model_id else get_chat_model()
     return str(model.invoke([HumanMessage(content=prompt)]).text)
 
 
@@ -64,7 +68,7 @@ def ask_with_image(prompt: str, image_path: str, model_id: str | None = None) ->
             "mime_type": "image/jpeg",
         },
     ])
-    model = get_chat_model(model_id) if model_id else get_chat_model()
+    model = get_chat_model("vision", model_id=model_id) if model_id else get_chat_model("vision")
     reply = model.invoke([message])
     return str(reply.text)
 
