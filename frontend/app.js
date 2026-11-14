@@ -545,9 +545,11 @@ async function openBuildingTab(card, name, building) {
       target.innerHTML = `<p class="panel-empty">The 3D tour is not available right now.</p>`;
     }
   } else {
+    target.innerHTML = `<p class="panel-empty">Loading the roof report&hellip;</p>`;
     const img = new Image();
     img.alt = `Shadow and roof-sun report for property ${building.id}`;
-    img.loading = "lazy";
+    // loading="lazy" only works once the element is in the DOM; this image starts
+    // detached, so eager-loading here is correct.
     img.onerror = () => { target.innerHTML = `<p class="panel-empty">No roof report has been generated for this building yet.</p>`; };
     img.onload = () => target.replaceChildren(img);
     img.src = `/api/roof-view/${encodeURIComponent(building.id)}`;
