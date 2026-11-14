@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la -T data/cache/studies | tail -8 && date && rm data/cache/studies/study-*.json && rmdir data/cache/studies && echo removed)",
+      "Bash(grep -v \"^\\\\s*$\")"
+    ],
+    "additionalDirectories": [
+      "/Users/jiyabhadreshbhaigorasiya/Desktop/TheCityLab/data/cache/studies"
+    ]
+  }
+}

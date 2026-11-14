@@ -96,8 +96,12 @@
         <div class="table-wrap"><table id="sample-preview"></table></div>
       </details>
       <div id="error-banner" class="error-banner" role="alert" hidden>
-        <strong>Something went wrong.</strong> <span id="error-text"></span>
-        <button type="button" id="show-demo" class="link-btn">Show the saved demo study</button>
+        <strong id="error-title">Something went wrong.</strong> <span id="error-text"></span>
+        <p id="error-hint" class="error-hint" hidden></p>
+        <div class="banner-actions">
+          <button type="button" id="retry" class="link-btn" hidden>Retry</button>
+          <button type="button" id="show-demo" class="link-btn">Show the saved demo study</button>
+        </div>
       </div>
 
       <section id="progress-card" class="steps-card" hidden aria-live="polite">
@@ -114,12 +118,29 @@
         </div>
       </section>
 
+      <section id="skeleton" class="card" hidden aria-hidden="true">
+        <div class="skel-line wide"></div>
+        <div class="cards">
+          <div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div>
+          <div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div>
+        </div>
+      </section>
+
       <div id="results" hidden>
         <div class="report-head">
           <span class="stamp">Field report</span>
           <span id="mock-badge" class="badge" hidden>Demo data</span>
         </div>
         <h2 id="study-question" class="study-question"></h2>
+
+        <section id="what-changed" class="what-changed" hidden aria-live="polite">
+          <div class="wc-head">
+            <h3>What changed after your correction</h3>
+            <button type="button" id="undo" class="undo-btn">Undo</button>
+          </div>
+          <p id="wc-conclusion" class="wc-conclusion"></p>
+          <ul id="wc-list" class="wc-list"></ul>
+        </section>
 
         <section id="verdict" class="verdict"></section>
         <div id="kpis" class="kpis"></div>
@@ -153,12 +174,18 @@
 
         <section id="solar-card" class="card" hidden>
           <h3>Rooftop solar shortlist</h3>
+          <p class="stat-note">Click a row or a numbered map pin to select a building and see its owner email draft.</p>
           <div class="table-wrap"><table id="solar-ranking"></table></div>
-          <p class="stat-note">Screening estimates only; compare the returned assumptions and caveats.</p>
+          <p class="stat-note">Screening estimates only: payback ignores incentives and financing.</p>
         </section>
 
         <section id="outreach-card" class="card" hidden>
-          <h3>Owner email draft — for review</h3>
+          <div class="email-head">
+            <h3>Owner email</h3>
+            <span class="not-sent">Draft for review - not sent</span>
+            <button type="button" id="copy-email" class="copy-btn">Copy</button>
+            <span id="copy-status" class="copy-status" aria-live="polite"></span>
+          </div>
           <div id="outreach"></div>
         </section>
 
