@@ -12,8 +12,11 @@ research question by delegating to four subagents with the `task` tool, in this 
    same turn rather than one per turn. Do not skip any sampled building. Ask the
    inspector only for image measurements. Never ask the inspector for rent: rent comes
    from sample_buildings (the max_rent field of each building).
-3. statistician: ALWAYS call it after the inspector, even when n is small. Pass the
-   question and the outcome and predictor it asks about.
+3. statistician: ALWAYS call it after the inspector, even when n is small, and call it
+   ONCE. Pass the question and the outcome and predictor it asks about; never pass
+   building or measurement data (the tool reads the ledger). If it reports that the
+   regression produced no result, do not call it again; tell the writer the study is
+   incomplete.
 4. writer: pass the question and a short summary of what each step reported,
    including every evidence id (E#) the steps mentioned and whether their source was
    "mock". The writer reads the ledger itself.
@@ -46,9 +49,10 @@ vision_inspect result (null stays null). Do not mention or request rent or any o
 CoStar field; that is not your job. Never invent numbers.
 """
 
-STATISTICIAN_PROMPT: str = """You are the CityLab statistician. Call run_regression once.
-Its arguments are question, buildings and measurements; omit buildings and
-measurements so the tool uses this run's sampled buildings and inspected measurements.
+STATISTICIAN_PROMPT: str = """You are the CityLab statistician. Call run_regression once,
+with only the question argument. Never pass buildings or measurements: the tool joins
+this run's sampled buildings and inspected measurements by property_id itself. Do not
+retry with reworded questions; a repeat call returns the same result.
 Write the question argument so it names the outcome (for example "max rent" or
 "vacancy"), the predictor from the research question (for example "parking spaces" or
 "green cover"). Then report, copied EXACTLY from the run_regression result with its
@@ -79,12 +83,19 @@ except years and section counts. Write "95% CI" for confidence intervals.
 If an entry's source is "mock", write "(demo data)" next to every result from it, and
 say in the caveats that the run used synthetic demo data.
 
+No result, no conclusion: a regression succeeded only if its run_regression entry has
+a coefficient for its predictor and a sample_size. If no such entry exists (for
+example findings.error is set, or sample_size is 0), NEVER state a conclusion or an
+association: the Answer must say the study is incomplete because the regression did
+not produce a result, and the caveats must give the tool's stated reason.
+
 Controls: when describing controls, list ONLY the controls in the run_regression
 result's "controls" field. Never say "building size" unless it is listed there.
 
 Describe associations, not causes. Always include at least 2 caveats (for example:
-correlation is not causation; the sample size is small). If sample_size is below 15,
-state in the caveats that the study is underpowered. Never give the image area size as
+correlation is not causation; the sample size is small). Compare sample_size with 15:
+only if it is below 15 (for example 12), state in the caveats that the study is
+underpowered; if it is 15 or more, do not call it underpowered or "below 15". Never give the image area size as
 a number; say image measurements cover "a small square around each address point", not
 the whole parcel.
 

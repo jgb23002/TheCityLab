@@ -124,3 +124,29 @@ def test_events_redact_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
                              handoffs=[{"subagent": "writer", "task": "use private-test-value", "ts": "t"}])
     text = "".join(e.model_dump_json() for e in agent_api.events_from_run(run))
     assert "private-test-value" not in text and "[REDACTED]" in text
+
+
+class IncompleteAgent(ScriptedAgent):
+    """Samples and inspects but never runs the regression."""
+
+    def invoke(self, inputs: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+        s = self.tools["sample_buildings"].invoke({"market_id": 14, "property_type": 11})
+        self.tools["vision_inspect"].invoke({"property_id": s["buildings"][0]["id"]})
+        brief = f"## Question\n{QUESTION}\n\n## Answer\nThe study is incomplete (demo data). n = {s['count']} [{s['evidence_id']}].\n"
+        return {"messages": [*inputs["messages"], AIMessage(content=brief)]}
+
+
+def test_incomplete_study_reports_fail_citation_check(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No regression result: the citation_check event says FAIL with the incomplete reason."""
+    monkeypatch.setattr(planner, "run_question", lambda question, mode=None, n=40: _REAL_RUN(
+        question, mode=mode, n=n, agent_factory=IncompleteAgent))
+    response = client.post("/api/ask-agent", json={"question": QUESTION, "use_mock_tools": True})
+    assert response.status_code == 200, response.text
+    check = AskResponse.model_validate(response.json()).events[-1]
+    assert check.event_type == "citation_check" and check.message == "FAIL (study incomplete)"
+    assert check.payload["verified"] is False
+    assert check.payload["reason"] == "Study incomplete: regression did not produce a result"
+    assert "Study incomplete: regression did not produce a result" in check.payload["problems"]
+
+
+_REAL_RUN = planner.run_question  # captured at import, before fixtures patch it

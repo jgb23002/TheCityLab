@@ -37,11 +37,15 @@ def events_from_run(run: planner.PlannerRun) -> list[AgentEvent]:
     events = [AgentEvent(id=f"{run_id}-ev{i}", run_id=run_id, event_type=kind, message=message,
                          timestamp=ts or None, payload=payload)
               for i, (ts, kind, message, payload) in enumerate(timeline, start=1)]
-    events.append(AgentEvent(
-        id=f"{run_id}-ev{len(events) + 1}", run_id=run_id, event_type="citation_check",
-        message="PASS" if run.verified else "FAIL",
-        payload={"verified": run.verified, "problems": [str(redact(p)) for p in run.problems]},
-    ))
+    payload = {"verified": run.verified, "problems": [str(redact(p)) for p in run.problems]}
+    if not run.complete:
+        message = "FAIL (study incomplete)"
+        payload.update({"reason": planner.REGRESSION_INCOMPLETE if any(
+            p == planner.REGRESSION_INCOMPLETE for p in run.problems) else "study incomplete"})
+    else:
+        message = "PASS" if run.verified else "FAIL"
+    events.append(AgentEvent(id=f"{run_id}-ev{len(events) + 1}", run_id=run_id,
+                             event_type="citation_check", message=message, payload=payload))
     return events
 
 
