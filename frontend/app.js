@@ -1338,6 +1338,12 @@ function renderStudy(study, evidence) {
   linkEvidenceTags($("brief"));
   $("caveats").innerHTML = (study.caveats || []).map((c) => `<li>${esc(c)}</li>`).join("");
   $("caveat-box").hidden = !(study.caveats || []).length;
+  // When the run ended incomplete, the real reason is already in the brief above (e.g.
+  // "could not be found in the CoStar database") - bring it into view instead of leaving
+  // the reader on the progress panel with only a generic "study incomplete" badge.
+  if (/study.{0,20}incomplete/i.test(study.brief_markdown || "")) {
+    $("report-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   if (!study.buildings.some((b) => b.id === state.selected)) state.selected = null;
   if (state.selected == null && study.buildings.length) {
     const top = (study.solar_results || []).find((r) => r.rank === 1);
