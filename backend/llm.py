@@ -73,6 +73,19 @@ def ask_with_image(prompt: str, image_path: str, model_id: str | None = None) ->
     return str(reply.text)
 
 
+def ask_with_images(prompt: str, image_paths: list[str], model_id: str | None = None) -> str:
+    """Send text plus several JPEGs (in order) in one vision message; return only reply text."""
+    content: list[dict] = [{"type": "text", "text": prompt}]
+    for path in image_paths:
+        image_bytes = Path(path).read_bytes()
+        if not image_bytes.startswith(b"\xff\xd8\xff"):
+            raise ValueError("image_paths must refer to JPEG images.")
+        content.append({"type": "image", "base64": base64.b64encode(image_bytes).decode("ascii"),
+                        "mime_type": "image/jpeg"})
+    model = get_chat_model("vision", model_id=model_id) if model_id else get_chat_model("vision")
+    return str(model.invoke([HumanMessage(content=content)]).text)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Describe one aerial JPEG from the command line without logging credentials."""
     parser = argparse.ArgumentParser(description=__doc__)

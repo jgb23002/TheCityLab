@@ -1,0 +1,154 @@
+city,name,lat,lon,source
+Los Angeles,Downtown Long Beach Station,33.768071,-118.192921,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Pacific Ave Station,33.772258,-118.1937,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Anaheim Street Station,33.78183,-118.189384,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Pacific Coast Hwy Station,33.78909,-118.189382,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Willow Street Station,33.807079,-118.189834,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wardlow Station,33.819865,-118.19609,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Del Amo Station,33.848222,-118.211017,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Artesia Station,33.876082,-118.222503,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Compton Station,33.89749,-118.224249,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Willowbrook - Rosa Parks Station,33.928048,-118.237555,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,103rd Street / Watts Towers Station,33.94222,-118.243159,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Firestone Station,33.959611,-118.243205,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Florence Station,33.97374,-118.243271,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Slauson Station,33.98876,-118.243398,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Vernon Station,34.00292,-118.243303,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Washington Station,34.01965,-118.243084,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,San Pedro Street Station,34.026807,-118.255505,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Grand / LATTC Station,34.033155,-118.269333,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Pico Station,34.040735,-118.266118,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,7th Street / Metro Center Station,34.04861,-118.258822,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,LATTC / Ortho Institute Station,34.029112,-118.273603,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Jefferson / USC Station,34.022123,-118.278118,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo Park / USC Station,34.018227,-118.285734,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / Vermont Station,34.018245,-118.29154,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / Western Station,34.018331,-118.30891,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / Crenshaw E-Line Station,34.022526,-118.335078,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Farmdale Station,34.023981,-118.346095,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / La Brea / Ethel Bradley Station,34.024803,-118.355159,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,La Cienega / Jefferson Station,34.026355,-118.37212,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Culver City Station,34.027896,-118.388986,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Palms Station,34.029323,-118.404255,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Westwood / Rancho Park Station,34.036816,-118.424576,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / Sepulveda Station,34.035408,-118.434234,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / Bundy Station,34.031705,-118.452896,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,26th Street / Bergamot Station,34.027995,-118.46912,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,17th Street / SMC Station,34.023155,-118.480372,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Downtown Santa Monica Station,34.01401,-118.491384,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,1st Street Station,33.76874,-118.189362,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,5th Street Station,33.773598,-118.189412,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Glendora Station,34.1319,-117.8663,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,San Dimas Station,34.1052,-117.8058,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,La Verne / Fairplex Station,34.0972,-117.7681,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Pomona North Station,34.094,-117.7522,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,North Hollywood Station,34.168504,-118.376808,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Universal / Studio City Station,34.140002,-118.362699,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Hollywood / Highland Station,34.101547,-118.338549,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Hollywood / Vine Station,34.10163,-118.32518,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Hollywood / Western Station,34.101737,-118.308117,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Vermont / Sunset Station,34.097708,-118.291756,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Vermont / Santa Monica Station,34.08991,-118.29173,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Vermont / Beverly Station,34.076526,-118.291686,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wilshire / Vermont Station,34.062701,-118.290082,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Westlake / MacArthur Park Station,34.056368,-118.274879,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Pershing Square Station,34.049316,-118.251259,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Civic Center / Grand Park Station,34.0549,-118.246057,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Union Station,34.056197,-118.234249,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wilshire / Normandie Station,34.061753,-118.301458,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wilshire / Western Station,34.061689,-118.308756,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wilshire / La Brea Station,34.06221475,-118.3434467,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wilshire / Fairfax Station,34.06296708,-118.3611657,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Wilshire / La Cienega Station,34.06483444,-118.3747009,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Redondo Beach Station,33.89464,-118.369196,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Douglas Station,33.905299,-118.383113,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,El Segundo Station,33.916063,-118.386539,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Mariposa Station,33.9232,-118.387572,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Aviation / Imperial Station,33.929621,-118.377134,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Hawthorne / Lennox Station,33.933408,-118.351602,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Crenshaw Station,33.925201,-118.32655,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Vermont / Athens Station,33.928683,-118.291733,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Harbor Freeway Station,33.928714,-118.2811,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Avalon Station,33.927465,-118.265217,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Lynwood Station,33.92488,-118.209945,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Lakewood Blvd Station,33.91307,-118.1406,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Norwalk Station,33.914033,-118.104717,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Atlantic Station,34.033398,-118.154469,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,East LA Civic Center Station,34.033364,-118.161206,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Maravilla Station,34.033319,-118.16814,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Indiana Station,34.0343,-118.192182,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Soto Station,34.043747,-118.210061,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Mariachi Plaza / Boyle Heights Station,34.047215,-118.219648,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Pico / Aliso Station,34.047634,-118.22594,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Chinatown Station,34.063861,-118.23584,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Lincoln Heights / Cypress Park Station,34.080949,-118.220429,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Heritage Square / Arroyo Station,34.087227,-118.213213,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Southwest Museum Station,34.098243,-118.206712,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Highland Park Station,34.111179,-118.192606,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,South Pasadena Station,34.115186,-118.157886,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Fillmore Station,34.133521,-118.148126,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Del Mar Station,34.14191,-118.148214,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Memorial Park Station,34.148356,-118.147512,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Lake Station,34.151806,-118.13139,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Allen Station,34.152417,-118.114348,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Sierra Madre Villa Station,34.147752,-118.081212,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Arcadia Station,34.14286,-118.029199,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Monrovia Station,34.133155,-118.003473,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Duarte / City of Hope Station,34.132518,-117.96768,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Irwindale Station,34.129048,-117.932506,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Azusa Downtown Station,34.135863,-117.906631,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,APU / Citrus College Station,34.136814,-117.891636,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Aviation / Century Station,33.94557205,-118.378683,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,LAX / Metro Transit Center,33.9500753,-118.37866,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Westchester / Veterans Station,33.96203144,-118.374378,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Downtown Inglewood Station,33.96715635,-118.3514966,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Fairview Heights Station,33.97525155,-118.3360716,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Hyde Park Station,33.98818653,-118.3308158,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Leimert Park Station,34.00390927,-118.3320162,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Martin Luther King Jr Station,34.00956339,-118.3353594,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Expo / Crenshaw K-Line Station,34.02215554,-118.3348508,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Grand Ave Arts / Bunker Hill Station,34.05472448,-118.2515307,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Historic Broadway Station,34.05215607,-118.2463211,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Los Angeles,Little Tokyo / Arts District Station,34.04884524,-118.2387567,LA Metro GTFS rail (gitlab.com/LACMTA/gtfs_rail)
+Houston,Houston,29.767579,-95.3674625,OpenStreetMap (ODbL) rail stations
+Houston,Bell,29.7546453,-95.3694611,OpenStreetMap (ODbL) rail stations
+Houston,Downtown Transit Center,29.7502275,-95.3702665,OpenStreetMap (ODbL) rail stations
+Houston,Dryden/TMC,29.7097209,-95.4008866,OpenStreetMap (ODbL) rail stations
+Houston,Ensemble/HCC,29.7391259,-95.3790533,OpenStreetMap (ODbL) rail stations
+Houston,Main Street Square,29.7558446,-95.3658244,OpenStreetMap (ODbL) rail stations
+Houston,McGowen,29.7454008,-95.3740905,OpenStreetMap (ODbL) rail stations
+Houston,Museum District,29.7243082,-95.3881709,OpenStreetMap (ODbL) rail stations
+Houston,Preston,29.7614931,-95.3613522,OpenStreetMap (ODbL) rail stations
+Houston,Wheeler,29.7327424,-95.3833959,OpenStreetMap (ODbL) rail stations
+Houston,Fannin South,29.6735974,-95.402855,OpenStreetMap (ODbL) rail stations
+Houston,Stadium Park/Astrodome,29.6859355,-95.4033938,OpenStreetMap (ODbL) rail stations
+Houston,Smith Lands,29.6965162,-95.4048496,OpenStreetMap (ODbL) rail stations
+Houston,Texas Medical Center Transit Center,29.7041849,-95.4029178,OpenStreetMap (ODbL) rail stations
+Houston,UH-Downtown,29.7658955,-95.3587493,OpenStreetMap (ODbL) rail stations
+Houston,Northline Transit Center/HCC,29.8324808,-95.3760105,OpenStreetMap (ODbL) rail stations
+Houston,Moody Park,29.7953595,-95.3658052,OpenStreetMap (ODbL) rail stations
+Houston,Cavalcade,29.8027379,-95.3681253,OpenStreetMap (ODbL) rail stations
+Houston,Lindale Park,29.8085154,-95.3695112,OpenStreetMap (ODbL) rail stations
+Houston,Melbourne/North Lindale,29.8157887,-95.3705279,OpenStreetMap (ODbL) rail stations
+Houston,Fulton/North Central,29.7857871,-95.3607149,OpenStreetMap (ODbL) rail stations
+Houston,EaDo/Stadium,29.7535453,-95.351959,OpenStreetMap (ODbL) rail stations
+Houston,Leeland/Third Ward,29.7392596,-95.3458169,OpenStreetMap (ODbL) rail stations
+Houston,"MacGregor Park/Martin Luther King, Jr.",29.7093784,-95.3365099,OpenStreetMap (ODbL) rail stations
+Houston,Elgin/Third Ward,29.7283816,-95.3498856,OpenStreetMap (ODbL) rail stations
+Houston,TSU/UH Athletics District,29.7220868,-95.3513635,OpenStreetMap (ODbL) rail stations
+Houston,UH South/University Oaks,29.7161124,-95.3411778,OpenStreetMap (ODbL) rail stations
+Houston,Palm Center Transit Center,29.6964659,-95.3323078,OpenStreetMap (ODbL) rail stations
+Houston,Coffee Plant/Second Ward,29.747542,-95.3401067,OpenStreetMap (ODbL) rail stations
+Houston,Lockwood/Eastwood,29.7436737,-95.3297352,OpenStreetMap (ODbL) rail stations
+Houston,Altic/Howard Hughes,29.741154,-95.3201457,OpenStreetMap (ODbL) rail stations
+Houston,Magnolia Park Transit Center,29.7358724,-95.302908,OpenStreetMap (ODbL) rail stations
+Houston,Cesar Chavez/67th Street,29.7375434,-95.3082707,OpenStreetMap (ODbL) rail stations
+Houston,Central Station Main,29.7588607,-95.3634305,OpenStreetMap (ODbL) rail stations
+Houston,Convention District,29.754716,-95.3576998,OpenStreetMap (ODbL) rail stations
+Houston,Theater District,29.7607161,-95.3676331,OpenStreetMap (ODbL) rail stations
+Houston,Quitman/Near Northside,29.7807514,-95.3638567,OpenStreetMap (ODbL) rail stations
+Houston,Hermann Park/Rice U,29.7200304,-95.3935887,OpenStreetMap (ODbL) rail stations
+Houston,Memorial Hermann Hospital/Houston Zoo,29.7144958,-95.3971077,OpenStreetMap (ODbL) rail stations
+Houston,Burnett Transit Center,29.7718184,-95.3593079,OpenStreetMap (ODbL) rail stations
+Houston,Central Station Rusk,29.7576365,-95.3625422,OpenStreetMap (ODbL) rail stations
+Houston,Central Station Capitol,29.7583621,-95.3619475,OpenStreetMap (ODbL) rail stations
