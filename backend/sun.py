@@ -195,6 +195,7 @@ def climate(lat: float, lon: float) -> dict[str, Any] | None:
         "clear_sky_kwh_m2_day": pick("CLRSKY_SFC_SW_DWN", m),
         "cloud_cover_percent": pick("CLOUD_AMT", m),
         "cloud_loss_percent": cloud_loss(m),
+        "clearness_index": pick("ALLSKY_KT", m),
         "temperature_c": pick("T2M", m),
     } for m in MONTHS]
     sunlight = pick("ALLSKY_SFC_SW_DWN", "ANN")
@@ -213,6 +214,89 @@ def climate(lat: float, lon: float) -> dict[str, Any] | None:
         "monthly": monthly,
         "source": "NASA POWER climatology (long-term monthly averages), ~50 km grid cell",
     }
+
+
+# ------------------------------------------------------- sunlight over a year
+
+# Klein's representative day of each month (day of year) and days per month.
+REP_DAYS = (17, 47, 75, 105, 135, 162, 198, 228, 258, 288, 318, 344)
+DAYS_IN_MONTH = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+SOLAR_CONSTANT = 1361.0  # W/m2 above the atmosphere
+
+
+def _clear_sky(elevation_deg: float, day_of_year: int) -> tuple[float, float]:
+    """Clear-sky direct-normal and diffuse light (W/m2): Meinel model, Kasten-Young air mass."""
+    if elevation_deg <= 0:
+        return 0.0, 0.0
+    i0 = SOLAR_CONSTANT * (1 + 0.033 * math.cos(2 * math.pi * day_of_year / 365))
+    air_mass = 1 / (math.sin(math.radians(elevation_deg)) + 0.50572 * (elevation_deg + 6.07995) ** -1.6364)
+    dni = i0 * 0.7 ** (air_mass ** 0.678)
+    return dni, 0.1 * dni
+
+
+def _diffuse_fraction(kt: float) -> float:
+    """Monthly diffuse share of sunlight from the clearness index (Erbs et al. 1982)."""
+    kt = min(max(kt, 0.3), 0.8)
+    return min(max(1.391 - 3.560 * kt + 4.189 * kt ** 2 - 2.137 * kt ** 3, 0.1), 0.95)
+
+
+def sky_year(lat: float, lon: float, step_minutes: int = 10, year: int = 2026) -> list[dict[str, Any]]:
+    """Sun position and real-weather sunlight for every time step of a typical year.
+
+    One representative day per month, every *step_minutes*. Clear-sky light is
+    scaled so each month's daily total matches NASA POWER's measured all-sky
+    sunlight for this location (this is where clouds come in), then split into
+    direct and diffuse light with the month's clearness index. Each step has
+    ``hours`` = how many hours of the year it stands for.
+    """
+    clim = climate(lat, lon)
+    steps: list[dict[str, Any]] = []
+    for m, (doy, days) in enumerate(zip(REP_DAYS, DAYS_IN_MONTH)):
+        day = datetime(year, 1, 1, tzinfo=timezone.utc) + timedelta(days=doy - 1)
+        raw = []
+        for minute in range(0, 24 * 60, step_minutes):
+            pos = sun_position(lat, lon, day + timedelta(minutes=minute))
+            if pos["elevation_deg"] > 0:
+                dni, dhi = _clear_sky(pos["elevation_deg"], doy)
+                ghi = dni * math.sin(math.radians(pos["elevation_deg"])) + dhi
+                raw.append((pos, ghi))
+        clear_day_kwh = sum(g for _, g in raw) * step_minutes / 60 / 1000
+        row = (clim or {}).get("monthly", [{}] * 12)[m] if clim else {}
+        measured = row.get("sunlight_kwh_m2_day")
+        scale = measured / clear_day_kwh if measured and clear_day_kwh else 1.0
+        fd = _diffuse_fraction(row.get("clearness_index") or 0.75)
+        for pos, ghi in raw:
+            g = ghi * scale
+            sin_e = math.sin(math.radians(pos["elevation_deg"]))
+            d = g * fd
+            steps.append({"month": m, "elevation_deg": pos["elevation_deg"], "azimuth_deg": pos["azimuth_deg"],
+                          "ghi": g, "dhi": d, "dni": (g - d) / sin_e if sin_e > 0.02 else 0.0,
+                          "hours": step_minutes / 60 * days})
+    return steps
+
+
+def plane_sunlight(steps: list[dict[str, Any]], tilt_deg: float, facing_deg: float,
+                   shade: list[float] | None = None, albedo: float = 0.2) -> dict[str, Any]:
+    """Yearly sunlight (kWh/m2) landing on a surface with this tilt and facing direction.
+
+    Direct light x cos(angle to the sun) (blocked by the step's ``shade``
+    fraction, 0-1), plus sky light and light reflected off the ground.
+    """
+    t = math.radians(tilt_deg)
+    sky_view, ground_view = (1 + math.cos(t)) / 2, (1 - math.cos(t)) / 2
+    monthly = [0.0] * 12
+    direct_lost = 0.0
+    for i, st in enumerate(steps):
+        e = math.radians(st["elevation_deg"])
+        cos_i = math.cos(t) * math.sin(e) + math.sin(t) * math.cos(e) * math.cos(
+            math.radians(st["azimuth_deg"] - facing_deg))
+        beam = st["dni"] * max(cos_i, 0.0)
+        blocked = beam * (shade[i] if shade else 0.0)
+        poa = beam - blocked + st["dhi"] * sky_view + st["ghi"] * albedo * ground_view
+        monthly[st["month"]] += poa * st["hours"] / 1000
+        direct_lost += blocked * st["hours"] / 1000
+    return {"kwh_m2_year": round(sum(monthly), 1), "monthly_kwh_m2": [round(v, 1) for v in monthly],
+            "shade_loss_kwh_m2": round(direct_lost, 1)}
 
 
 def solar_conditions(lat: float, lon: float) -> dict[str, Any]:
