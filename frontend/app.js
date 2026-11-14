@@ -349,7 +349,8 @@ function buildCard(study, b, m) {
     `<p class="pid">Property ${esc(b.id)}</p></div>`;
   const img = card.querySelector("img");
   const canvas = card.querySelector("canvas");
-  const draw = () => drawDetections(img, canvas, (m && m.detections) || []);
+  const obs = (m && m.observations) || {};
+  const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
   img.addEventListener("load", draw);
   img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
   if ("ResizeObserver" in window) new ResizeObserver(draw).observe(img);
@@ -359,8 +360,10 @@ function buildCard(study, b, m) {
   return card;
 }
 
-/** Draw [left, top, right, bottom] source-pixel boxes scaled to the displayed image size. */
-function drawDetections(img, canvas, detections) {
+/** Draw [left, top, right, bottom] source-pixel boxes scaled to the displayed image size.
+ * sourceW/H are the original image's size (Measurement.observations.image_width_px/height_px);
+ * the served file may be smaller (the showcase resizes to 1024 px), so they win over naturalWidth. */
+function drawDetections(img, canvas, detections, sourceW, sourceH) {
   if (!img.complete || !img.naturalWidth) return;
   const w = img.clientWidth, h = img.clientHeight;
   const ratio = window.devicePixelRatio || 1;
@@ -371,7 +374,8 @@ function drawDetections(img, canvas, detections) {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  const sx = w / img.naturalWidth, sy = h / img.naturalHeight;
+  const sx = w / (sourceW > 0 ? sourceW : img.naturalWidth);
+  const sy = h / (sourceH > 0 ? sourceH : img.naturalHeight);
   ctx.font = "600 12px Inter, system-ui, sans-serif";
   ctx.lineWidth = 2.5;
   for (const d of detections) {
