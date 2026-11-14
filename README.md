@@ -1,0 +1,39 @@
+# CityLab
+
+CityLab is a HackPrinceton Fall 2026 project for an AI research agent that
+measures buildings from Vexcel aerial images, tests questions against local
+CoStar data, and ranks buildings for rooftop solar. This repository currently
+contains typed stubs, output schemas, a health endpoint, and a static placeholder.
+
+## Setup
+
+1. Create and activate a virtual environment with Python 3.11 or newer:
+   ```sh
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+2. Install dependencies:
+   ```sh
+   pip install -r requirements.txt
+   ```
+3. Create your local settings and fill in keys as needed:
+   ```sh
+   cp -n .env.example .env
+   ```
+   If `.env` already exists, keep it and add any missing names from the example.
+4. Put the CoStar hackathon kit in `data/costar/`, with its JSON Lines files
+   under `data/costar/data/`. The kit, Vexcel notes in `notes/vexcel/`, and cache
+   in `data/cache/` stay local and git-ignored. CoStar uses local files; Vexcel
+   uses a live API; Matterport is optional. The scaffold makes no external calls.
+5. Run the app from the repository root:
+   ```sh
+   uvicorn backend.main:app --reload
+   ```
+   Open `http://127.0.0.1:8000/` for the placeholder or
+   `http://127.0.0.1:8000/api/health` for `{"ok": true}`.
+
+Run the smoke tests from the repository root:
+
+```sh
+pytest -q
+```
