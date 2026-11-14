@@ -228,6 +228,7 @@ tbody tr:hover td { background:var(--orange-soft); }
 .pill.ok { background:var(--moss-soft); color:#146a55; border-color:var(--moss); }
 .pill.weak { background:var(--gold-soft); color:#7a5a05; border-color:var(--gold); }
 .pill.no { background:#eceff1; color:#5b6670; border-color:#c9d0d6; }
+.verdict-line { display:block; margin:0 0 10px; padding:9px 12px; border-radius:10px; font-size:14px; font-weight:600; line-height:1.35; }
 .stat-note { color:var(--ink-soft); margin:12px 0 0; }
 .foot { text-align:center; font-family:var(--mono); font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); padding:18px 0 0; }
 
