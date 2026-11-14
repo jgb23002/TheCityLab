@@ -242,3 +242,21 @@ def test_build_sample_survives_vexcel_error(fake_vexcel: FakeClient, monkeypatch
     assert [b["vexcel"] for b in sample["buildings"][:3]] == [
         {"error": "RuntimeError"}, {"error": "RuntimeError"}, None,
     ]
+
+
+def test_detect_tiled_merges_tiles_and_dedupes(fake_vexcel: FakeClient) -> None:
+    """Each tile is one detect call; the same box returned by every tile is kept once."""
+    run = vexcel_detect.detect_tiled(LAT, LON, ["parking space"], 9, half_m=80.0, tile_m=80.0)
+    # 2 x 2 tiles, each returning the same 2 ortho boxes -> deduped to 2.
+    assert run.counts == {"parking space": 2}
+    for det in run.detections:
+        left, top, right, bottom = det.bbox
+        assert 0 <= left < right <= 200 and 0 <= top < bottom <= 200
+    assert Path(run.annotated_image_path).name == "property_9_160m_tiled_boxes.jpg"
+
+
+def test_dedupe_keeps_most_confident() -> None:
+    a = vexcel_detect.Detection(id="a", label="car", confidence=0.6, geometry_wkt="POLYGON((0 0,1 0,1 1,0 1,0 0))")
+    b = vexcel_detect.Detection(id="b", label="car", confidence=0.9, geometry_wkt="POLYGON((0.1 0,1.1 0,1.1 1,0.1 1,0.1 0))")
+    c = vexcel_detect.Detection(id="c", label="car", confidence=0.5, geometry_wkt="POLYGON((5 5,6 5,6 6,5 6,5 5))")
+    assert [d.id for d in vexcel_detect._dedupe([a, b, c])] == ["b", "c"]
