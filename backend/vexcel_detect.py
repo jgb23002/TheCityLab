@@ -442,6 +442,7 @@ class MultiDateSpaces(BaseModel):
     spaces_two_plus_dates: int = 0
     empty_spots_added: int = 0
     estimate: int = 0
+    spots: list[dict[str, Any]] = []  # {lon, lat, dates, empty_only}
     detect_calls: int
     annotated_image_path: str
     method: str
@@ -630,6 +631,12 @@ def spaces_from_dates(
         spaces_two_plus_dates=sum(1 for s in spots if len(s["dates"]) >= 2),
         empty_spots_added=empty_added,
         estimate=len(confirmed),
+        spots=[{
+            "lon": shapely_wkt.loads(sp["det"].geometry_wkt).centroid.x,
+            "lat": shapely_wkt.loads(sp["det"].geometry_wkt).centroid.y,
+            "dates": len([d for d in sp["dates"] if not d.startswith("empty:")]),
+            "empty_only": all(d.startswith("empty:") for d in sp["dates"]),
+        } for sp in spots],
         detect_calls=calls,
         annotated_image_path=annotated,
         method=(f"'{label}' on {nx}x{ny} tiles x {len(dates)} dates; spots < {SAME_SPOT_M} m apart merged"
