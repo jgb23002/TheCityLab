@@ -1,165 +1,300 @@
-"""Build and run the CityLab Deep Agent with live or synthetic tool adapters."""
+"""Build and run the CityLab Deep Agent: orchestrator plus four subagents, cited brief.
+
+    python -m backend.agent.planner "<question>" [--mode auto|real|mock] [--n 40] [--json path]
+"""
+
+from __future__ import annotations
 
 import argparse
-import importlib
 import json
-import os
 import re
-from collections.abc import Callable
-from functools import wraps
+import sys
+from collections import Counter
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Protocol
+from uuid import uuid4
 
 from deepagents import create_deep_agent
 from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.tools import BaseTool, StructuredTool, create_schema_from_function
-from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, JsonValue
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.tools import BaseTool
+from pydantic import JsonValue
 
-from backend import config
-from backend.agent.prompts import SYSTEM_PROMPT
+from backend.agent import prompts
+from backend.agent.citations import verify_brief
+from backend.agent.evidence import Ledger
+from backend.agent.registry import DEFAULT_N, MAX_N, MODES, get_tools, redact, resolve_mode, short_args
 from backend.llm import get_chat_model
+from backend.schemas import Building, Measurement, StatsResult, StudyResult
 
-# Public agent aliases preserve the canonical functions/signatures in CONTRACTS.md.
-_TOOL_BINDINGS = (
-    ("costar_data", "load_properties", "load_properties"),
-    ("costar_data", "get_property", "get_property"),
-    ("costar_data", "find_buildings", "sample_buildings"),
-    ("vexcel", "get_aerial", "get_aerial"),
-    ("vexcel", "get_property_info", "vexcel_detect"),
-    ("vision", "measure_building", "vision_inspect"),
-    ("stats", "run_study", "run_regression"),
-    ("solar", "estimate_solar", "estimate_solar"),
-    ("solar", "rank_buildings", "rank_buildings"),
-    ("outreach", "draft_outreach", "draft_outreach"),
-    ("matterport", "get_model", "get_model"),
+SUBAGENT_TOOLS: dict[str, tuple[str, ...]] = {
+    "sampler": ("sample_buildings",),
+    "inspector": ("vexcel_detect", "vision_inspect"),
+    "statistician": ("run_regression",),
+    "writer": ("read_evidence", "list_evidence"),
+}
+_SUBAGENTS: dict[str, tuple[str, str]] = {
+    "sampler": ("Samples buildings for the study city with sample_buildings (call once).",
+                prompts.SAMPLER_PROMPT),
+    "inspector": ("Inspects ONE building: vexcel_detect then vision_inspect. Give it the "
+                  "property id, latitude and longitude.", prompts.INSPECTOR_PROMPT),
+    "statistician": ("Runs the regression with run_regression and reports coefficient, 95% CI, "
+                     "p-value and n copied from the tool.", prompts.STATISTICIAN_PROMPT),
+    "writer": ("Writes the final markdown brief from the evidence ledger, citing every "
+               "number with its [E#] tag.", prompts.WRITER_PROMPT),
+}
+MOCK_LABEL = "(demo data)"
+# Ledger tools every research study must have run successfully, and who runs them.
+REQUIRED_STEPS: tuple[tuple[str, str], ...] = (
+    ("sample_buildings", "sampler"), ("vision_inspect", "inspector"), ("run_regression", "statistician"),
 )
 
 
-def _json_data(value: object) -> JsonValue:
-    """Convert schema objects to JSON data at the LangChain tool boundary."""
-    if isinstance(value, BaseModel):
-        return value.model_dump(mode="json")
-    if isinstance(value, (list, tuple)):
-        return [_json_data(item) for item in value]
-    if isinstance(value, dict):
-        return {str(key): _json_data(item) for key, item in value.items()}
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    raise TypeError("A CityLab tool returned a non-JSON value.")
+class Agent(Protocol):
+    """The part of a compiled LangGraph agent that run_question uses."""
+
+    def invoke(self, input: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Run the agent and return its final state with a "messages" list."""
 
 
-def _redact(value: JsonValue) -> JsonValue:
-    """Remove credential values and sensitive argument fields from console output."""
-    if isinstance(value, dict):
-        return {
-            key: "[REDACTED]" if re.search(r"key|secret|token|password|authorization", key, re.I)
-            else _redact(item)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_redact(item) for item in value]
-    if isinstance(value, str):
-        secrets = [item for name, item in os.environ.items()
-                   if item and re.search(r"key|secret|token|password", name, re.I)]
-        for secret in sorted(secrets, key=len, reverse=True):
-            value = value.replace(secret, "[REDACTED]")
-    return value
+AgentFactory = Callable[[list[BaseTool]], Agent]
 
 
-def _wrap_tool(function: Callable[..., object], name: str) -> BaseTool:
-    """Retain typed inputs while serializing model returns for the agent."""
-    @wraps(function)
-    def invoke(*args: object, **kwargs: object) -> JsonValue:
-        """Call the selected implementation and expose JSON-serializable evidence."""
-        return _json_data(function(*args, **kwargs))
+@dataclass
+class PlannerRun:
+    """A StudyResult plus the run's ledger and citation-check outcome (not schema fields)."""
 
-    return StructuredTool.from_function(
-        func=invoke, name=name, description=function.__doc__ or name,
-        args_schema=create_schema_from_function(name, function),
-    )
+    study: StudyResult
+    ledger: Ledger
+    verified: bool
+    problems: list[str] = field(default_factory=list)
 
-
-def _build_tools(use_mock: bool) -> list[BaseTool]:
-    """Choose implementations for every contract while keeping stable agent names."""
-    tools = []
-    for module_name, function_name, public_name in _TOOL_BINDINGS:
-        module = importlib.import_module(f"backend.tools.{'mock' if use_mock else module_name}")
-        tools.append(_wrap_tool(getattr(module, function_name), public_name))
-    return tools
+    def to_json(self) -> dict[str, JsonValue]:
+        """Return the study, ledger and verification result as JSON data."""
+        return {"study": self.study.model_dump(mode="json"), "ledger": self.ledger.to_json(),
+                "verified": self.verified, "problems": list(self.problems)}
 
 
-class _ToolCallPrinter(BaseCallbackHandler):
-    """Print each actual tool invocation before its body runs, with redaction."""
+def build_agent(tools: Sequence[BaseTool], model: BaseChatModel | str) -> Any:
+    """Create the orchestrator Deep Agent with sampler, inspector, statistician and writer.
 
-    raise_error = True
-
-    def on_tool_start(
-        self, serialized: dict[str, object], input_str: str, *,
-        inputs: dict[str, object] | None = None, **kwargs: object,
-    ) -> None:
-        """Emit the tool name and its arguments immediately, never credentials."""
-        if inputs is None:
-            try:
-                arguments = json.loads(input_str)
-            except (ValueError, TypeError):
-                arguments = input_str
-        else:
-            arguments = inputs
-        name = str(serialized.get("name", "tool"))
-        encoded = json.dumps(_redact(_json_data(arguments)), ensure_ascii=False, allow_nan=False)
-        print(f"{_redact(name)} {encoded}", flush=True)
-
-
-def build_agent() -> CompiledStateGraph:
-    """Build with Deep Agents 0.7.38's inspected model/tools/system_prompt keywords."""
-    mode = "MOCK: all CityLab tool numbers are synthetic." if config.USE_MOCK_TOOLS else (
-        "REAL tools selected; report unavailable implementations or data instead of inventing outputs."
-    )
+    Uses deepagents 0.7.38 create_deep_agent(model, tools, system_prompt, subagents,
+    name); each declarative SubAgent gets its own prompt and only its own tools. The
+    orchestrator itself only gets the read-only evidence tools.
+    """
+    by_name = {tool.name: tool for tool in tools}
+    subagents = [
+        {"name": name, "description": description, "system_prompt": prompt,
+         "tools": [by_name[t] for t in SUBAGENT_TOOLS[name]]}
+        for name, (description, prompt) in _SUBAGENTS.items()
+    ]
     return create_deep_agent(
-        model=get_chat_model("chat"),
-        tools=_build_tools(config.USE_MOCK_TOOLS),
-        system_prompt=f"{SYSTEM_PROMPT}\n\nRun mode: {mode}",
+        model=model,
+        tools=[by_name["list_evidence"], by_name["read_evidence"]],
+        system_prompt=prompts.ORCHESTRATOR_PROMPT,
+        subagents=subagents,
         name="CityLab",
     )
 
 
-def run_question(question: str) -> str:
-    """Run a question, print tool names/arguments as they execute, then the final text."""
+def _default_factory(tools: list[BaseTool]) -> Agent:
+    """Build the real Deep Agent with the configured chat model from backend/llm.py."""
+    return build_agent(tools, get_chat_model("chat"))
+
+
+class _HandOffPrinter(BaseCallbackHandler):
+    """Print each subagent hand-off (a `task` tool call) as it starts."""
+
+    raise_error = False
+
+    def on_tool_start(self, serialized: dict[str, Any], input_str: str, *,
+                      inputs: dict[str, Any] | None = None, **kwargs: Any) -> None:
+        """Print 'HAND-OFF -> <subagent>: <short task>' for task tool calls only."""
+        if (serialized or {}).get("name") != "task":
+            return
+        if inputs is None:
+            try:
+                inputs = json.loads(input_str)
+            except (TypeError, ValueError):
+                inputs = {}
+        target = str((inputs or {}).get("subagent_type", "?"))
+        description = " ".join(str((inputs or {}).get("description", "")).split())
+        print(f"HAND-OFF -> {redact(target)}: {redact(description)[:100]}", flush=True)
+
+
+def _print_tool_call(entry: dict[str, Any]) -> None:
+    """Print one recorded tool call: evidence id, tool name, short args and source."""
+    status = " ERROR" if "error" in entry["result"] else ""
+    print(f"  TOOL {entry['id']} {entry['tool']} {short_args(entry['args'])} [{entry['source']}]{status}",
+          flush=True)
+
+
+def _text(message: BaseMessage) -> str:
+    """Return the plain text of a message."""
+    return str(message.text).strip()
+
+
+def _strip_preamble(text: str) -> str:
+    """Drop chatter before the brief's first markdown heading, if it has one."""
+    match = re.search(r"^#{1,6}\s", text, re.M)
+    return text[match.start():].strip() if match else text
+
+
+def _brief_from(messages: list[BaseMessage]) -> str:
+    """Prefer the writer subagent's own output; fall back to the final AI message."""
+    writer_calls = {call["id"] for m in messages if isinstance(m, AIMessage) for call in m.tool_calls
+                    if call["name"] == "task" and call["args"].get("subagent_type") == "writer"}
+    for message in reversed(messages):
+        if isinstance(message, ToolMessage) and message.tool_call_id in writer_calls and _text(message):
+            return _strip_preamble(_text(message))
+    for message in reversed(messages):
+        if isinstance(message, AIMessage) and not message.tool_calls and _text(message):
+            return _strip_preamble(_text(message))
+    raise ValueError("The agent did not return a brief.")
+
+
+def _problems(brief: str, ledger: Ledger) -> list[str]:
+    """Run the citation check plus the demo-data label check."""
+    problems = verify_brief(brief, ledger)
+    if any(e["source"] == "mock" for e in ledger.all()) and MOCK_LABEL not in brief:
+        problems.append(f'mock results are not labelled "{MOCK_LABEL}"')
+    return problems
+
+
+def missing_steps(ledger: Ledger) -> list[str]:
+    """Return REQUIRED_STEPS tools with no successful (non-error) ledger entry."""
+    done = {e["tool"] for e in ledger.all() if "error" not in e["result"]}
+    return [tool for tool, _ in REQUIRED_STEPS if tool not in done]
+
+
+def _study(question: str, brief: str, ledger: Ledger, caveats: list[str]) -> StudyResult:
+    """Assemble a StudyResult exactly per backend/schemas.py from ledger results."""
+    entries = [e for e in ledger.all() if "error" not in e["result"]]
+    samples = [e for e in entries if e["tool"] == "sample_buildings"]
+    buildings = [Building.model_validate(b) for b in samples[-1]["result"]["buildings"]] if samples else []
+    latest: dict[Any, Measurement] = {}
+    for e in entries:
+        if e["tool"] == "vision_inspect":
+            m = Measurement.model_validate(e["result"])
+            latest[m.property_id] = m
+    regressions = [e for e in entries if e["tool"] == "run_regression"]
+    stats = StatsResult.model_validate(regressions[-1]["result"]) if regressions else None
+    is_mock = any(e["source"] == "mock" for e in ledger.all())
+    all_caveats = list((stats.caveats if stats else None) or [])
+    if is_mock:
+        all_caveats.append(f"Results marked {MOCK_LABEL} come from synthetic mock tools, not observations.")
+    all_caveats.extend(caveats)
+    return StudyResult(id=f"study-{uuid4().hex[:12]}", question=question, buildings=buildings,
+                       measurements=list(latest.values()), stats=stats, brief_markdown=brief,
+                       caveats=all_caveats, is_mock=is_mock)
+
+
+def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
+                 agent_factory: AgentFactory | None = None) -> PlannerRun:
+    """Run one question through the agent, verify the brief's citations, return a PlannerRun.
+
+    PlannerRun.study is the StudyResult; PlannerRun.ledger and .verified carry the
+    evidence and citation-check outcome, which StudyResult has no fields for.
+    """
     if not question.strip():
-        raise ValueError("Provide a nonempty research or retrofit question.")
-    agent = build_agent()
-    result = agent.invoke(
-        {"messages": [HumanMessage(content=question)]},
-        config={"callbacks": [_ToolCallPrinter()], "recursion_limit": 1000, "max_concurrency": 1},
-    )
-    messages = result.get("messages", [])
-    if not messages or not isinstance(messages[-1], AIMessage) or messages[-1].tool_calls:
-        raise ValueError("The agent did not return a final answer.")
-    answer = str(_redact(str(messages[-1].text))).strip()
-    if not answer:
-        raise ValueError("The agent returned no final text.")
-    if config.USE_MOCK_TOOLS:
-        answer = "MOCK / SYNTHETIC DATA\n" + answer
-    print(answer, flush=True)
-    return answer
+        raise ValueError("Provide a nonempty research question.")
+    tool_mode = resolve_mode(mode)
+    n = max(1, min(int(n), MAX_N))
+    ledger = Ledger()
+    tools = get_tools(tool_mode, ledger, n=n, on_call=_print_tool_call)
+    agent = (agent_factory or _default_factory)(tools)
+    run_config = {"callbacks": [_HandOffPrinter()], "recursion_limit": 1000}
+
+    prompt = (f"Question: {question}\nSample size n: {n} (max {MAX_N}).\nTool mode: {tool_mode}.")
+    state = agent.invoke({"messages": [HumanMessage(content=prompt)]}, config=run_config)
+    messages = list(state.get("messages", []))
+
+    missing = missing_steps(ledger)
+    if missing:
+        owners = dict(REQUIRED_STEPS)
+        names = ", ".join(missing)
+        who = ", then ".join(owners[m] for m in missing)
+        print(f"STEP GUARD: {names} was not run; asking the orchestrator once to run it.", flush=True)
+        guard = HumanMessage(content=(
+            f"The study is incomplete: {names} was not run. Delegate to the {who} now, then to "
+            "the writer for an updated brief that uses the new evidence. Return only the brief."))
+        state = agent.invoke({"messages": [*messages, guard]}, config=run_config)
+        messages = list(state.get("messages", []))
+        missing = missing_steps(ledger)
+
+    brief = str(redact(_brief_from(messages)))
+    problems = _problems(brief, ledger)
+
+    if problems:
+        listed = "\n".join(f"- {p}" for p in problems)
+        fix = HumanMessage(content=(
+            "The automatic citation check failed with these problems:\n" + listed + "\n\n"
+            "Delegate to the writer ONCE to fix them. Every number must be copied from the ledger "
+            "and immediately followed by the [E#] tag of the entry that contains it; remove any "
+            "number that is not in the ledger. Return only the corrected brief."))
+        print(f"CITATION CHECK found {len(problems)} problems; asking the writer to fix them.", flush=True)
+        state = agent.invoke({"messages": [*messages, fix]}, config=run_config)
+        brief = str(redact(_brief_from(list(state.get("messages", [])))))
+        problems = _problems(brief, ledger)
+
+    caveats = [f"Study incomplete: {step} was not run." for step in missing]
+    if problems:
+        caveat = "Unverified numbers: " + "; ".join(problems)
+        caveats.append(caveat)
+        brief = brief.rstrip() + "\n\n**Unverified numbers** (failed the automatic citation check):\n" + \
+            "\n".join(f"- {p}" for p in problems) + "\n"
+    if missing:
+        brief = brief.rstrip() + "\n\n" + "\n".join(f"**{c}**" for c in caveats if c.startswith("Study incomplete")) + "\n"
+    study = _study(question, brief, ledger, caveats)
+    return PlannerRun(study=study, ledger=ledger, verified=not problems and not missing,
+                      problems=problems + [f"Study incomplete: {s} was not run." for s in missing])
 
 
 def plan_research(question: str) -> dict[str, JsonValue]:
     """Retain the scaffold entry point as a JSON wrapper around run_question."""
-    return {"question": str(_redact(question)), "answer": run_question(question)}
+    return run_question(question).to_json()
+
+
+def tools_used(ledger: Ledger) -> list[tuple[str, str, int]]:
+    """Return (tool, source, call count) rows in first-use order."""
+    counts = Counter((e["tool"], e["source"]) for e in ledger.all())
+    return [(tool, source, count) for (tool, source), count in counts.items()]
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run one quoted question from python -m backend.agent.planner."""
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("question", help="A quoted CityLab research or retrofit question.")
+    parser = argparse.ArgumentParser(description="Run a CityLab research question.")
+    parser.add_argument("question", help="A quoted CityLab research question.")
+    parser.add_argument("--mode", choices=MODES, default=None, help="Tool mode (default: TOOLS_MODE or auto).")
+    parser.add_argument("--n", type=int, default=DEFAULT_N, help=f"Sample size (max {MAX_N}).")
+    parser.add_argument("--json", dest="json_path", default=None,
+                        help="Write StudyResult plus ledger here. Use a path outside the repo or under "
+                             "data/cache/ (ignored by git), e.g. data/cache/runs/out.json.")
     args = parser.parse_args(argv)
     try:
-        run_question(args.question)
-    except Exception:
+        run = run_question(args.question, mode=args.mode, n=args.n)
+    except Exception as exc:
         # SDK/graph exception text can include request details or credentials.
-        parser.exit(1, "CityLab could not complete the question; check model settings and tool availability.\n")
-    return 0
+        parser.exit(1, f"CityLab could not complete the question ({type(exc).__name__}); "
+                       "check model settings and tool availability.\n")
+    print("\n" + run.study.brief_markdown.rstrip() + "\n")
+    print("CITATION CHECK: PASS" if run.verified else f"CITATION CHECK: FAIL ({len(run.problems)} problems)")
+    rows = tools_used(run.ledger)
+    width = max([len("tool"), *(len(r[0]) for r in rows)])
+    print("TOOLS USED:")
+    print(f"  {'tool'.ljust(width)}  source  calls")
+    for tool, source, count in rows:
+        print(f"  {tool.ljust(width)}  {source.ljust(6)}  {count}")
+    if args.json_path:
+        out = Path(args.json_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(run.to_json(), indent=2), encoding="utf-8")
+        print(f"Wrote {args.json_path}")
+    sys.stdout.flush()
+    return 0 if run.verified else 2
 
 
 if __name__ == "__main__":
