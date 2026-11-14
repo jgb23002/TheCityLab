@@ -1087,6 +1087,10 @@ function renderPlan(payload) {
   const icon = { completed: "✓", in_progress: "◐", pending: "○" };
   $("plan").innerHTML = todos.map((t) => `<li class="todo ${esc(t.status)}"><span class="todo-icon" aria-hidden="true">` +
     `${icon[t.status] || "○"}</span><span>${esc(t.content)}</span><small>${esc(String(t.status).replace("_", " "))}</small></li>`).join("");
+  const done = todos.filter((t) => t.status === "completed").length;
+  const current = todos.find((t) => t.status === "in_progress");
+  $("run-status").textContent = current ? `${current.content} (step ${done + 1} of ${todos.length})`
+    : todos.length ? `${done} of ${todos.length} steps done` : "";
 }
 
 function addNote(data) {
