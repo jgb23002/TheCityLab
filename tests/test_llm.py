@@ -64,6 +64,55 @@ def test_google_requires_its_configured_key(monkeypatch: pytest.MonkeyPatch) -> 
     constructor.assert_not_called()
 
 
+def test_chat_and_vision_roles_choose_separate_models(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep no-argument chat calls compatible while routing images to VISION_MODEL."""
+    constructor = Mock()
+    monkeypatch.setitem(sys.modules, "langchain_aws", SimpleNamespace(ChatBedrockConverse=constructor))
+    monkeypatch.setattr(llm.config, "LLM_PROVIDER", "bedrock")
+    monkeypatch.setattr(llm.config, "LLM_MODEL", "chat-model")
+    monkeypatch.setattr(llm.config, "VISION_MODEL", "vision-model")
+    monkeypatch.setattr(llm.config, "AWS_REGION", "us-east-1")
+    llm.get_chat_model()
+    constructor.assert_called_with(model="chat-model", region_name="us-east-1")
+    llm.get_chat_model("vision")
+    constructor.assert_called_with(model="vision-model", region_name="us-east-1")
+    monkeypatch.setattr(llm.config, "VISION_MODEL", None)
+    with pytest.raises(ValueError, match="VISION_MODEL"):
+        llm.get_chat_model("vision")
+    with pytest.raises(ValueError, match="role"):
+        llm.get_chat_model("unknown")
+
+
+@pytest.mark.parametrize("role", ["chat", "vision"])
+def test_explicit_model_override_works_with_both_roles(role: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The planner's role API and the AI tools' model-id override coexist."""
+    constructor = Mock()
+    monkeypatch.setitem(sys.modules, "langchain_aws", SimpleNamespace(ChatBedrockConverse=constructor))
+    monkeypatch.setattr(llm.config, "LLM_PROVIDER", "bedrock")
+    monkeypatch.setattr(llm.config, "LLM_MODEL", None)
+    monkeypatch.setattr(llm.config, "VISION_MODEL", None)
+    monkeypatch.setattr(llm.config, "AWS_REGION", "us-east-1")
+    llm.get_chat_model(role, model_id="override-model")
+    constructor.assert_called_once_with(model="override-model", region_name="us-east-1")
+
+
+def test_ai_text_and_image_helpers_forward_model_overrides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Vision and outreach helpers retain explicit model overrides after the merge."""
+    path = tmp_path / "aerial.jpg"
+    Image.new("RGB", (2, 2), "green").save(path, format="JPEG")
+    model = Mock()
+    model.invoke.return_value = AIMessage(content="mock reply")
+    factory = Mock(return_value=model)
+    monkeypatch.setattr(llm, "get_chat_model", factory)
+    assert llm.ask_text("Draft an email", model_id="text-override") == "mock reply"
+    factory.assert_called_once_with(model_id="text-override")
+    factory.reset_mock()
+    assert llm.ask_with_image("Measure the roof", str(path), "vision-override") == "mock reply"
+    factory.assert_called_once_with("vision", model_id="vision-override")
+
+
 @pytest.mark.parametrize(
     "content",
     ["An apartment building is surrounded by trees.",
@@ -84,7 +133,7 @@ def test_ask_with_image_encodes_jpeg_and_returns_only_reply_text(
     result = llm.ask_with_image("Describe the rooftop.", str(path))
     assert result == str(reply.text)
     assert "private reasoning" not in result
-    factory.assert_called_once_with()
+    factory.assert_called_once_with("vision")
     model.invoke.assert_called_once()
     messages = model.invoke.call_args.args[0]
     assert len(messages) == 1 and isinstance(messages[0], HumanMessage)
