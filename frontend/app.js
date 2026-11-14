@@ -253,6 +253,20 @@ function showCitation(data) {
     list.hidden = !list.hidden || !problems.length;
     badge.setAttribute("aria-expanded", String(!list.hidden));
   };
+  // The to-do tool has no "failed" status, so a step that actually failed can still
+  // show as completed. If the study turned out incomplete, say so next to the plan
+  // rather than let it silently contradict every green checkmark above it.
+  const plan = $("plan");
+  const allDone = plan && [...plan.querySelectorAll(".todo")].every((li) => li.classList.contains("completed"));
+  const note = document.getElementById("plan-mismatch-note");
+  if (note) note.remove();
+  if (!passed && data.message.includes("incomplete") && allDone) {
+    const p = document.createElement("p");
+    p.id = "plan-mismatch-note";
+    p.className = "plan-mismatch";
+    p.textContent = "Every step above shows completed, but the study did not actually finish - see the citation result below for why.";
+    $("plan-box").after(p);
+  }
 }
 
 function finishProgress() {
@@ -301,7 +315,9 @@ function renderMap(study) {
   const filter = $("map-filter").value;
   const colorOf = (v) => v == null ? "#b3bac1" : key === "payback_years" ? paybackColor(v, vlo, vhi)
     : seqColor(vhi > vlo ? (v - vlo) / (vhi - vlo) : 0.5);
-  $("map-legend").textContent = values.length
+  $("map-legend").textContent = !buildings.length
+    ? "No buildings could be sampled for this question - see the brief above for why."
+    : values.length
     ? `Colour: ${nice(key)} from ${fmt(vlo, 1)} (${key === "payback_years" ? "green, shortest" : "light"}) to ${fmt(vhi, 1)} ` +
       `(${key === "payback_years" ? "red, longest" : "dark"}); grey = unavailable. Numbered pins are the solar top 10.`
     : `No building has a value for ${nice(key)}.`;
