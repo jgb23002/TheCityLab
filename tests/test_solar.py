@@ -3,7 +3,7 @@
 import pytest
 
 from backend.schemas import Building, Measurement, SolarResult
-from backend.tools import solar
+from backend.tools import geometry, solar
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +80,23 @@ def test_estimate_solar_runs_without_any_vision_result() -> None:
     r = solar.estimate_solar(b)
     assert r.capacity_kw is not None
     assert r.usable_roof_area_sq_ft == 6000  # default "none" obstruction fraction (0.60) applies
+
+
+def test_estimate_solar_reports_matterport_height_when_available() -> None:
+    b = Building(id=19, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000,
+                 num_stories_above_grade=2)
+    m = Measurement(id="m-19", property_id=19, observations={"matterport_building_height_ft": 9.1})
+    r = solar.estimate_solar(b, m)
+    assert r.assumptions["estimated_building_height_ft"] == 9.1
+    assert r.assumptions["building_height_source"] == "Matterport room scan (median room height)"
+
+
+def test_estimate_solar_falls_back_to_costar_height_without_matterport() -> None:
+    b = Building(id=20, market_id=14, latitude=29.7, longitude=-95.4, gross_typical_floor_sq_ft=10_000,
+                 num_stories_above_grade=2)
+    r = solar.estimate_solar(b)
+    assert r.assumptions["estimated_building_height_ft"] == 2 * geometry.FLOOR_TO_FLOOR_FT
+    assert r.assumptions["building_height_source"].startswith("CoStar stories")
 
 
 def test_pvwatts_result_is_used_when_available(monkeypatch: pytest.MonkeyPatch) -> None:

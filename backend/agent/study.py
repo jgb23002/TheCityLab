@@ -19,7 +19,7 @@ from backend.schemas import (
     AgentEvent, AskRequest, AskResponse, Building, Measurement, OutreachDraft,
     SolarResult, StatsResult, StudyResult,
 )
-from backend.tools import costar_data, mock, outreach, solar, stats, vexcel, vision
+from backend.tools import costar_data, matterport, mock, outreach, solar, stats, vexcel, vision
 
 CITIES = {14: "Houston", 20: "Los Angeles"}
 
@@ -74,6 +74,17 @@ def _cached_measurement(building: Building) -> Measurement | None:
     return measurement
 
 
+def _matterport_height(building: Building) -> float | None:
+    """Return a cached Matterport room-scan median height, or None (optional enrichment, never blocks)."""
+    if not building.matterport_model_id:
+        return None
+    try:
+        model = matterport.get_model(building.matterport_model_id)
+        return matterport.building_height_ft(model)
+    except Exception:
+        return None
+
+
 def _measure(building: Building, use_mock: bool) -> tuple[Measurement, bool]:
     """Measure one property through the merged tools, respecting cache-only mode."""
     if use_mock:
@@ -98,9 +109,10 @@ def _measure(building: Building, use_mock: bool) -> tuple[Measurement, bool]:
     if result.property_id != building.id:
         raise StudyUnavailable("The measurement does not match the sampled building.")
     bearing = None if use_mock else vexcel.parcel_bearing_deg(parcel)
+    height = None if use_mock else _matterport_height(building)
     result = result.model_copy(update={"observations": {
         **(result.observations or {}), "vexcel_property_info_id": parcel.id,
-        "parcel_bearing_deg": bearing,
+        "parcel_bearing_deg": bearing, "matterport_building_height_ft": height,
     }})
     if not use_mock and not (result.observations or {}).get("error"):
         path = config.CACHE_DIR / "vision" / f"m-{building.id}.json"
