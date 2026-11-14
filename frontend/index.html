@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="/style.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -36,7 +37,7 @@
         <p class="eyebrow"><i></i> Aerial photos + CoStar data</p>
         <h1>Got a hunch about a city?<br><em>Let's go check the rooftops.</em></h1>
         <p class="lede">Ask in plain English. We measure real aerial photos, run the numbers, and tell you what the evidence says.</p>
-        <p class="demo-note" role="note">Real data runs the selected city's CoStar sample through aerial analysis. Cached measurements are reused. Choose Mock demo to explore with synthetic numbers.</p>
+        <p class="demo-note" role="note">Real data runs CoStar buildings through aerial analysis, reusing cached measurements. Name the city in your question. Turn on Demo mode to explore with synthetic numbers and no paid calls.</p>
         <form id="ask-form" class="search">
           <input id="question" type="text" autocomplete="off" aria-label="Your question"
                  placeholder="Do greener buildings charge more rent?">
@@ -45,8 +46,8 @@
         <div class="study-options">
           <label>City<select id="market"><option value="14">Houston</option><option value="20">Los Angeles</option></select></label>
           <label>Study<select id="mode"><option value="research">Research</option><option value="retrofit">Solar screening</option></select></label>
-          <label>Data<select id="data-source"><option value="real">Real data</option><option value="mock">Mock demo</option></select></label>
           <label>Buildings<input id="sample-limit" form="ask-form" type="number" min="1" max="50" value="50" required></label>
+          <label class="toggle"><input id="demo-mode" type="checkbox" checked> <span>Demo mode <small>(synthetic data, no paid calls)</small></span></label>
         </div>
         <div class="chips-label">Or start with a sample question</div>
         <div id="chips" class="chips"></div>
@@ -94,9 +95,23 @@
         <p id="preview-count" class="stat-note" aria-live="polite">Loading the selected sample...</p>
         <div class="table-wrap"><table id="sample-preview"></table></div>
       </details>
-      <section id="progress-card" class="steps-card" hidden>
-        <div class="steps-title">Study steps</div>
-        <ol id="progress" class="steps"></ol>
+      <div id="error-banner" class="error-banner" role="alert" hidden>
+        <strong>Something went wrong.</strong> <span id="error-text"></span>
+        <button type="button" id="show-demo" class="link-btn">Show the saved demo study</button>
+      </div>
+
+      <section id="progress-card" class="steps-card" hidden aria-live="polite">
+        <div class="progress-head">
+          <span id="spinner" class="spinner" aria-hidden="true"></span>
+          <span class="steps-title">Live progress</span>
+          <span id="tool-count" class="counter">0 tool calls</span>
+          <button type="button" id="cancel" class="cancel-btn">Cancel</button>
+        </div>
+        <ul id="progress" class="live-list"></ul>
+        <div id="citation" class="citation" hidden>
+          <button type="button" id="citation-badge" class="citation-badge" aria-expanded="false"></button>
+          <ul id="citation-problems" class="citation-problems" hidden></ul>
+        </div>
       </section>
 
       <div id="results" hidden>
@@ -124,9 +139,10 @@
             <div id="map"></div>
           </section>
           <section class="card">
-            <h3>How it lines up</h3>
+            <h3 id="chart-title">How it lines up</h3>
             <p id="chart-message" class="stat-note" hidden></p>
-            <div class="chart-wrap"><canvas id="chart"></canvas></div>
+            <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Result chart"></canvas></div>
+            <p id="chart-summary" class="chart-summary"></p>
           </section>
         </div>
 
@@ -148,7 +164,22 @@
 
         <section class="card">
           <h3>Every building we measured</h3>
-          <div class="table-wrap"><table id="evidence"></table></div>
+          <p class="stat-note">Click a card to find it on the map, or a map marker to find its card. Boxes show the detections on the aerial image.</p>
+          <div id="cards" class="cards"></div>
+          <div id="cards-sentinel" class="cards-sentinel"></div>
+          <button type="button" id="more-cards" class="more-btn" hidden>Show more buildings</button>
+          <details class="table-details">
+            <summary>Show all buildings as a table</summary>
+            <div class="table-wrap"><table id="evidence"></table></div>
+          </details>
+        </section>
+
+        <section id="ledger-card" class="card">
+          <h3>Evidence ledger</h3>
+          <p class="stat-note">Every tool call, with the id the brief cites. Click an [E#] tag in the brief to jump here.</p>
+          <input id="ledger-filter" class="filter" type="search" placeholder="Filter by id, tool, source or summary" aria-label="Filter the evidence ledger">
+          <div class="table-wrap"><table id="ledger"></table></div>
+          <p id="ledger-empty" class="stat-note" hidden></p>
         </section>
       </div>
 

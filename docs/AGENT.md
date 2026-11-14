@@ -67,6 +67,21 @@ failures are retried once and then recorded in `data/cache/measure_status.json` 
 them with `--retry-errors`), and errors or mocks are never cached. `--dry-run` estimates
 paid calls without making any. With `USE_CACHE_ONLY=true` it only reports what is cached.
 
+## Streaming
+
+`POST /api/ask-stream` takes the same body as `/api/ask-agent` and returns server-sent
+events (`text/event-stream`). `handoff` and `tool_call` frames arrive live, then
+`citation_check`, then `evidence` (`[{id, tool, source, summary}]`) and `result` (the full
+AskResponse). A failure sends one `error` frame and closes the stream. `: keepalive`
+comments arrive every 15 s. Frames never contain tool arguments, raw Vexcel responses or
+secrets. `GET /api/image/<id>` serves the building's aerial JPEG (`data/showcase/images/`,
+then `data/cache/vexcel/images/`), or a placeholder SVG for ids in the mock cohort (990001-990012, 990101-990112).
+
+```sh
+curl -N -X POST localhost:8000/api/ask-stream -H "Content-Type: application/json" \
+  -d '{"question":"Which 10 Los Angeles apartment buildings are the best rooftop-solar candidates?","mode":"retrofit","use_mock_tools":true}'
+```
+
 ## Commands
 
 ```sh

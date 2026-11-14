@@ -22,7 +22,11 @@ def test_frontend() -> None:
         assert "<title>CityLab: field reports for buildings</title>" in response.text
         assert 'id="ask-form"' in response.text
         assert 'id="study-question"' in response.text
-        assert 'id="data-source"' in response.text
+        assert 'id="demo-mode"' in response.text  # replaces the old Data select
         assert 'id="solar-ranking"' in response.text
-        assert client.get("/app.js").status_code == 200
+        for element in ("progress", "cancel", "citation-badge", "error-banner", "cards", "ledger",
+                        "ledger-filter", "chart-summary", "brief"):
+            assert f'id="{element}"' in response.text, element
+        script = client.get("/app.js")
+        assert script.status_code == 200 and "/api/ask-stream" in script.text and "getReader" in script.text
         assert client.get("/style.css").status_code == 200
