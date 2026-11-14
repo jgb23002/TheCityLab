@@ -12,6 +12,7 @@ import sys
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
@@ -71,6 +72,7 @@ class PlannerRun:
     ledger: Ledger
     verified: bool
     problems: list[str] = field(default_factory=list)
+    handoffs: list[dict[str, str]] = field(default_factory=list)  # {subagent, task, ts}
 
     def to_json(self) -> dict[str, JsonValue]:
         """Return the study, ledger and verification result as JSON data."""
@@ -110,6 +112,11 @@ class _HandOffPrinter(BaseCallbackHandler):
 
     raise_error = False
 
+    def __init__(self, handoffs: list[dict[str, str]] | None = None) -> None:
+        """Optionally collect each hand-off (subagent, redacted short task, ts) in *handoffs*."""
+        super().__init__()
+        self.handoffs = handoffs if handoffs is not None else []
+
     def on_tool_start(self, serialized: dict[str, Any], input_str: str, *,
                       inputs: dict[str, Any] | None = None, **kwargs: Any) -> None:
         """Print 'HAND-OFF -> <subagent>: <short task>' for task tool calls only."""
@@ -122,7 +129,9 @@ class _HandOffPrinter(BaseCallbackHandler):
                 inputs = {}
         target = str((inputs or {}).get("subagent_type", "?"))
         description = " ".join(str((inputs or {}).get("description", "")).split())
-        print(f"HAND-OFF -> {redact(target)}: {redact(description)[:100]}", flush=True)
+        target, task = str(redact(target)), str(redact(description))[:100]
+        self.handoffs.append({"subagent": target, "task": task, "ts": datetime.now(timezone.utc).isoformat()})
+        print(f"HAND-OFF -> {target}: {task}", flush=True)
 
 
 def _print_tool_call(entry: dict[str, Any]) -> None:
@@ -206,7 +215,8 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
     ledger = Ledger()
     tools = get_tools(tool_mode, ledger, n=n, on_call=_print_tool_call)
     agent = (agent_factory or _default_factory)(tools)
-    run_config = {"callbacks": [_HandOffPrinter()], "recursion_limit": 1000}
+    handoffs: list[dict[str, str]] = []
+    run_config = {"callbacks": [_HandOffPrinter(handoffs)], "recursion_limit": 1000}
 
     prompt = (f"Question: {question}\nSample size n: {n} (max {MAX_N}).\nTool mode: {tool_mode}.")
     state = agent.invoke({"messages": [HumanMessage(content=prompt)]}, config=run_config)
@@ -250,7 +260,8 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         brief = brief.rstrip() + "\n\n" + "\n".join(f"**{c}**" for c in caveats if c.startswith("Study incomplete")) + "\n"
     study = _study(question, brief, ledger, caveats)
     return PlannerRun(study=study, ledger=ledger, verified=not problems and not missing,
-                      problems=problems + [f"Study incomplete: {s} was not run." for s in missing])
+                      problems=problems + [f"Study incomplete: {s} was not run." for s in missing],
+                      handoffs=handoffs)
 
 
 def plan_research(question: str) -> dict[str, JsonValue]:
