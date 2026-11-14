@@ -76,9 +76,6 @@ button { font:inherit; cursor:pointer; }
 .strip-media img { width:100%; height:100%; object-fit:cover; }
 .strip-placeholder span { font-family:var(--mono); font-size:13px; color:var(--muted); padding:0 20px; text-align:center; }
 .strip-placeholder.strip-text span { font-size:16px; color:var(--ink); font-weight:600; }
-.strip-result { flex-direction:column; gap:4px; color:var(--orange); }
-.strip-result span { font-family:var(--serif); font-weight:800; font-size:clamp(40px, 8vw, 64px); line-height:1; }
-.strip-result small { font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft); }
 .strip-caption { margin:0; padding:10px 14px; font-size:13.5px; color:var(--ink-soft); background:var(--paper-2); border-top:1.5px solid var(--line); }
 .strip-dots { display:flex; justify-content:center; gap:7px; margin-top:12px; }
 .strip-dots button { width:9px; height:9px; border-radius:50%; border:1.5px solid var(--ink); background:transparent; padding:0; }

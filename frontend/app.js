@@ -1560,7 +1560,8 @@ async function initShowcaseStrip() {
   const media = [
     [`/api/image/${data.property_id}`, `Aerial photo of ${data.name || "property " + data.property_id}`],
     [`/api/image/${data.property_id}/boxes`, "Vexcel's detections boxed on the aerial photo"],
-    [`/api/roof-view/${data.property_id}`, "Shadow-measured roof and per-side sun report"],
+    // The cropped summary image: the annotated roof panels only, no calculation detail.
+    [`/api/roof-view/${data.property_id}/summary`, "Shadow-measured roof and per-side sun report"],
   ];
   frames[0].querySelector(".strip-placeholder span").textContent =
     `${data.name || `Property ${data.property_id}`}, built ${data.year_built || "?"}, ${fmt(data.building_size_sq_ft, 0)} sq ft`;
@@ -1576,7 +1577,6 @@ async function initShowcaseStrip() {
     img.onerror = () => { holder.querySelector("span").textContent = "Not available for this building."; };
     img.src = src;
   });
-  $("strip-payback").textContent = data.payback_years != null ? fmt(data.payback_years, 1) : "?";
   show(0);
   restart();
 }
