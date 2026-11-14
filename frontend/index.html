@@ -119,17 +119,18 @@
         <section id="progress-card" class="steps-card panel-left" hidden aria-live="polite">
           <div class="progress-head">
             <span id="spinner" class="spinner" aria-hidden="true"></span>
-            <span class="steps-title">Agent activity</span>
-            <span id="tool-count" class="counter">0 tool calls</span>
+            <span class="steps-title">Working on your answer</span>
             <button type="button" id="cancel" class="cancel-btn">Cancel</button>
           </div>
           <p id="run-status" class="run-status" role="status"></p>
           <div id="plan-box" class="plan-box" hidden>
-            <h4>Planner to-do list <small>(DeepAgents write_todos)</small></h4>
             <ol id="plan" class="plan"></ol>
           </div>
-          <h4 class="activity-title">Delegations and tool calls</h4>
-          <ul id="progress" class="live-list"></ul>
+          <details class="activity-details">
+            <summary>Show what the agent is doing step by step <span id="tool-count" class="counter">0 tool calls</span></summary>
+            <h4 class="activity-title">Delegations and tool calls</h4>
+            <ul id="progress" class="live-list"></ul>
+          </details>
           <div id="citation" class="citation" hidden>
             <button type="button" id="citation-badge" class="citation-badge" aria-expanded="false"></button>
             <ul id="citation-problems" class="citation-problems" hidden></ul>
