@@ -50,16 +50,14 @@ def events_from_run(run: planner.PlannerRun) -> list[AgentEvent]:
 
 
 def _run(request: AskRequest) -> planner.PlannerRun:
-    """Call the planner with the request's question, capped sample size and tool mode."""
+    """Call the planner with the request's question, intent, capped sample size and tool mode."""
     return planner.run_question(request.question, mode="mock" if request.use_mock_tools else "auto",
-                                n=min(request.limit, MAX_AGENT_N))
+                                n=min(request.limit, MAX_AGENT_N), intent=request.mode)
 
 
 @router.post("/api/ask-agent", response_model=AskResponse)
 async def ask_agent(request: AskRequest) -> AskResponse:
-    """Answer a research question with the Deep Agents planner and its cited brief."""
-    if request.mode != "research":
-        raise HTTPException(status_code=422, detail="The agent route supports research questions only.")
+    """Answer a research or retrofit (rooftop solar) question with the Deep Agents planner."""
     try:
         run = await run_in_threadpool(_run, request)
         return AskResponse(study=run.study, events=events_from_run(run))

@@ -33,7 +33,7 @@ def test_registry_exposes_contract_names() -> None:
     """All research, retrofit and evidence tools are registered."""
     assert set(tools_for("mock", Ledger())) == {
         "sample_buildings", "vexcel_detect", "vision_inspect", "run_regression",
-        "solar_payback", "draft_email", "read_evidence", "list_evidence",
+        "solar_payback", "rank_buildings", "draft_email", "read_evidence", "list_evidence",
     }
 
 
@@ -328,3 +328,126 @@ def test_regression_ok_requires_coefficient_and_sample_size() -> None:
                                        "findings": {"error": "not enough complete rows (n=0)"}})
     assert not registry.regression_ok({"predictor": "p", "coefficients": {"p": 1.0}, "sample_size": 0})
     assert not registry.regression_ok({"error": "boom"})
+
+
+# ---- retrofit: solar_payback, rank_buildings, draft_email -------------------------------
+
+def retrofit_tools(ledger: Ledger, top_n: int = 10) -> dict:
+    """Mock-mode retrofit tools with the LA cohort sampled and inspected."""
+    tools = {t.name: t for t in registry.get_tools("mock", ledger, intent="retrofit", top_n=top_n)}
+    sample = tools["sample_buildings"].invoke({"market_id": 20, "property_type": 11})
+    for b in sample["buildings"]:
+        tools["vision_inspect"].invoke({"property_id": b["id"]})
+    tools["_ids"] = [b["id"] for b in sample["buildings"]]
+    return tools
+
+
+def test_retrofit_sampling_needs_no_regression_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retrofit keeps buildings without rent or controls (it only needs a roof)."""
+    rows = [complete(1), complete(2, max_rent=None, year_built=None, building_class=0)]
+    monkeypatch.setattr(costar_data, "find_buildings", lambda market_id, property_type, limit=20: rows)
+    tools = {t.name: t for t in registry.get_tools("real", Ledger(), question="parking and rent", intent="retrofit")}
+    assert [b["id"] for b in tools["sample_buildings"].invoke({"market_id": 20, "property_type": 11})["buildings"]] == [1, 2]
+
+
+def test_solar_rank_and_draft_are_wired_and_recorded() -> None:
+    """Each building is estimated from ledger records, ranked once, then drafted from the top."""
+    ledger = Ledger()
+    tools = retrofit_tools(ledger)
+    for pid in tools["_ids"]:
+        est = tools["solar_payback"].invoke({"property_id": pid})
+        assert est["source"] == "mock" and est["property_id"] == pid
+    ranked = tools["rank_buildings"].invoke({})
+    assert ranked["estimated"] == 12 and ranked["skipped_no_roof"] == 0
+    assert [r["rank"] for r in ranked["ranked"]] == list(range(1, 13))
+    paybacks = [r["payback_years"] for r in ranked["ranked"]]
+    assert paybacks == sorted(paybacks)
+    top = ranked["ranked"][0]["property_id"]
+    draft = tools["draft_email"].invoke({"property_id": top})
+    assert draft["property_id"] == top and draft["body_markdown"]
+    entry = ledger.get(draft["evidence_id"])
+    assert entry["tool"] == "draft_email" and entry["args"]["rank"] == 1
+    assert registry.ranking_ok(ledger.get(ranked["evidence_id"])["result"])
+    assert registry.draft_ok(entry["result"])
+
+
+def test_solar_uses_measured_roof_never_floor_area_and_skips_missing_roof() -> None:
+    """A building with no measured roof is skipped (and counted), even if it has floor area."""
+    from backend.schemas import Measurement
+
+    ledger = Ledger()
+    tools = retrofit_tools(ledger)
+    first, second = tools["_ids"][:2]
+    # Overwrite the first building's measurement with one that has no roof area.
+    ledger.add("vision_inspect", {"property_id": first},
+               Measurement(id="m", property_id=first, roof_area_sq_ft=None).model_dump(mode="json"), "mock")
+    skipped = tools["solar_payback"].invoke({"property_id": first})
+    assert skipped["skipped"] is True and "roof" in skipped["reason"]
+    est = tools["solar_payback"].invoke({"property_id": second})
+    assert ledger.get(est["evidence_id"])["args"]["roof_area_sq_ft"] > 0
+    ranked = tools["rank_buildings"].invoke({})
+    assert ranked["estimated"] == 1 and ranked["skipped_no_roof"] == 1
+    assert [r["property_id"] for r in ranked["ranked"]] == [second]
+
+
+def test_solar_needs_an_inspected_building_and_rank_needs_estimates() -> None:
+    """Missing inputs fail loudly with ledger errors."""
+    ledger = Ledger()
+    tools = {t.name: t for t in registry.get_tools("mock", ledger, intent="retrofit")}
+    assert "solar_payback failed" in tools["solar_payback"].invoke({"property_id": 990101})
+    assert "rank_buildings failed" in tools["rank_buildings"].invoke({})
+    assert all("error" in e["result"] for e in ledger.all())
+
+
+def test_draft_email_only_for_top_n() -> None:
+    """Drafts are limited to the top N ranked buildings."""
+    ledger = Ledger()
+    tools = retrofit_tools(ledger, top_n=2)
+    for pid in tools["_ids"]:
+        tools["solar_payback"].invoke({"property_id": pid})
+    ranked = tools["rank_buildings"].invoke({})["ranked"]
+    assert tools["draft_email"].invoke({"property_id": ranked[1]["property_id"]})["evidence_id"]
+    out = tools["draft_email"].invoke({"property_id": ranked[2]["property_id"]})
+    assert "draft_email failed" in out and "top 2" in out
+
+
+def test_real_mode_solar_reuses_the_vision_cache(real_vision: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A second retrofit run makes no new vision model call; solar runs on the cached measurement."""
+    from backend.schemas import Measurement, SolarResult
+    from backend.tools import solar
+
+    real_vision["observations"] = {"notes": "ok"}
+    monkeypatch.setattr(solar, "estimate_solar", lambda building, vision_result: SolarResult(
+        id=f"s{building.id}", property_id=building.id, payback_years=7.0,
+        usable_roof_area_sq_ft=vision_result.roof_area_sq_ft))
+    from backend.tools import vision
+    monkeypatch.setattr(vision, "measure_building", lambda image_path, property_id: (
+        real_vision.__setitem__("calls", real_vision["calls"] + 1) or
+        Measurement(id=f"m-{property_id}", property_id=property_id, roof_area_sq_ft=5000.0)))
+    for _ in range(2):
+        ledger = Ledger()
+        tools = {t.name: t for t in registry.get_tools("real", ledger, intent="retrofit")}
+        tools["sample_buildings"].invoke({"market_id": 20, "property_type": 11})
+        tools["vision_inspect"].invoke({"property_id": 7})
+        assert tools["solar_payback"].invoke({"property_id": 7})["usable_roof_area_sq_ft"] == 5000.0
+    assert real_vision["calls"] == 1
+
+
+@pytest.mark.parametrize("question, intent", [
+    ("Which 10 Los Angeles apartment buildings are the best rooftop-solar candidates?", "retrofit"),
+    ("Which roofs could hold solar panels?", "retrofit"),
+    ("Plan a retrofit for Houston", "retrofit"),
+    ("Show the best candidates in LA", "retrofit"),
+    ("In Houston, do apartments with more parking have higher rent?", "research"),
+])
+def test_detect_intent(question: str, intent: str) -> None:
+    """auto picks retrofit for solar/rooftop/retrofit/'best candidates', else research."""
+    assert registry.detect_intent(question) == intent
+    assert registry.detect_intent(question, "research") == "research"
+
+
+def test_parse_top_n() -> None:
+    """N is the first non-year number in the question, default 10, at most 10."""
+    assert registry.parse_top_n("Which 5 buildings?") == 5
+    assert registry.parse_top_n("Top 25 since 2020") == 10
+    assert registry.parse_top_n("Best roofs built after 1990?") == 10

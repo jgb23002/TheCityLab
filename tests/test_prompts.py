@@ -74,3 +74,22 @@ def test_writer_never_concludes_without_a_regression_result() -> None:
     assert "NEVER state a conclusion" in text and "study is incomplete" in text
     assert "statistician" in prompts.ORCHESTRATOR_PROMPT and "call it\n   ONCE" in prompts.ORCHESTRATOR_PROMPT
     assert "Never pass buildings or measurements" in prompts.STATISTICIAN_PROMPT
+
+
+def test_retrofit_prompts() -> None:
+    """Solar ranks via the tool only; outreach drafts only; retrofit writer table and sections."""
+    solar = prompts.SOLAR_PROMPT
+    assert "solar_payback" in solar and "rank_buildings exactly once" in solar
+    assert "Never\nrank" in solar or "Never rank" in solar.replace("\n", " ")
+    outreach = prompts.OUTREACH_PROMPT
+    assert "DRAFTS" in outreach and "never send" in outreach and "Never invent owner" in outreach
+    writer = prompts.RETROFIT_WRITER_PROMPT
+    for section in ("## Question", "## Answer", "## Ranking", "## Assumptions", "## Caveats", "## Next step"):
+        assert section in writer
+    assert "| Rank | Property id |" in writer and "[E40]" in writer
+    assert "PVWatts" in writer and "fallback" in writer
+    assert "incentives and financing" in writer and "aerial imagery" in writer
+    assert "first email draft" in writer and "skipped_no_roof" in writer
+    orchestrator = prompts.ORCHESTRATOR_PROMPT
+    assert "RETROFIT flow" in orchestrator and "never call the statistician" in orchestrator
+    assert "roof_area_sq_ft" in prompts.INSPECTOR_PROMPT
