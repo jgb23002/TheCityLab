@@ -276,3 +276,8 @@ def test_mask_fraction_and_box_area() -> None:
     assert vexcel_detect._mask_fraction("not base64 png") is None
     # 0.001 deg x 0.001 deg at the equator is about 111.3 m x 111.3 m.
     assert abs(vexcel_detect._box_area_m2(sbox(0, 0, 0.001, 0.001)) - 12392) < 5
+
+
+def test_spaces_from_dates_needs_area() -> None:
+    with pytest.raises(ValueError):
+        vexcel_detect.spaces_from_dates(LAT, LON, 1, half_m=0.0, outline_wkt=None)
