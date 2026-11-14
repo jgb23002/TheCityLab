@@ -51,7 +51,7 @@ from shapely.geometry import Polygon, box  # noqa: E402
 from backend import config, sun, vexcel_detect  # noqa: E402
 from backend.samples import sample_buildings  # noqa: E402
 from backend.tools import solar, vexcel  # noqa: E402
-from scripts.measure_sample import lot_sizes  # noqa: E402
+from scripts.measure_vexcel import lot_sizes  # noqa: E402
 
 M_PER_DEG_LAT = 111_320.0
 FLOOR_TO_FLOOR_M = 3.0  # assumption for the story check (about 10 ft)
