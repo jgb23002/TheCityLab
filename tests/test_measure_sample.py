@@ -50,3 +50,13 @@ def test_sky_inspector_result_is_kept_as_second_opinion() -> None:
     assert m.parking_space_count == 40  # Claude's parking count stays
     assert m.observations["sky_inspector"]["green_cover_percent"] == 30.0
     assert m.observations["notes"] == "from vision"
+
+
+def test_detections_are_attached() -> None:
+    rec = {**_record("parcel matching CoStar lotSize"), "detection": {
+        "car_count": 1, "image_path": "a.jpg", "annotated_image_path": "a_boxes.jpg",
+        "detections": [{"id": "det-7-1", "label": "car", "property_id": 7, "bbox": [1, 2, 3, 4]}]}}
+    m = ms.to_measurement(rec, None)
+    assert m.detections[0].label == "car" and m.detections[0].bbox == (1, 2, 3, 4)
+    assert m.observations["car_count"] == 1
+    assert m.observations["annotated_image_path"] == "a_boxes.jpg"

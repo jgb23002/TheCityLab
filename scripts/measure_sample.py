@@ -21,6 +21,11 @@ For each building in ``data/samples/<city>.csv``:
    numbers fill green/paved/roof, Claude's parking count and boxes stay, and
    Claude's own estimates are kept in ``observations`` as a second opinion.
 
+With ``--detect``, Vexcel's AI also boxes the cars on one ~80 m photo
+centred on the parcel; the boxes go into ``Measurement.detections`` and a
+boxed copy of the photo is saved (about 2 more calls per building). Car
+counts are not parking-space counts (see docs/PARKING_METHOD.md).
+
 Resumable: a building already in ``data/cache/measurements/<city>/`` is
 skipped unless ``--refresh``. About 2 Vexcel calls per new building, all
 cached. The console shows only counts, never keys or response bodies.
@@ -42,7 +47,7 @@ from shapely import wkt as shapely_wkt  # noqa: E402
 
 from backend import config, vexcel_detect  # noqa: E402
 from backend.samples import sample_buildings  # noqa: E402
-from backend.schemas import Building, Measurement  # noqa: E402
+from backend.schemas import Building, Detection, Measurement  # noqa: E402
 from backend.tools import vexcel  # noqa: E402
 
 
@@ -110,7 +115,7 @@ def measure_one(building: Building, lot_acres: float | None) -> dict[str, Any]:
             props = {**(info.attributes or {}), "structures": info.structures or []}
             basis = "parcel at CoStar point (no parcel matched lotSize)"
             img_lat, img_lon = lat, lon
-        record.update(parcel_values(props), basis=basis)
+        record.update(parcel_values(props), basis=basis, image_center=[img_lat, img_lon])
         record["image_path"] = vexcel.get_aerial(img_lat, img_lon, building.id).image_path
     except Exception as exc:  # one bad building must not stop the run
         if getattr(getattr(exc, "response", None), "status_code", None) == 404:
@@ -119,6 +124,20 @@ def measure_one(building: Building, lot_acres: float | None) -> dict[str, Any]:
         else:
             record["error"] = type(exc).__name__
     return record
+
+
+def detect_cars(property_id: int, lat: float, lon: float) -> dict[str, Any]:
+    """Box cars on one ~80 m photo; return a JSON-ready summary (never raises)."""
+    try:
+        run = vexcel_detect.detect(lat, lon, ["car"], property_id)
+    except Exception as exc:
+        return {"error": type(exc).__name__}
+    return {
+        "car_count": run.counts.get("car", 0),
+        "image_path": run.image_path,
+        "annotated_image_path": run.annotated_image_path,
+        "detections": [d.model_dump(mode="json") for d in run.detections],
+    }
 
 
 def to_measurement(record: dict[str, Any], existing: Measurement | None) -> Measurement:
@@ -151,7 +170,14 @@ def to_measurement(record: dict[str, Any], existing: Measurement | None) -> Meas
             **{k: v if v is not None else getattr(existing, k) for k, v in fields.items()},
             "observations": {**prev, **obs},
         })
-    return Measurement(id=f"m-{record['id']}", property_id=record["id"], observations=obs, **fields)
+    det = record.get("detection") or {}
+    if det:
+        obs.update(car_count=det.get("car_count"), detection_image_path=det.get("image_path"),
+                   annotated_image_path=det.get("annotated_image_path"),
+                   detection_note="cars on one capture; not a parking-space count")
+    detections = [Detection.model_validate(d) for d in det.get("detections") or []] or None
+    return Measurement(id=f"m-{record['id']}", property_id=record["id"], observations=obs,
+                       detections=detections, **fields)
 
 
 def main(argv: list[str] | None = None) -> dict[str, Any]:
@@ -160,6 +186,7 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
     parser.add_argument("--city", default="houston")
     parser.add_argument("--n", type=int, default=50)
     parser.add_argument("--refresh", action="store_true", help="re-measure buildings already done")
+    parser.add_argument("--detect", action="store_true", help="also box cars on one photo per building")
     args = parser.parse_args(argv)
 
     buildings = sample_buildings(args.city, 11, n=args.n)
@@ -184,6 +211,11 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
         if "error" in record:
             counts["errors"] += 1
             continue
+        if args.detect and record.get("image_center") and "detection" not in record:
+            record["detection"] = detect_cars(b.id, *record["image_center"])
+            rec_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        if (record.get("detection") or {}).get("car_count") is not None:
+            counts["with_boxes"] = counts.get("with_boxes", 0) + 1
         matched = record.get("basis", "").startswith("parcel matching")
         counts["matched_parcel"] += matched
         counts["green"] += matched and record.get("green_cover_percent") is not None
