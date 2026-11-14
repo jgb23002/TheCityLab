@@ -260,6 +260,42 @@ def test_roof_view_rejects_traversal_and_non_integers(monkeypatch: pytest.Monkey
     assert SECRET.encode() not in response.content
 
 
+# ---- GET /api/roof-view/{property_id}/summary -------------------------------------------
+
+def _fake_report(width: int = 2860, height: int = 2855) -> bytes:
+    """A plain JPEG the same shape as scripts/roof_solar_view.py's real report canvas."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    image = Image.new("RGB", (width, height), (250, 250, 248))
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    return buffer.getvalue()
+
+
+def test_roof_view_summary_crops_out_the_calculation_text(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """The summary image is only the top annotated-panel strip, much shorter than the full report."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    monkeypatch.setattr(config, "CACHE_DIR", tmp_path)
+    folder = tmp_path / "roof_view"
+    folder.mkdir()
+    (folder / "property_23453_report.jpg").write_bytes(_fake_report())
+    response = TestClient(main.app).get("/api/roof-view/23453/summary")
+    assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
+    cropped = Image.open(BytesIO(response.content))
+    assert cropped.width == 2860
+    assert cropped.height < 1600  # well short of the full 2855 px report
+
+
+def test_roof_view_summary_missing_is_404(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setattr(config, "CACHE_DIR", tmp_path)
+    assert TestClient(main.app).get("/api/roof-view/999999/summary").status_code == 404
+
+
 def test_mock_ids_get_a_placeholder_svg(images: dict) -> None:
     """Mock-cohort ids (e.g. 990101) get a deterministic SVG placeholder, labelled synthetic."""
     client = TestClient(main.app)
