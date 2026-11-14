@@ -260,3 +260,19 @@ def test_dedupe_keeps_most_confident() -> None:
     b = vexcel_detect.Detection(id="b", label="car", confidence=0.9, geometry_wkt="POLYGON((0.1 0,1.1 0,1.1 1,0.1 1,0.1 0))")
     c = vexcel_detect.Detection(id="c", label="car", confidence=0.5, geometry_wkt="POLYGON((5 5,6 5,6 6,5 6,5 5))")
     assert [d.id for d in vexcel_detect._dedupe([a, b, c])] == ["b", "c"]
+
+
+def test_mask_fraction_and_box_area() -> None:
+    import base64
+    import io
+
+    from shapely.geometry import box as sbox
+
+    img = Image.new("L", (10, 10), 0)
+    img.paste(255, (0, 0, 10, 4))  # top 40% white
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    assert vexcel_detect._mask_fraction(base64.b64encode(buf.getvalue()).decode()) == 0.4
+    assert vexcel_detect._mask_fraction("not base64 png") is None
+    # 0.001 deg x 0.001 deg at the equator is about 111.3 m x 111.3 m.
+    assert abs(vexcel_detect._box_area_m2(sbox(0, 0, 0.001, 0.001)) - 12392) < 5
