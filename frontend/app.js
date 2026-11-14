@@ -432,6 +432,23 @@ function solarFor(study, propertyId) {
   return (study.solar_results || []).find((r) => r.property_id === propertyId) || null;
 }
 
+/** One sentence an owner can act on: is this roof worth a solar call, and why. */
+function ownerVerdict(solar) {
+  if (!solar) return null;
+  const years = solar.payback_years;
+  if (years == null) {
+    return { cls: "no", text: "Not enough roof data to screen this building for solar yet." };
+  }
+  const a = solar.assumptions || {};
+  const perUnit = a.savings_per_unit_per_month_usd;
+  const detail = perUnit != null
+    ? `, about $${fmt(perUnit, 0)}/unit/month in savings once it does`
+    : solar.annual_energy_kwh != null ? `, about ${fmt(solar.annual_energy_kwh, 0)} kWh/year once it does` : "";
+  if (years <= 8) return { cls: "ok", text: `Worth a solar call: pays for itself in about ${fmt(years, 1)} years${detail}.` };
+  if (years <= 15) return { cls: "weak", text: `Possible candidate: payback is about ${fmt(years, 1)} years${detail} — worth a closer look.` };
+  return { cls: "no", text: `Not a strong candidate right now: payback is about ${fmt(years, 1)} years${detail}.` };
+}
+
 /** A compact provenance strip: where the roof, height and facing numbers came from. */
 function provenanceRow(solar) {
   if (!solar || !solar.assumptions) return "";
@@ -465,6 +482,7 @@ function buildCard(study, b, m) {
     `<span>${esc(spec.label)}</span><strong>${m[field] == null ? "unknown" : esc(fmt(m[field], spec.integer ? 0 : 1)) + spec.unit}</strong>` +
     `<i aria-hidden="true">✎</i></button>`).join("") : "";
   const solar = solarFor(study, b.id);
+  const verdict = ownerVerdict(solar);
   const hasTour = !!b.matterport_model_id;
   // The Sun & roof tab is always offered; it checks for its own report image on click.
   const tabs = `<div class="bcard-tabs" role="tablist">` +
@@ -479,6 +497,7 @@ function buildCard(study, b, m) {
     `${m && m.is_corrected ? '<span class="corrected-tag">Corrected</span>' : ""}</div>` +
     `<div class="bbody"><h4>${esc(b.name || `Property ${b.id}`)}</h4>` +
     `${where ? `<p class="addr">${esc(where)}</p>` : ""}` +
+    (verdict ? `<p class="verdict-line pill ${verdict.cls}">${esc(verdict.text)}</p>` : "") +
     (canEdit ? `<div class="edit-values">${editable}</div>`
       : `<p class="key"><span>${esc(label)}</span><strong>${esc(value)}</strong></p>`) +
     `<div class="editor-slot"></div>` +
