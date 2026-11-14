@@ -10,3 +10,4 @@ data/costar/
 data/cache/
 notes/vexcel/
 .pytest_cache/
+out.json
