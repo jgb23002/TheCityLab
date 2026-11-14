@@ -37,3 +37,8 @@ Run the smoke tests from the repository root:
 ```sh
 pytest -q
 ```
+
+The [showcase definitions](data/showcase/README.md) cover the Houston research
+questions and Los Angeles solar shortlist. Generate their 50-property samples
+with `python scripts/prepare_showcase.py --size 50 --seed 42`; selection rules
+and source-field mappings are saved in `data/samples/manifest.json`.
