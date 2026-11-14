@@ -74,15 +74,54 @@ def _cached_measurement(building: Building) -> Measurement | None:
     return measurement
 
 
-def _matterport_height(building: Building) -> float | None:
-    """Return a cached Matterport room-scan median height, or None (optional enrichment, never blocks)."""
+def _matterport_geometry(building: Building) -> dict[str, object]:
+    """Matterport facts for a building: the room-scan median height and, when the showcase
+    batch has fetched its MatterPak bundle, the interior point-cloud height, footprint and
+    floor-plan image. Optional enrichment: any failure just leaves the keys out."""
+    facts: dict[str, object] = {}
     if not building.matterport_model_id:
-        return None
+        return facts
     try:
         model = matterport.get_model(building.matterport_model_id)
-        return matterport.building_height_ft(model)
+        facts["matterport_building_height_ft"] = matterport.building_height_ft(model)
     except Exception:
-        return None
+        pass
+    try:
+        geometry = matterport.get_matterpak(building.matterport_model_id)  # cached only; never downloads here
+        if geometry.available:
+            facts.update({"matterpak_interior_height_ft": geometry.interior_height_ft,
+                          "matterpak_interior_footprint_sq_ft": geometry.interior_footprint_sq_ft,
+                          "matterport_floorplan_image": geometry.floorplan_image_path})
+    except Exception:
+        pass
+    return facts
+
+
+def _enrich(building: Building, measurement: Measurement) -> Measurement:
+    """Add the roof bearing and Matterport facts to a cached measurement that predates them.
+
+    Measurements cached by earlier scripts carry only the vision fields. The missing
+    facts are cheap (cached Vexcel parcel, cached Matterport JSON), so they are filled
+    here and written back so the next run, and /api/correct, see them too.
+    """
+    observations = measurement.observations or {}
+    if observations.get("error"):
+        return measurement
+    added: dict[str, object] = {}
+    if "parcel_bearing_deg" not in observations:
+        try:
+            info = vexcel.get_property_info(building.latitude, building.longitude)
+            added["parcel_bearing_deg"] = vexcel.parcel_bearing_deg(info)
+        except Exception:
+            pass
+    added.update({key: value for key, value in _matterport_geometry(building).items() if key not in observations})
+    if not added:
+        return measurement
+    enriched = measurement.model_copy(update={"observations": {**observations, **added}})
+    path = config.CACHE_DIR / "vision" / f"m-{building.id}.json"
+    if path.exists():
+        path.write_text(enriched.model_dump_json(), encoding="utf-8")
+    return enriched
 
 
 def _measure(building: Building, use_mock: bool) -> tuple[Measurement, bool]:
@@ -109,10 +148,9 @@ def _measure(building: Building, use_mock: bool) -> tuple[Measurement, bool]:
     if result.property_id != building.id:
         raise StudyUnavailable("The measurement does not match the sampled building.")
     bearing = None if use_mock else vexcel.parcel_bearing_deg(parcel)
-    height = None if use_mock else _matterport_height(building)
     result = result.model_copy(update={"observations": {
         **(result.observations or {}), "vexcel_property_info_id": parcel.id,
-        "parcel_bearing_deg": bearing, "matterport_building_height_ft": height,
+        "parcel_bearing_deg": bearing, **({} if use_mock else _matterport_geometry(building)),
     }})
     if not use_mock and not (result.observations or {}).get("error"):
         path = config.CACHE_DIR / "vision" / f"m-{building.id}.json"
@@ -211,6 +249,8 @@ def run_study(request: AskRequest) -> AskResponse:
         measurements.append(measurement)
         event("measure", f"Checked aerial evidence for {index}/{len(buildings)} buildings.",
               property_id=building.id, cached=cached)
+    if not request.use_mock_tools:
+        measurements = [_enrich(building, measurement) for building, measurement in zip(buildings, measurements)]
     event("inspect", f"Usable vision measurements: {usable}/{len(buildings)}.", count=usable)
     if not usable:
         raise StudyUnavailable("No usable aerial measurements. Populate the vision cache or check Vexcel/vision settings; mock demo is also available.")

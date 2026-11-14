@@ -19,6 +19,7 @@ from backend.schemas import Building
 
 _PROPERTIES_FILE = "commercial-property.jsonl"
 _APARTMENT_FILE = "apartment-listing.jsonl"
+_SALES_FILE = "commercial-sale-comp.jsonl"
 _MATTERPORT_CSV = "commercial-properties.csv"
 _SURFACE_PARKING_TYPES = (1, 2)  # Surface and SurfaceTandem
 
@@ -68,6 +69,38 @@ def _max_rent_map() -> dict[int, float]:
         if pd.notna(pid) and value is not None and value > 0:
             result[int(pid)] = value
     return result
+
+
+def _sale_map() -> dict[int, dict[str, Any]]:
+    """Return {propertyId: the latest priced sale} from sale comps (empty when the file is absent).
+
+    A sale lists the properties it included under ``entities[].propertyId``. A
+    single-property sale's ``soldForPrice`` is that building's price. In a portfolio
+    sale only an entity's own ``allocatedPrice`` is used, never the portfolio total,
+    and ``pricePerUnit`` is left unknown because it describes the whole portfolio.
+    """
+    path = config.COSTAR_DATA_DIR / _SALES_FILE
+    if not path.exists():
+        return {}
+    latest: dict[int, dict[str, Any]] = {}
+    for row in _clean(_read_jsonl(path)):
+        entities = [e for e in (row.get("entities") or []) if isinstance(e, dict)]
+        portfolio = len(entities) > 1
+        sold_for = _finite(row.get("soldForPrice"))
+        date = str(row["soldDate"])[:10] if row.get("soldDate") else None
+        for entity in entities:
+            pid = _whole(entity.get("propertyId"))
+            price = _finite(entity.get("allocatedPrice")) if portfolio else sold_for
+            if pid is None or price is None or price <= 0:
+                continue
+            if pid not in latest or (date or "") > (latest[pid]["last_sale_date"] or ""):
+                latest[pid] = {
+                    "last_sale_price": price,
+                    "last_sale_price_status": _whole(row.get("salePriceStatus")),
+                    "last_sale_price_per_unit": None if portfolio else _finite(row.get("pricePerUnit")),
+                    "last_sale_date": date,
+                }
+    return latest
 
 
 # ---------------------------------------------------------------------------
@@ -132,9 +165,11 @@ def _floor_areas_sq_ft(floors: object) -> list[float] | None:
     return areas or None
 
 
-def _to_building(row: dict[str, Any], mp_map: dict[int, str], rents: dict[int, float]) -> Building:
+def _to_building(row: dict[str, Any], mp_map: dict[int, str], rents: dict[int, float],
+                 sales: dict[int, dict[str, Any]] | None = None) -> Building:
     """Convert one commercial-property record into a Building."""
     pid = int(row["id"])
+    sale = (sales or {}).get(pid) or {}
     addr = row.get("primaryAddress")
     addr = addr if isinstance(addr, dict) else {}
     apt = row.get("propertyApartment")
@@ -168,6 +203,10 @@ def _to_building(row: dict[str, Any], mp_map: dict[int, str], rents: dict[int, f
         lot_size=_finite(row.get("lotSize")),
         lot_size_measurement_type=_whole(row.get("lotSizeMeasurementType")),
         building_construction_material=_whole(row.get("buildingConstructionMaterial")),
+        last_sale_price=sale.get("last_sale_price"),
+        last_sale_price_status=sale.get("last_sale_price_status"),
+        last_sale_price_per_unit=sale.get("last_sale_price_per_unit"),
+        last_sale_date=sale.get("last_sale_date"),
     )
 
 
@@ -183,8 +222,8 @@ def _clean(df: pd.DataFrame) -> list[dict[str, Any]]:
 def load_properties() -> list[Building]:
     """Return every commercial property in the kit as a Building, sorted by id."""
     df = _load_jsonl(_PROPERTIES_FILE).sort_values("id")
-    mp_map, rents = _matterport_map(), _max_rent_map()
-    return [_to_building(row, mp_map, rents) for row in _clean(df)]
+    mp_map, rents, sales = _matterport_map(), _max_rent_map(), _sale_map()
+    return [_to_building(row, mp_map, rents, sales) for row in _clean(df)]
 
 
 def get_property(id: int) -> Building | None:
@@ -193,7 +232,7 @@ def get_property(id: int) -> Building | None:
     matches = df[df["id"] == id]
     if matches.empty:
         return None
-    return _to_building(_clean(matches.head(1))[0], _matterport_map(), _max_rent_map())
+    return _to_building(_clean(matches.head(1))[0], _matterport_map(), _max_rent_map(), _sale_map())
 
 
 def find_buildings(
@@ -207,7 +246,7 @@ def find_buildings(
     """
     df = _load_jsonl(_PROPERTIES_FILE)
     df = df[df["propertyType"] == property_type].sort_values("id")
-    mp_map, rents = _matterport_map(), _max_rent_map()
+    mp_map, rents, sales = _matterport_map(), _max_rent_map(), _sale_map()
 
     results: list[Building] = []
     for row in _clean(df):
@@ -216,7 +255,7 @@ def find_buildings(
         addr = row.get("primaryAddress")
         if not isinstance(addr, dict) or addr.get("researchMarketId") != market_id:
             continue
-        building = _to_building(row, mp_map, rents)
+        building = _to_building(row, mp_map, rents, sales)
         if building.latitude is not None and building.longitude is not None:
             results.append(building)
     return results
