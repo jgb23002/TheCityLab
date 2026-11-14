@@ -23,6 +23,17 @@ class Building(BaseModel):
     max_rent: float | None = None
     vacancy_percent: float | None = None
     surface_parking_spaces: int | None = None
+    num_stories_above_grade: int | None = None
+    gross_typical_floor_sq_ft: float | None = None
+    floor_areas_sq_ft: list[float] | None = None
+    building_height_ft: float | None = None
+    lot_size: float | None = None
+    lot_size_measurement_type: int | None = None
+    building_construction_material: int | None = None
+    last_sale_price: float | None = None
+    last_sale_price_status: int | None = None
+    last_sale_price_per_unit: float | None = None
+    last_sale_date: str | None = None
 
 
 class AerialImage(BaseModel):
@@ -154,6 +165,20 @@ class MatterportModel(BaseModel):
     id: str
     metadata: dict[str, JsonValue] | None = None
     raw_response: dict[str, JsonValue] | None = None
+
+
+class MatterpakGeometry(BaseModel):
+    """Interior geometry measured from a MatterPak point cloud, or why it is unavailable."""
+
+    model_id: str
+    available: bool = False
+    reason: str | None = None
+    point_count: int | None = None
+    interior_height_ft: float | None = None
+    interior_footprint_sq_ft: float | None = None
+    bundle_bytes: int | None = None
+    floorplan_image_path: str | None = None
+    basis: str = "interior scan, Z-up metres, scanned floors only"
 
 
 class OutreachDraft(BaseModel):
