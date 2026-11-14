@@ -25,5 +25,8 @@ LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
 LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").strip().lower() == "true"
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT")
 NREL_API_KEY = os.getenv("NREL_API_KEY")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER")
+LLM_MODEL = os.getenv("LLM_MODEL")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # TODO: Validate required settings when their integrations are implemented.

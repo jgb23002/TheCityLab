@@ -42,3 +42,14 @@ The [showcase definitions](data/showcase/README.md) cover the Houston research
 questions and Los Angeles solar shortlist. Generate their 50-property samples
 with `python scripts/prepare_showcase.py --size 50 --seed 42`; selection rules
 and source-field mappings are saved in `data/samples/manifest.json`.
+
+To describe an aerial JPEG, set `LLM_PROVIDER` (`bedrock`, `google`, or
+`anthropic`) and a vision-capable `LLM_MODEL` in `.env`, then run:
+
+```sh
+python -m backend.llm <image_path>
+```
+
+Bedrock uses `AWS_REGION` and your AWS credentials. Google uses `GOOGLE_API_KEY`.
+For Anthropic, add its standard `ANTHROPIC_API_KEY` to `.env`. The command asks
+"Describe this aerial image in one sentence." and prints the text reply.

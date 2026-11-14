@@ -10,6 +10,8 @@ httpx
 deepagents
 langchain
 langchain-aws
+langchain-google-genai
+langchain-anthropic
 langsmith
 statsmodels
 scipy
