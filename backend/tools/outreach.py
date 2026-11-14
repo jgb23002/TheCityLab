@@ -1,10 +1,10 @@
 """Outreach draft interfaces for future building research results."""
 
-from pydantic import JsonValue
+from backend.schemas import Building, OutreachDraft, SolarResult
 
 
 def draft_outreach(
-    building: dict[str, JsonValue], solar_estimate: dict[str, JsonValue]
-) -> dict[str, JsonValue]:
+    building: Building, solar_estimate: SolarResult
+) -> OutreachDraft:
     """TODO: Draft an outreach message for review without sending it."""
-    ...
+    raise NotImplementedError

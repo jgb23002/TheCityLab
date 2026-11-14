@@ -1,51 +1,81 @@
 """Local CoStar JSON Lines interfaces; there is no CoStar API.
 
-Data lives in ``data/costar/data/`` as ``.jsonl`` files.  Read
-``data/costar/index.md`` and ``data/costar/models/`` before adding new field
-references.  Field names use camelCase; enum values are integers.
-
-Houston is ``primaryAddress.researchMarketId == 14``.
-propertyType codes: Multifamily = 11, Office = 5, Industrial = 2.
+Reads ``data/costar/data/*.jsonl`` with ``pandas.read_json(lines=True)`` and
+returns :class:`backend.schemas.Building` models (see docs/CONTRACTS.md for the
+field mappings). Unknown values stay ``None``, never zero.
 """
 
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from backend import config
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-JsonValue = dict[str, Any] | list[Any] | str | int | float | bool | None
+from backend.schemas import Building
 
 _PROPERTIES_FILE = "commercial-property.jsonl"
 _APARTMENT_FILE = "apartment-listing.jsonl"
 _MATTERPORT_CSV = "commercial-properties.csv"
+_SURFACE_PARKING_TYPES = (1, 2)  # Surface and SurfaceTandem
 
 
-def _data_dir() -> Path:
-    return config.COSTAR_DATA_DIR
+# ---------------------------------------------------------------------------
+# Loading (cached per file path: the property file is ~190 MB)
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=8)
+def _read_jsonl(path: Path) -> pd.DataFrame:
+    """Read one JSONL file once per process."""
+    return pd.read_json(path, lines=True)
 
 
 def _load_jsonl(filename: str) -> pd.DataFrame:
     """Read a JSONL file from the CoStar data directory."""
-    path = _data_dir() / filename
+    path = config.COSTAR_DATA_DIR / filename
     if not path.exists():
         raise FileNotFoundError(
-            f"CoStar data file not found: {path}\n"
-            "Unzip the CoStar kit into data/costar/ first."
+            f"CoStar data file not found: {path}. Unzip the CoStar kit into data/costar/ first."
         )
-    return pd.read_json(path, lines=True)
+    return _read_jsonl(path)
 
+
+def _matterport_map() -> dict[int, str]:
+    """Return {PropertyId: MatterportModelId} from the kit CSV (non-blank only)."""
+    csv_path = config.COSTAR_DATA_DIR.parent / _MATTERPORT_CSV
+    if not csv_path.exists():
+        return {}
+    df = pd.read_csv(csv_path, dtype={"MatterportModelId": str})
+    result: dict[int, str] = {}
+    for pid, mid in zip(df["PropertyId"], df["MatterportModelId"]):
+        if pd.notna(pid) and isinstance(mid, str) and mid.strip():
+            result[int(pid)] = mid.strip()
+    return result
+
+
+def _max_rent_map() -> dict[int, float]:
+    """Return {propertyId: maxRent} from apartment listings; zero means unreported."""
+    path = config.COSTAR_DATA_DIR / _APARTMENT_FILE
+    if not path.exists():
+        return {}
+    df = _read_jsonl(path)
+    result: dict[int, float] = {}
+    for pid, rent in zip(df["propertyId"], df["maxRent"]):
+        value = _finite(rent)
+        if pd.notna(pid) and value is not None and value > 0:
+            result[int(pid)] = value
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Field helpers
+# ---------------------------------------------------------------------------
 
 def _finite(value: object) -> float | None:
-    """Return a finite float, or None for missing / infinite / NaN."""
+    """Return a finite float, or None for missing / infinite / NaN / bool."""
     if isinstance(value, bool):
         return None
     try:
@@ -55,220 +85,116 @@ def _finite(value: object) -> float | None:
     return f if math.isfinite(f) else None
 
 
+def _whole(value: object) -> int | None:
+    """Return a non-negative whole number as int, else None."""
+    f = _finite(value)
+    return int(f) if f is not None and f >= 0 and f.is_integer() else None
+
+
 def _earliest_completion_year(events: object) -> int | None:
     """Return the earliest ConstructionComplete (eventType == 2) year."""
     if not isinstance(events, list):
         return None
-    years = []
-    for ev in events:
-        if isinstance(ev, dict) and ev.get("eventType") == 2:
-            y = _finite(ev.get("year"))
-            if y is not None and y > 0 and y == int(y):
-                years.append(int(y))
+    years = [
+        y for ev in events
+        if isinstance(ev, dict) and ev.get("eventType") == 2
+        and (y := _whole(ev.get("year"))) is not None and y > 0
+    ]
     return min(years) if years else None
 
 
-def _matterport_map() -> dict[int, str]:
-    """Return {PropertyId: MatterportModelId} from the CSV (non-blank models only)."""
-    csv_path = config.PROJECT_ROOT / "data" / "costar" / _MATTERPORT_CSV
-    if not csv_path.exists():
-        return {}
-    df = pd.read_csv(csv_path)
-    result: dict[int, str] = {}
-    for _, row in df.iterrows():
-        pid = row.get("PropertyId")
-        mid = str(row.get("MatterportModelId", "")).strip()
-        if pd.notna(pid) and mid:
-            result[int(pid)] = mid
-    return result
+def _surface_parking_spaces(parking: object) -> int | None:
+    """Sum Surface + SurfaceTandem spaces; absent or incomplete counts are unknown."""
+    if not isinstance(parking, list):
+        return None
+    entries = [
+        e for e in parking
+        if isinstance(e, dict) and e.get("parkingType") in _SURFACE_PARKING_TYPES
+    ]
+    if not entries:
+        return None
+    counts = [_whole(e.get("totalSpaces")) for e in entries]
+    return None if any(c is None for c in counts) else sum(counts)  # type: ignore[arg-type]
 
 
-def _row_to_dict(row: dict[str, Any], mp_map: dict[int, str]) -> dict[str, JsonValue]:
-    """Convert a commercial-property record to a JSON-serialisable Building dict."""
+def _to_building(row: dict[str, Any], mp_map: dict[int, str], rents: dict[int, float]) -> Building:
+    """Convert one commercial-property record into a Building."""
     pid = int(row["id"])
-    addr = row.get("primaryAddress") or {}
-    if not isinstance(addr, dict):
-        addr = {}
+    addr = row.get("primaryAddress")
+    addr = addr if isinstance(addr, dict) else {}
+    apt = row.get("propertyApartment")
+    apt = apt if isinstance(apt, dict) else {}
 
-    lat = _finite(addr.get("latitude"))
-    lon = _finite(addr.get("longitude"))
+    lat, lon = _finite(addr.get("latitude")), _finite(addr.get("longitude"))
+    vacancy = _finite(apt.get("vacancyPercent"))
+    units = _whole(apt.get("totalNumUnits"))
+    name = row.get("buildingName")
 
-    return {
-        "id": pid,
-        "property_type": row.get("propertyType"),
-        "market_id": addr.get("researchMarketId"),
-        "latitude": lat,
-        "longitude": lon,
-        "primary_address": addr,
-        "gross_building_area_sq_ft": _finite(row.get("grossBuildingAreaSquareFeet")),
-        "year_built": _earliest_completion_year(row.get("constructionEvents")),
-        "building_class": row.get("buildingClass"),
-        "matterport_model_id": mp_map.get(pid),
-        # Apartment-specific (None for non-multifamily)
-        "total_num_units": None,
-        "vacancy_percent": None,
-    }
+    return Building(
+        id=pid,
+        primary_address=addr or None,
+        property_type=_whole(row.get("propertyType")),
+        market_id=_whole(addr.get("researchMarketId")),
+        latitude=lat if lat is not None and -90 <= lat <= 90 else None,
+        longitude=lon if lon is not None and -180 <= lon <= 180 else None,
+        matterport_model_id=mp_map.get(pid),
+        name=name if isinstance(name, str) and name.strip() else None,
+        building_size_sq_ft=_finite(row.get("grossBuildingAreaSquareFeet")),
+        year_built=_earliest_completion_year(row.get("constructionEvents")),
+        building_class=_whole(row.get("buildingClass")),
+        total_num_units=units if units else None,
+        max_rent=rents.get(pid),
+        vacancy_percent=vacancy if vacancy is not None and 0 <= vacancy <= 100 else None,
+        surface_parking_spaces=_surface_parking_spaces(row.get("parking")),
+    )
+
+
+def _clean(df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Return records with pandas NaN placeholders replaced by None."""
+    return df.astype(object).where(df.notna(), None).to_dict(orient="records")
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public tool functions (signatures frozen in docs/CONTRACTS.md)
 # ---------------------------------------------------------------------------
 
-def load_properties() -> list[dict[str, JsonValue]]:
-    """Return all commercial properties as JSON-serialisable dicts.
+def load_properties() -> list[Building]:
+    """Return every commercial property in the kit as a Building, sorted by id."""
+    df = _load_jsonl(_PROPERTIES_FILE).sort_values("id")
+    mp_map, rents = _matterport_map(), _max_rent_map()
+    return [_to_building(row, mp_map, rents) for row in _clean(df)]
 
-    Reads ``commercial-property.jsonl`` with ``pandas.read_json(lines=True)``.
-    Does NOT load apartment listings; call :func:`get_property` or
-    :func:`find_buildings` for enriched records.
-    """
+
+def get_property(id: int) -> Building | None:
+    """Return the commercial property with this integer ``id``, or None."""
     df = _load_jsonl(_PROPERTIES_FILE)
-    mp_map = _matterport_map()
-    return [_row_to_dict(row, mp_map) for row in df.to_dict(orient="records")]
-
-
-def get_property(property_id: int) -> dict[str, JsonValue] | None:
-    """Return one commercial property by its integer ``id``, or None.
-
-    For Multifamily properties the ``vacancy_percent`` and ``total_num_units``
-    fields are populated from the property's ``propertyApartment`` sub-object.
-    """
-    df = _load_jsonl(_PROPERTIES_FILE)
-    mp_map = _matterport_map()
-
-    matches = df[df["id"] == property_id]
+    matches = df[df["id"] == id]
     if matches.empty:
         return None
-
-    row = matches.iloc[0].to_dict()
-    record = _row_to_dict(row, mp_map)
-
-    apt = row.get("propertyApartment")
-    if isinstance(apt, dict):
-        record["total_num_units"] = _finite(apt.get("totalNumUnits"))
-        record["vacancy_percent"] = _finite(apt.get("vacancyPercent"))
-
-    return record
+    return _to_building(_clean(matches.head(1))[0], _matterport_map(), _max_rent_map())
 
 
 def find_buildings(
-    market_id: int,
-    property_type: int,
-    limit: int = 50,
-) -> list[dict[str, JsonValue]]:
-    """Return up to *limit* buildings filtered by market and property type.
+    market_id: int, property_type: int, limit: int = 20
+) -> list[Building]:
+    """Return up to *limit* geocoded buildings in a market, sorted by id.
 
-    Only buildings with valid latitude **and** longitude are included.
-    Houston is ``market_id=14``; Multifamily is ``property_type=11``.
-
-    For Multifamily the returned records include ``vacancy_percent`` and
-    ``total_num_units`` from the ``propertyApartment`` sub-object.
-
-    Returns records sorted by ascending ``id``.
+    Filters ``primaryAddress.researchMarketId`` (Houston 14, Los Angeles 20)
+    and ``propertyType`` (Multifamily 11). Buildings without a valid latitude
+    and longitude are skipped.
     """
     df = _load_jsonl(_PROPERTIES_FILE)
-    mp_map = _matterport_map()
+    df = df[df["propertyType"] == property_type].sort_values("id")
+    mp_map, rents = _matterport_map(), _max_rent_map()
 
-    # Filter by property type first (fast integer comparison)
-    df = df[df["propertyType"] == property_type]
-
-    results = []
-    for row in df.to_dict(orient="records"):
-        addr = row.get("primaryAddress") or {}
-        if not isinstance(addr, dict):
+    results: list[Building] = []
+    for row in _clean(df):
+        if len(results) >= limit:
+            break
+        addr = row.get("primaryAddress")
+        if not isinstance(addr, dict) or addr.get("researchMarketId") != market_id:
             continue
-        if addr.get("researchMarketId") != market_id:
-            continue
-        lat = _finite(addr.get("latitude"))
-        lon = _finite(addr.get("longitude"))
-        if lat is None or lon is None:
-            continue
-
-        record = _row_to_dict(row, mp_map)
-
-        apt = row.get("propertyApartment")
-        if isinstance(apt, dict):
-            record["total_num_units"] = _finite(apt.get("totalNumUnits"))
-            record["vacancy_percent"] = _finite(apt.get("vacancyPercent"))
-
-        results.append(record)
-
-    # Sort by id ascending, then cap
-    results.sort(key=lambda r: r["id"])  # type: ignore[return-value]
-    return results[:limit]
-
-
-def load_apartment_listings(property_ids: list[int] | None = None) -> pd.DataFrame:
-    """Return apartment listings, optionally filtered to *property_ids*.
-
-    Columns include ``propertyId``, ``minRent``, ``maxRent``.
-    Zero rents are kept (distinction between zero and missing is the caller's).
-    """
-    df = _load_jsonl(_APARTMENT_FILE)
-    if property_ids is not None:
-        df = df[df["propertyId"].isin(property_ids)]
-    return df.reset_index(drop=True)
-
-
-# ---------------------------------------------------------------------------
-# Team-plan interface: sample_buildings (reads the committed sample CSVs)
-# ---------------------------------------------------------------------------
-
-SAMPLES_DIR = config.PROJECT_ROOT / "data" / "samples"
-_CITY_ALIASES = {
-    "houston": "houston",
-    "los angeles": "los_angeles",
-    "los_angeles": "los_angeles",
-    "la": "los_angeles",
-}
-
-
-def sample_buildings(
-    city: str,
-    property_type: int = 11,
-    outcome: str | None = None,
-    n: int = 50,
-) -> list[dict[str, JsonValue]]:
-    """Return up to *n* sampled buildings for *city* from ``data/samples/``.
-
-    The samples are built by ``scripts/prepare_showcase.py`` (seeded, so they
-    are reproducible) and are committed, so this works without the CoStar kit
-    and without network access.
-
-    Args:
-        city: ``"houston"`` or ``"los_angeles"`` (``"Los Angeles"``/``"LA"`` work).
-        property_type: CoStar ``propertyType`` integer; Multifamily is 11.
-        outcome: Optional column that must be known, e.g. ``"max_rent"``.
-            Rows where it is blank are dropped (blank means unknown, not zero).
-        n: Maximum number of buildings to return.
-
-    Returns:
-        Building dicts sorted by ``id`` with ``id``, ``latitude``, ``longitude``,
-        ``total_num_units`` (size), ``year_built``, ``building_class`` and the
-        outcome columns ``max_rent``, ``vacancy_percent`` and
-        ``surface_parking_spaces``. Unknown values are ``None``.
-    """
-    slug = _CITY_ALIASES.get(city.strip().lower())
-    if slug is None:
-        raise ValueError(f"No sample for city {city!r}; known: houston, los_angeles")
-    path = SAMPLES_DIR / f"{slug}.csv"
-    if not path.exists():
-        raise FileNotFoundError(f"{path} is missing; run scripts/prepare_showcase.py")
-
-    df = pd.read_csv(path)
-    df = df[df["property_type"] == property_type]
-    if outcome is not None:
-        if outcome not in df.columns:
-            raise ValueError(f"Unknown outcome {outcome!r}; columns: {list(df.columns)}")
-        df = df[df[outcome].notna()]
-    df = df.sort_values("property_id").head(max(n, 0))
-
-    int_cols = {"market_id", "property_type", "year_built", "building_class",
-                "apartment_listing_id", "surface_parking_spaces"}
-    results: list[dict[str, JsonValue]] = []
-    for row in df.to_dict(orient="records"):
-        record: dict[str, JsonValue] = {"id": int(row.pop("property_id"))}
-        for key, value in row.items():
-            num = _finite(value)
-            record[key] = None if num is None else (int(num) if key in int_cols else num)
-        results.append(record)
+        building = _to_building(row, mp_map, rents)
+        if building.latitude is not None and building.longitude is not None:
+            results.append(building)
     return results

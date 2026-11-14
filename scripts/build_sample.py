@@ -23,7 +23,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend import config  # noqa: E402
-from backend.tools import costar_data, vexcel  # noqa: E402
+from backend.samples import sample_buildings  # noqa: E402
+from backend.tools import vexcel  # noqa: E402
 
 Q1_OUTCOME = "max_rent"
 # Vexcel precomputed fields worth keeping next to each building; the full
@@ -47,11 +48,11 @@ def summarize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
 def add_vexcel(building: dict[str, Any]) -> dict[str, Any]:
     """Return Vexcel precomputed attributes and the aerial image path for one building."""
     lat, lon = building["latitude"], building["longitude"]
-    info = vexcel.get_precomputed(lat, lon)
+    info = vexcel.get_property_info(lat, lon)
     aerial = vexcel.get_aerial(lat, lon, building["id"])
     return {
-        "attributes": summarize_attributes(info.get("attributes") or {}),
-        "image_path": aerial["image_path"],
+        "attributes": summarize_attributes(info.attributes or {}),
+        "image_path": aerial.image_path,
     }
 
 
@@ -59,7 +60,10 @@ def build_sample(
     city: str = "houston", n: int = 50, vexcel_count: int = 3,
 ) -> dict[str, Any]:
     """Load the sample and attach Vexcel data to the first *vexcel_count* buildings."""
-    buildings = costar_data.sample_buildings(city, 11, outcome=Q1_OUTCOME, n=n)
+    buildings = [
+        b.model_dump(mode="json", exclude_none=False)
+        for b in sample_buildings(city, 11, outcome=Q1_OUTCOME, n=n)
+    ]
     for i, building in enumerate(buildings):
         if i >= vexcel_count:
             building["vexcel"] = None
