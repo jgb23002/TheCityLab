@@ -13,6 +13,7 @@ on a copy. Every call is cached, so ``USE_CACHE_ONLY=true`` replays offline.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from PIL import Image, ImageDraw
@@ -164,6 +165,97 @@ def detect(
     annotated = draw_detections(
         str(image_path), detections, img_dir / f"property_{property_id}{tag}_boxes.jpg"
     )
+
+    counts = {p: 0 for p in prompts}
+    for det in detections:
+        counts[det.label] = counts.get(det.label, 0) + 1
+    return DetectionRun(
+        property_id=property_id, prompts=prompts, counts=counts, detections=detections,
+        image_path=str(image_path), annotated_image_path=annotated,
+    )
+
+
+def _dedupe(detections: list[Detection], iou_min: float = 0.3) -> list[Detection]:
+    """Drop a detection that overlaps an earlier, more confident one of the same label.
+
+    Objects on a tile edge can be found by both neighbouring tiles.
+    """
+    kept: list[Detection] = []
+    for det in sorted(detections, key=lambda d: -(d.confidence or 0)):
+        g = shapely_wkt.loads(det.geometry_wkt) if det.geometry_wkt else None
+        dup = False
+        for k in kept:
+            if g is None or k.label != det.label or not k.geometry_wkt:
+                continue
+            other = shapely_wkt.loads(k.geometry_wkt)
+            union = g.union(other).area
+            if union and g.intersection(other).area / union >= iou_min:
+                dup = True
+                break
+        if not dup:
+            kept.append(det)
+    return kept
+
+
+def detect_tiled(
+    lat: float, lon: float, prompts: list[str], property_id: int,
+    half_m: float, tile_m: float = 80.0,
+) -> DetectionRun:
+    """Detect *prompts* over a large square by searching ~80 m tiles one by one.
+
+    The detector finds small things (single empty spaces) on an ~80 m image
+    but misses them on one big image, so the square is split into an n x n
+    grid of tiles of at most *tile_m* metres. Each tile is one cached
+    elements/detect call; boxes are merged, de-duplicated across tile edges
+    and drawn on the single large ortho image.
+    """
+    prompts = [p.strip() for p in prompts if p and p.strip()]
+    if not prompts:
+        raise ValueError("detect_tiled() needs at least one prompt")
+
+    bounds = vexcel._square_bounds(lat, lon, half_m=half_m)
+    min_lon, min_lat, max_lon, max_lat = bounds
+    n = max(1, math.ceil(2 * half_m / tile_m))
+    step_lon, step_lat = (max_lon - min_lon) / n, (max_lat - min_lat) / n
+
+    raw: list[Detection] = []
+    for row in range(n):
+        for col in range(n):
+            tile = (min_lon + col * step_lon, min_lat + row * step_lat,
+                    min_lon + (col + 1) * step_lon, min_lat + (row + 1) * step_lat)
+            tile_wkt = box(*tile).wkt
+            data = vexcel._client.request_json(
+                "POST", DETECT_ENDPOINT, _detect_payload(tile_wkt, prompts), timeout=300
+            )
+            # Pixel boxes are recomputed on the big image below from geometry_wkt.
+            raw.extend(parse_detections(data, property_id, bounds, (1, 1)))
+
+    area_wkt = box(*bounds).wkt
+    img_bytes = vexcel._client.request_bytes(
+        "POST", "ortho/extract",
+        {**_image_request(area_wkt), "buffer-meter": 0, "image-format": "jpeg"},
+    )
+    img_dir = config.CACHE_DIR / "vexcel" / "detect"
+    img_dir.mkdir(parents=True, exist_ok=True)
+    tag = f"_{round(2 * half_m)}m_tiled"
+    image_path = img_dir / f"property_{property_id}{tag}.jpg"
+    image_path.write_bytes(img_bytes)
+    with Image.open(image_path) as img:
+        width, height = img.size
+
+    detections: list[Detection] = []
+    for i, det in enumerate(_dedupe(raw), start=1):
+        x0, y0, x1, y1 = shapely_wkt.loads(det.geometry_wkt).bounds  # type: ignore[arg-type]
+        detections.append(det.model_copy(update={
+            "id": f"det-{property_id}-{i}",
+            "bbox": (
+                round((x0 - min_lon) / (max_lon - min_lon) * width, 1),
+                round((max_lat - y1) / (max_lat - min_lat) * height, 1),
+                round((x1 - min_lon) / (max_lon - min_lon) * width, 1),
+                round((max_lat - y0) / (max_lat - min_lat) * height, 1),
+            ),
+        }))
+    annotated = draw_detections(str(image_path), detections, img_dir / f"property_{property_id}{tag}_boxes.jpg")
 
     counts = {p: 0 for p in prompts}
     for det in detections:
