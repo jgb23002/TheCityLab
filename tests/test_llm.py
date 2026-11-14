@@ -4,7 +4,7 @@ import base64
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
@@ -16,7 +16,7 @@ from backend import llm
 @pytest.mark.parametrize(
     ("provider", "module", "class_name", "extra"),
     [
-        ("bedrock", "langchain_aws", "ChatBedrockConverse", {"region_name": "us-east-1"}),
+        ("bedrock", "langchain_aws", "ChatBedrockConverse", {"region_name": "us-east-1", "config": ANY}),
         ("google", "langchain_google_genai", "ChatGoogleGenerativeAI", {"api_key": "test-google-sentinel"}),
         ("anthropic", "langchain_anthropic", "ChatAnthropic", {}),
     ],
@@ -73,9 +73,9 @@ def test_chat_and_vision_roles_choose_separate_models(monkeypatch: pytest.Monkey
     monkeypatch.setattr(llm.config, "VISION_MODEL", "vision-model")
     monkeypatch.setattr(llm.config, "AWS_REGION", "us-east-1")
     llm.get_chat_model()
-    constructor.assert_called_with(model="chat-model", region_name="us-east-1")
+    constructor.assert_called_with(model="chat-model", region_name="us-east-1", config=ANY)
     llm.get_chat_model("vision")
-    constructor.assert_called_with(model="vision-model", region_name="us-east-1")
+    constructor.assert_called_with(model="vision-model", region_name="us-east-1", config=ANY)
     monkeypatch.setattr(llm.config, "VISION_MODEL", None)
     with pytest.raises(ValueError, match="VISION_MODEL"):
         llm.get_chat_model("vision")
@@ -93,7 +93,7 @@ def test_explicit_model_override_works_with_both_roles(role: str, monkeypatch: p
     monkeypatch.setattr(llm.config, "VISION_MODEL", None)
     monkeypatch.setattr(llm.config, "AWS_REGION", "us-east-1")
     llm.get_chat_model(role, model_id="override-model")
-    constructor.assert_called_once_with(model="override-model", region_name="us-east-1")
+    constructor.assert_called_once_with(model="override-model", region_name="us-east-1", config=ANY)
 
 
 def test_ai_text_and_image_helpers_forward_model_overrides(
@@ -174,3 +174,14 @@ def test_command_does_not_echo_provider_errors(
     output = capsys.readouterr()
     assert "private-test-sentinel" not in output.out + output.err
     assert "Unable to describe the image" in output.err
+
+
+def test_bedrock_retries_throttling_adaptively(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bedrock gets adaptive retries so parallel subagents survive ThrottlingException."""
+    constructor = Mock(return_value=Mock())
+    monkeypatch.setitem(sys.modules, "langchain_aws", SimpleNamespace(ChatBedrockConverse=constructor))
+    monkeypatch.setattr(llm.config, "LLM_PROVIDER", "bedrock")
+    monkeypatch.setattr(llm.config, "LLM_MODEL", "m")
+    llm.get_chat_model()
+    retries = constructor.call_args.kwargs["config"].retries
+    assert retries == {"max_attempts": llm.BEDROCK_MAX_ATTEMPTS, "mode": "adaptive"} and llm.BEDROCK_MAX_ATTEMPTS >= 8
