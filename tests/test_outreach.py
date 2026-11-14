@@ -59,3 +59,11 @@ def test_no_owner_uses_building_name(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_no_estimate_no_email() -> None:
     d = outreach.draft_outreach(B, SolarResult(id="s"))
     assert d.body_markdown is None
+
+
+def test_draft_uses_shared_payback_field_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An estimate passed through the planner's schema retains its actual payback."""
+    monkeypatch.setattr(outreach.llm, "ask_text", Mock(side_effect=RuntimeError("offline")))
+    result = outreach.draft_outreach(B, S.model_copy(update={"payback_years": 6.5}))
+    assert "6.5 years" in result.body_markdown
+    assert "17.1 years" not in result.body_markdown

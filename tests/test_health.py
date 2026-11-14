@@ -1,4 +1,4 @@
-"""Smoke tests for the CityLab scaffold."""
+"""Smoke tests for the CityLab health endpoint and integrated static frontend."""
 
 from fastapi.testclient import TestClient
 
@@ -15,11 +15,14 @@ def test_health() -> None:
 
 
 def test_frontend() -> None:
-    """The root mount serves the CityLab placeholder and its static files."""
+    """The root mount serves the supplied CityLab interface and its static files."""
     with TestClient(app) as client:
         response = client.get("/")
         assert response.status_code == 200
-        assert "<title>CityLab</title>" in response.text
-        assert "CityLab is running" in response.text
+        assert "<title>CityLab: field reports for buildings</title>" in response.text
+        assert 'id="ask-form"' in response.text
+        assert 'id="study-question"' in response.text
+        assert 'id="data-source"' in response.text
+        assert 'id="solar-ranking"' in response.text
         assert client.get("/app.js").status_code == 200
         assert client.get("/style.css").status_code == 200

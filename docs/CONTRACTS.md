@@ -1,9 +1,9 @@
 # CityLab contracts
 
 These are application contracts, not provider response field names. Existing
-schema classes and fields are preserved. All tool functions below are stubs
-whose only behavior is to raise `NotImplementedError`; no file loading, network,
-vision, statistical, solar or outreach logic is implemented here.
+schema classes and fields are preserved. The canonical tools below now include
+local CoStar loading, cached Vexcel requests, vision inspection, regression,
+solar estimates and outreach drafts. The optional Matterport tool remains a stub.
 
 Tools return the named Pydantic models. At a JSON boundary, use
 `model_dump(mode="json")` / `model_dump_json()` (per element for lists); never
@@ -65,8 +65,10 @@ def rank_buildings(estimates: list[SolarResult]) -> list[SolarResult]: ...
 
 Return schema: **SolarResult**, extending **SolarEstimate**. Existing unit fields
 are preserved: usable roof area in square feet, capacity in kW, annual energy in
-kWh. `score` is a future documented ranking metric and `rank` is 1-based. Report
-assumptions and caveats; a floor-area control is not a measured roof area.
+kWh. `score` is a future documented ranking metric and `rank` is 1-based.
+`payback_years` is optional simple payback in years, with its assumptions in
+`assumptions`. Missing payback is unknown and sorts after known paybacks.
+Report assumptions and caveats; a floor-area control is not a measured roof area.
 
 ### backend.tools.stats
 
@@ -126,19 +128,21 @@ against the local CoStar model docs, and are not new source-field claims:
 `measurements: list[Measurement]`, `stats: StatsResult | None`,
 `brief_markdown: str`, and `caveats: list[str]`. `stats` is a required key but can
 be null for a retrofit-only study. Optional `solar_results: list[SolarResult]`
-supports solar outputs; `is_mock` defaults to false. Join buildings to
+and `outreach_drafts: list[OutreachDraft]` support solar rankings and unsent
+owner-email drafts; `is_mock` defaults to false. Join buildings to
 measurements, detections and solar outputs using their `property_id` and
 `Building.id`. All entity ids are required; `Detection.label` is also required.
 Other entity measurements can be unknown.
 
-| Future endpoint | Request model | Response model |
+| Endpoint contract | Request model | Response model |
 |---|---|---|
 | `POST /api/ask` | **AskRequest** | **AskResponse** |
 | `POST /api/correct` | **CorrectRequest** | **CorrectResponse** |
 
 - **AskRequest**: required nonempty `question`; optional `market_id` and
   `property_type`; `limit` defaults to 50 (1–500); `mode` is `research` (default)
-  or `retrofit`.
+  or `retrofit`. `use_mock_tools` defaults to false; true explicitly selects
+  offline synthetic tools for that web request.
 - **AskResponse**: required `study: StudyResult`; `events: list[AgentEvent]`
   defaults to an empty list.
 - **CorrectRequest**: required `study_id`, `measurement_id` and
@@ -151,10 +155,22 @@ Other entity measurements can be unknown.
   required `corrected_measurement: Measurement`; the updated study will carry
   that measurement and refreshed statistics/brief.
 
-These are schemas only. `backend/main.py` still implements only health and static
-files; no ask/correct handlers or correction/recomputation logic are added.
-`backend/cache.py` remains a non-tool helper with its existing JsonValue/None
-signatures; persistence is outside this contract task.
+`backend/main.py` serves health, the static frontend, `GET /api/questions`,
+`GET /api/mock-study`, a no-imagery/model-call `GET /api/buildings` cohort preview,
+and `POST /api/ask` using **AskRequest** and **AskResponse**.
+The ask route runs `backend/agent/study.py` over the selected city cohort with
+the merged CoStar, Vexcel, vision, statistics, solar and outreach tools.
+Research gets full Building/Measurement records; retrofit returns ranked solar
+results and a reviewable owner-email draft. Brief numbers come from tool
+outputs. Mock mode is explicit and question-specific, not a fixed saved answer.
+Progress events record completed workflow steps and are returned with the final
+result; the web API does not claim to stream live events. The CLI planner remains
+available separately. No correct handler or correction/recomputation is added.
+Vision results reuse `data/cache/vision/m-<property_id>.json`, compatible with
+`scripts/accuracy_check.py`; `USE_CACHE_ONLY` prohibits fresh Vexcel/vision calls.
+Absent cached measurements remain unknown, and no usable measurements yields a
+503 instead of a synthetic fallback. Cache-only outreach uses the existing local
+template. All cache and local kit files remain ignored.
 
 ## Mock study and checks
 
@@ -164,6 +180,43 @@ statistics. It sets `is_mock: true`, labels the brief and caveats as synthetic,
 and makes no claim that these ids, imagery, measurements or statistics are real.
 The brief contains three paragraphs. This fixture is for consumers to build
 against; it does not result from running any tool.
+
+## Mock tools and agent names
+
+`backend/tools/mock.py` implements the same eleven canonical signatures with
+fixed synthetic values and schema-object returns. It reads only the committed
+mock study, adds a fictional Los Angeles cohort, and makes no network/model
+calls or credential reads. Mock image references are `mock://` placeholders,
+not image files. Regression output is explicitly marked as fixed fake numbers;
+no regression is fitted. Solar paybacks are fixed examples, not calculations.
+
+The agent's LangChain adapters serialize schema objects to JSON and expose these
+aliases; other tool names match their canonical function names:
+
+| Agent tool | Canonical contracted function |
+|---|---|
+| `sample_buildings` | `costar_data.find_buildings` |
+| `vexcel_detect` | `vexcel.get_property_info` (precomputed detection evidence) |
+| `vision_inspect` | `vision.measure_building` |
+| `run_regression` | `stats.run_study` |
+
+`USE_MOCK_TOOLS=true` (default) selects the mock functions; false routes to the
+real implementations, requiring the local kit, credentials or cached responses.
+Unavailable real tools/data fail explicitly. This flag substitutes the tools,
+not the chat model: normal CLI runs still use the configured provider. Tests
+inject a scripted fake chat model and prohibit network access.
+
+The installed Deep Agents 0.7.38 `create_deep_agent` signature and docstring were
+inspected before integration: CityLab supplies `model`, `tools`, `system_prompt`
+and `name`; the default backend is in-memory StateBackend, not the host
+filesystem. `get_chat_model("chat")` selects LLM_MODEL;
+`get_chat_model("vision")` selects VISION_MODEL. The no-argument form still
+selects chat for compatibility.
+The optional `model_id=` keyword overrides the selected model for AI-tool calls.
+
+```sh
+USE_MOCK_TOOLS=true python -m backend.agent.planner "Do greener Houston apartments have higher asking rents?"
+```
 
 ```sh
 pytest -q tests/test_contracts.py
