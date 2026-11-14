@@ -27,6 +27,7 @@ LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT")
 NREL_API_KEY = os.getenv("NREL_API_KEY")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER")
 LLM_MODEL = os.getenv("LLM_MODEL")
+VISION_MODEL = os.getenv("VISION_MODEL")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # TODO: Validate required settings when their integrations are implemented.
