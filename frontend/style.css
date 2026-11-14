@@ -327,6 +327,7 @@ main { max-width:1500px; }
 .todo.completed { border-color:var(--moss); background:var(--moss-soft); }
 .todo.in_progress { border-color:var(--orange); background:var(--orange-soft); font-weight:700; }
 .todo-icon { font-weight:800; text-align:center; font-size:17px; }
+.plan-mismatch { margin:0 0 14px; padding:10px 14px; border-radius:10px; background:var(--gold-soft); border:1.5px dashed var(--gold); color:#7a5a05; font-size:13.5px; }
 .activity-details { margin-top:16px; border-top:1.5px dashed var(--line); padding-top:10px; }
 .activity-details summary { cursor:pointer; font-size:13.5px; color:var(--ink-soft); list-style:none; display:flex; align-items:center; gap:8px; }
 .activity-details summary::-webkit-details-marker { display:none; }

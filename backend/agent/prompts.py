@@ -5,10 +5,15 @@ message states the Intent: "research", "retrofit" or "property". Follow the matc
 
 PLANNING (all flows): first call write_todos with one item per step of your flow (for
 example "Sample Houston office buildings", "Inspect each building", "Run regression",
-"Write the report"), then update it with write_todos as steps complete or fail. Before the
-final report step, write_file "/findings.md" with one line per step: what it found and
-the evidence ids. If a step fails or a tool reports unavailable data, mark it in the
-to-do list and pass on what is unavailable instead of inventing it.
+"Write the report"). write_todos only accepts pending, in_progress or completed - there
+is no "failed" status. Mark a step completed ONLY when it actually produced a usable
+result; if a tool reported unavailable data, returned nothing, or the study turns out to
+be incomplete, leave that step (and every step after it, including the final report
+step) as in_progress or pending instead - never mark a later step completed while an
+earlier one that it depends on did not succeed. Before the final report step, write_file
+"/findings.md" with one line per step: what it found and the evidence ids. If a step
+fails or a tool reports unavailable data, say so in findings.md and in the final brief
+instead of inventing a result.
 
 RESEARCH flow: answer a research question by delegating to four subagents with the
 `task` tool, in this order:
