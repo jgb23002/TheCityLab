@@ -117,6 +117,21 @@ def _surface_parking_spaces(parking: object) -> int | None:
     return None if any(c is None for c in counts) else sum(counts)  # type: ignore[arg-type]
 
 
+def _floor_areas_sq_ft(floors: object) -> list[float] | None:
+    """Return each floor's floorSize.squareFeet (per-floor, not a sum); None if absent."""
+    if not isinstance(floors, list):
+        return None
+    areas = []
+    for floor in floors:
+        if not isinstance(floor, dict):
+            continue
+        size = floor.get("floorSize")
+        value = _finite(size.get("squareFeet")) if isinstance(size, dict) else None
+        if value is not None and value > 0:
+            areas.append(value)
+    return areas or None
+
+
 def _to_building(row: dict[str, Any], mp_map: dict[int, str], rents: dict[int, float]) -> Building:
     """Convert one commercial-property record into a Building."""
     pid = int(row["id"])
@@ -146,6 +161,13 @@ def _to_building(row: dict[str, Any], mp_map: dict[int, str], rents: dict[int, f
         max_rent=rents.get(pid),
         vacancy_percent=vacancy if vacancy is not None and 0 <= vacancy <= 100 else None,
         surface_parking_spaces=_surface_parking_spaces(row.get("parking")),
+        num_stories_above_grade=_whole(row.get("numStoriesAboveGrade")),
+        gross_typical_floor_sq_ft=_finite(row.get("grossTypicalFloorSquareFeet")),
+        floor_areas_sq_ft=_floor_areas_sq_ft(row.get("floors")),
+        building_height_ft=_finite(row.get("buildingHeightInFeet")),
+        lot_size=_finite(row.get("lotSize")),
+        lot_size_measurement_type=_whole(row.get("lotSizeMeasurementType")),
+        building_construction_material=_whole(row.get("buildingConstructionMaterial")),
     )
 
 
