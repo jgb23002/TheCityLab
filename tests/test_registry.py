@@ -372,8 +372,8 @@ def test_solar_rank_and_draft_are_wired_and_recorded() -> None:
     assert registry.draft_ok(entry["result"])
 
 
-def test_solar_uses_measured_roof_never_floor_area_and_skips_missing_roof() -> None:
-    """A building with no measured roof is skipped (and counted), even if it has floor area."""
+def test_solar_estimates_a_building_whose_image_has_no_roof_area() -> None:
+    """Math first: a missing image roof no longer skips the building; the tool falls back."""
     from backend.schemas import Measurement
 
     ledger = Ledger()
@@ -382,13 +382,40 @@ def test_solar_uses_measured_roof_never_floor_area_and_skips_missing_roof() -> N
     # Overwrite the first building's measurement with one that has no roof area.
     ledger.add("vision_inspect", {"property_id": first},
                Measurement(id="m", property_id=first, roof_area_sq_ft=None).model_dump(mode="json"), "mock")
-    skipped = tools["solar_payback"].invoke({"property_id": first})
-    assert skipped["skipped"] is True and "roof" in skipped["reason"]
-    est = tools["solar_payback"].invoke({"property_id": second})
-    assert ledger.get(est["evidence_id"])["args"]["roof_area_sq_ft"] > 0
+    est_first = tools["solar_payback"].invoke({"property_id": first})
+    assert "skipped" not in est_first and est_first["property_id"] == first
+    assert ledger.get(est_first["evidence_id"])["args"]["roof_area_sq_ft"] is None
+    est_second = tools["solar_payback"].invoke({"property_id": second})
+    assert ledger.get(est_second["evidence_id"])["args"]["roof_area_sq_ft"] > 0
+    ranked = tools["rank_buildings"].invoke({})
+    assert ranked["estimated"] == 2 and ranked["skipped_no_roof"] == 0
+    assert sorted(r["property_id"] for r in ranked["ranked"]) == sorted([first, second])
+
+
+def test_solar_falls_back_to_costar_footprint_and_skips_only_when_no_source(
+        real_vision: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Real tools: no image roof uses CoStar footprint fields; no roof source at all is skipped."""
+    from backend.tools import solar
+
+    monkeypatch.setattr(solar.config, "NREL_API_KEY", None)  # fallback yield, no network
+    with_footprint, without = complete(7, gross_typical_floor_sq_ft=10_000.0), complete(8)
+    monkeypatch.setattr(costar_data, "find_buildings",
+                        lambda market_id, property_type, limit=20: [with_footprint, without])
+    ledger = Ledger()
+    tools = {t.name: t for t in registry.get_tools("real", ledger, intent="retrofit")}
+    tools["sample_buildings"].invoke({"market_id": 14, "property_type": 11})
+    for pid in (7, 8):
+        tools["vision_inspect"].invoke({"property_id": pid})  # the stubbed vision reports no roof
+    estimated = tools["solar_payback"].invoke({"property_id": 7})
+    assert "skipped" not in estimated and estimated["capacity_kw"] > 0
+    entry = ledger.get(estimated["evidence_id"])
+    assert entry["args"]["roof_area_sq_ft"] is None
+    assert entry["args"]["roof_area_source"].startswith("CoStar building footprint")
+    skipped = tools["solar_payback"].invoke({"property_id": 8})
+    assert skipped["skipped"] is True and "no roof area from any source" in skipped["reason"]
     ranked = tools["rank_buildings"].invoke({})
     assert ranked["estimated"] == 1 and ranked["skipped_no_roof"] == 1
-    assert [r["property_id"] for r in ranked["ranked"]] == [second]
+    assert [r["property_id"] for r in ranked["ranked"]] == [7]
 
 
 def test_solar_needs_an_inspected_building_and_rank_needs_estimates() -> None:

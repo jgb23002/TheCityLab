@@ -115,7 +115,8 @@ def test_partial_cache_keeps_missing_values_unknown(workflow: dict, monkeypatch:
 
 def test_solar_mode_returns_rankings_and_an_unsent_owner_draft(workflow: dict, monkeypatch: pytest.MonkeyPatch) -> None:
     """The UI receives LA solar results, not Houston rent statistics."""
-    buildings = mock.find_buildings(20, 11, 3)
+    buildings = [b.model_copy(update={"gross_typical_floor_sq_ft": 20000.0})
+                 for b in mock.find_buildings(20, 11, 3)]
     workflow["sampler"].return_value = buildings
     for building in buildings:
         measurement = mock.measure_building("test.jpg", building.id).model_copy(update={"observations": {"basis": "test fixture"}})
