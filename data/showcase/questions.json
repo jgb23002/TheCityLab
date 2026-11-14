@@ -1,0 +1,57 @@
+{
+  "title": "CityLab showcase questions",
+  "sample_manifest": "../samples/manifest.json",
+  "controls": [
+    {"name": "total_num_units", "source": "commercial-property.propertyApartment.totalNumUnits"},
+    {"name": "year_built", "source": "commercial-property.constructionEvents[].year", "eventType": 2, "reducer": "earliest"},
+    {"name": "building_class", "source": "commercial-property.buildingClass", "treatment": "categorical", "exclude_unknown": 0}
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "mode": "research",
+      "question": "In Houston, do apartment communities with more green cover have higher asking rents?",
+      "market_id": 14,
+      "property_type": 11,
+      "sample": "../samples/houston.csv",
+      "feature": {"name": "green_cover_percent", "source": "Vexcel aerial imagery", "status": "pending_measurement"},
+      "outcome": {"name": "max_rent", "source": "apartment-listing.maxRent", "required": "non-zero", "unit": "dollars/month"},
+      "controls": ["total_num_units", "year_built", "building_class"],
+      "interpretation": "Observational association with the highest advertised rent, not average or achieved rent. Keep rent pricing bases comparable."
+    },
+    {
+      "id": "Q2",
+      "mode": "research",
+      "question": "In Houston, do apartment communities with more paved surface have higher vacancy?",
+      "market_id": 14,
+      "property_type": 11,
+      "sample": "../samples/houston.csv",
+      "feature": {"name": "paved_surface_percent", "source": "Vexcel aerial imagery", "status": "pending_measurement"},
+      "outcome": {"name": "vacancy_percent", "source": "commercial-property.propertyApartment.vacancyPercent", "required": "reported, including zero", "unit": "percent"},
+      "controls": ["total_num_units", "year_built", "building_class"],
+      "validation": {
+        "ai_measurement": "surface_parking_space_count",
+        "reference": "surface_parking_spaces",
+        "source": "commercial-property.parking[].totalSpaces",
+        "parking_types": [1, 2],
+        "aggregation": "sum known Surface and SurfaceTandem counts; unknown if absent or incomplete",
+        "cohort": "selected properties with known surface_parking_spaces",
+        "status": "pending_measurement"
+      },
+      "interpretation": "Reported apartment vacancy is distinct from advertised units available or tenant roster counts."
+    },
+    {
+      "id": "Q3",
+      "mode": "retrofit",
+      "question": "Which 10 Los Angeles apartment buildings are the best rooftop-solar candidates?",
+      "market_id": 20,
+      "property_type": 11,
+      "sample": "../samples/los_angeles.csv",
+      "top_n": 10,
+      "ranking_target": "estimated rooftop solar potential",
+      "ranking_scope": "the 50 sampled CoStar apartment properties/communities",
+      "required_existing_outcomes": [],
+      "status": "pending_aerial_measurement_and_solar_estimation"
+    }
+  ]
+}
