@@ -14,7 +14,14 @@ const state = {
   map: null, markerLayer: null, markers: new Map(), chart: null, previewRequest: null,
   controller: null, cards: [], cardsShown: 0, cardObserver: null, selected: null,
   evidence: [], cachedIds: new Set(), progress: new Map(), toolCalls: 0, failedCalls: 0,
+  history: [], highlight: null, lastQuestion: "", correcting: false,
 };
+// Editable measurement fields: label, unit, input limits (validated before sending).
+const EDITABLE = {
+  parking_space_count: { label: "Parking spaces", unit: "", min: 0, max: null, step: 1, integer: true },
+  green_cover_percent: { label: "Green cover", unit: "%", min: 0, max: 100, step: 0.1, integer: false },
+};
+const SHOWCASE_MISSING = "Demo mode: this question is not in the offline showcase";
 
 // ---------------------------------------------------------------------------
 // Small helpers
@@ -72,11 +79,31 @@ function showFormError(message) {
   $("error").hidden = !message;
 }
 
-function showBanner(message, offerDemo = false) {
+/** Error banner: a message, optional hint, and Retry / saved-demo buttons. */
+function showBanner(message, { offerDemo = false, retry = false, title = "Something went wrong.", hint = "" } = {}) {
+  $("error-title").textContent = title;
   $("error-text").textContent = message || "";
+  $("error-hint").textContent = hint;
+  $("error-hint").hidden = !hint;
   $("show-demo").hidden = !offerDemo;
+  $("retry").hidden = !retry || !state.lastQuestion;
   $("error-banner").hidden = !message;
+  $("error-banner").classList.toggle("showcase", title.startsWith("Not in the offline"));
   if (message) $("error-banner").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+/** A friendly message for an HTTP error response from the API. */
+async function httpError(res, fallback) {
+  const error = await res.json().catch(() => ({}));
+  const detail = typeof error.detail === "string" ? error.detail : "";
+  if (res.status === 422) return Object.assign(new Error(Array.isArray(error.detail) || !detail
+    ? "Please check the values you entered: counts must be 0 or more and percentages between 0 and 100."
+    : detail), { kind: "http", status: 422 });
+  if (res.status === 503 && detail.startsWith(SHOWCASE_MISSING)) {
+    return Object.assign(new Error(detail), { kind: "showcase", status: 503 });
+  }
+  if (res.status === 404) return Object.assign(new Error(detail || "Not found."), { kind: "http", status: 404 });
+  return Object.assign(new Error(detail || fallback || `The server answered ${res.status}.`), { kind: "http", status: res.status });
 }
 
 const NAMES = {
@@ -137,10 +164,9 @@ async function streamStudy(body, onFrame, signal) {
     body: JSON.stringify(body), signal,
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    const detail = Array.isArray(error.detail) ? "Check the question and the number of buildings."
-      : typeof error.detail === "string" ? error.detail : `The server answered ${res.status}.`;
-    throw Object.assign(new Error(detail), { kind: "http" });
+    const err = await httpError(res);
+    if (err.status === 422) err.message = "Check the question and the number of buildings (1 to 50).";
+    throw err;
   }
   if (!res.body || !res.body.getReader) throw new Error("This browser cannot read a streaming response.");
   const reader = res.body.getReader();
@@ -235,13 +261,25 @@ function finishProgress() {
 // Map
 // ---------------------------------------------------------------------------
 
-function renderMap(buildings, measurements) {
+/** Green (short payback) to red (long payback) for retrofit pins. */
+function paybackColor(years, lo, hi) {
+  if (years == null) return "#8a939c";
+  const t = hi > lo ? Math.min(1, Math.max(0, (years - lo) / (hi - lo))) : 0;
+  const mix = (a, b) => Math.round(a + (b - a) * t);
+  return `rgb(${mix(31, 198)}, ${mix(138, 40)}, ${mix(112, 40)})`;
+}
+
+function renderMap(study) {
+  const { buildings, measurements } = study;
   state.markers = new Map();
   if (typeof L === "undefined") {
     $("map").textContent = "The map could not load. Check your connection; the building cards are below.";
     return;
   }
   const byProp = Object.fromEntries(measurements.map((m) => [m.property_id, m]));
+  const solar = Object.fromEntries((study.solar_results || []).map((r) => [r.property_id, r]));
+  const paybacks = (study.solar_results || []).map((r) => r.payback_years).filter((v) => v != null);
+  const lo = Math.min(...paybacks), hi = Math.max(...paybacks);
   if (!state.map) {
     state.map = L.map("map");
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -249,34 +287,62 @@ function renderMap(buildings, measurements) {
     }).addTo(state.map);
     state.markerLayer = L.layerGroup().addTo(state.map);
   }
-  state.markerLayer.clearLayers();
+  try { state.markerLayer.clearLayers(); } catch { state.markerLayer = L.layerGroup().addTo(state.map); }
   const points = [];
   for (const b of buildings) {
     if (b.latitude == null || b.longitude == null) continue;
     const m = byProp[b.id] || {};
-    const marker = L.circleMarker([b.latitude, b.longitude], {
-      radius: 9, color: "#1c2733", weight: 2, fillColor: "#ff5a1f", fillOpacity: 0.85,
-    }).bindPopup(
-      `<strong>${esc(b.name || `Property ${b.id}`)}</strong><br>` +
-      `Rent: $${fmt(b.max_rent, 0)} · Parking: ${fmt(m.parking_space_count, 0)}<br>` +
-      `Green cover: ${fmt(m.green_cover_percent)}%`,
-    ).addTo(state.markerLayer);
+    const r = solar[b.id];
+    let marker;
+    if (r && r.rank != null && r.rank <= 10) {
+      // Retrofit: numbered pin for the top 10, coloured by payback.
+      marker = L.marker([b.latitude, b.longitude], { icon: L.divIcon({
+        className: "pin", iconSize: [36, 36], iconAnchor: [18, 18],
+        html: `<span style="background:${paybackColor(r.payback_years, lo, hi)}">${esc(r.rank)}</span>`,
+      }), title: `#${r.rank} ${b.name || b.id}`, keyboard: true }).bindPopup(
+        `<strong>#${esc(r.rank)} ${esc(b.name || `Property ${b.id}`)}</strong><br>` +
+        `Payback: ${fmt(r.payback_years, 1)} years · ${fmt(r.capacity_kw, 1)} kW`);
+    } else {
+      const base = { radius: r ? 6 : 9, fillColor: r ? "#8a939c" : "#ff5a1f" };
+      marker = L.circleMarker([b.latitude, b.longitude], {
+        ...base, color: "#1c2733", weight: 2, fillOpacity: 0.85,
+      });
+      marker.base = base;
+      marker.bindPopup(
+        `<strong>${esc(b.name || `Property ${b.id}`)}</strong><br>` +
+        (r ? `Rank ${fmt(r.rank, 0)} · payback ${fmt(r.payback_years, 1)} years`
+          : `Rent: $${fmt(b.max_rent, 0)} · Parking: ${fmt(m.parking_space_count, 0)}<br>Green cover: ${fmt(m.green_cover_percent)}%`));
+    }
+    marker.addTo(state.markerLayer);
     marker.on("click", () => selectBuilding(b.id, "map"));
     state.markers.set(b.id, marker);
     points.push([b.latitude, b.longitude]);
   }
   if (points.length) state.map.fitBounds(points, { padding: [30, 30], maxZoom: 13 });
-  setTimeout(() => state.map.invalidateSize(), 50);
+  setTimeout(() => state.map && state.map.invalidateSize(), 50);
 }
 
-/** Highlight one building's card and map marker together. */
+/** Highlight one building's card, map marker, solar row and email together. */
 function selectBuilding(id, from) {
   state.selected = id;
   for (const [mid, marker] of state.markers) {
     const on = mid === id;
-    marker.setStyle({ radius: on ? 14 : 9, fillColor: on ? "#1f8a70" : "#ff5a1f", weight: on ? 4 : 2 });
-    if (on) marker.bringToFront();
+    if (marker.setStyle) {
+      const base = marker.base || { radius: 9, fillColor: "#ff5a1f" };
+      marker.setStyle({ radius: on ? 14 : base.radius, fillColor: on ? "#1f8a70" : base.fillColor, weight: on ? 4 : 2 });
+      if (on) marker.bringToFront();
+    } else if (marker.getElement && marker.getElement()) {
+      marker.getElement().classList.toggle("selected", on);
+      if (on) marker.setZIndexOffset(1000); else marker.setZIndexOffset(0);
+    }
   }
+  document.querySelectorAll("#solar-ranking tr.selected").forEach((r) => r.classList.remove("selected"));
+  const row = document.querySelector(`#solar-ranking tr[data-id="${CSS.escape(String(id))}"]`);
+  if (row) {
+    row.classList.add("selected");
+    if (from === "map") row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  if (state.study && state.study.solar_results) renderEmail(state.study, id);
   document.querySelectorAll(".bcard.selected").forEach((el) => el.classList.remove("selected"));
   if (from === "map") {
     const index = state.cards.findIndex((c) => c.building.id === id);
@@ -288,7 +354,7 @@ function selectBuilding(id, from) {
     if (from === "map") card.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   const marker = state.markers.get(id);
-  if (marker && from === "card" && state.map) {
+  if (marker && (from === "card" || from === "table") && state.map) {
     state.map.panTo(marker.getLatLng());
     marker.openPopup();
   }
@@ -337,13 +403,21 @@ function buildCard(study, b, m) {
   card.tabIndex = 0;
   const [label, value] = keyMeasurement(study, m || {});
   const where = address(b);
+  const canEdit = !!(m && m.id && study.stats && !study.solar_results);
+  const editable = canEdit ? Object.entries(EDITABLE).map(([field, spec]) =>
+    `<button type="button" class="edit-value" data-field="${field}" title="Correct ${esc(spec.label.toLowerCase())}">` +
+    `<span>${esc(spec.label)}</span><strong>${m[field] == null ? "unknown" : esc(fmt(m[field], spec.integer ? 0 : 1)) + spec.unit}</strong>` +
+    `<i aria-hidden="true">✎</i></button>`).join("") : "";
   card.innerHTML =
     `<div class="bimg"><img alt="Aerial image of property ${esc(b.id)}" loading="lazy" decoding="async" src="/api/image/${encodeURIComponent(b.id)}">` +
     `<canvas class="boxes" aria-hidden="true"></canvas><span class="noimg" hidden>No aerial image</span>` +
-    `${study.is_mock ? '<span class="demo-tag">Demo data</span>' : ""}</div>` +
+    `${study.is_mock ? '<span class="demo-tag">Demo data</span>' : ""}` +
+    `${m && m.is_corrected ? '<span class="corrected-tag">Corrected</span>' : ""}</div>` +
     `<div class="bbody"><h4>${esc(b.name || `Property ${b.id}`)}</h4>` +
     `${where ? `<p class="addr">${esc(where)}</p>` : ""}` +
-    `<p class="key"><span>${esc(label)}</span><strong>${esc(value)}</strong></p>` +
+    (canEdit ? `<div class="edit-values">${editable}</div>`
+      : `<p class="key"><span>${esc(label)}</span><strong>${esc(value)}</strong></p>`) +
+    `<div class="editor-slot"></div>` +
     `<dl><dt>Rent</dt><dd>${b.max_rent != null ? "$" + fmt(b.max_rent, 0) : "-"}</dd>` +
     `<dt>Units</dt><dd>${fmt(b.total_num_units, 0)}</dd><dt>Built</dt><dd>${b.year_built != null ? esc(b.year_built) : "-"}</dd></dl>` +
     `<p class="pid">Property ${esc(b.id)}</p></div>`;
@@ -354,10 +428,142 @@ function buildCard(study, b, m) {
   img.addEventListener("load", draw);
   img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
   if ("ResizeObserver" in window) new ResizeObserver(draw).observe(img);
+  if (canEdit) {
+    card.querySelectorAll(".edit-value").forEach((btn) => btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditor(card, m, btn.dataset.field);
+    }));
+    // Clicking a detection box corrects the parking count (boxes are parking detections).
+    card.querySelector(".bimg").addEventListener("click", (e) => {
+      const rect = img.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      const hit = (canvas.boxes || []).some((bx) => x >= bx.x && x <= bx.x + bx.w && y >= bx.y && y <= bx.y + bx.h);
+      if (hit) { e.stopPropagation(); openEditor(card, m, "parking_space_count"); }
+    });
+  }
   card.addEventListener("click", () => selectBuilding(b.id, "card"));
-  card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectBuilding(b.id, "card"); } });
+  card.addEventListener("keydown", (e) => {
+    if (e.target !== card) return; // typing in the editor must not select the card
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectBuilding(b.id, "card"); }
+  });
   if (state.selected === b.id) card.classList.add("selected");
+  if (state.highlight && state.highlight.propertyId === b.id) card.classList.add("flash-card");
   return card;
+}
+
+/** Inline editor: number input with the current value, a note, Save / Cancel. */
+function openEditor(card, m, field) {
+  const spec = EDITABLE[field];
+  const slot = card.querySelector(".editor-slot");
+  if (!spec || !slot) return;
+  const current = m[field];
+  slot.innerHTML =
+    `<form class="editor" novalidate><label>${esc(spec.label)}${spec.unit ? ` (${esc(spec.unit)})` : ""}` +
+    `<input type="number" name="value" inputmode="decimal" min="${spec.min}"${spec.max != null ? ` max="${spec.max}"` : ""} ` +
+    `step="${spec.step}" value="${current == null ? "" : esc(current)}" required></label>` +
+    `<label>Note <input type="text" name="note" maxlength="300" placeholder="Why is this value wrong?"></label>` +
+    `<p class="editor-msg" role="status"></p>` +
+    `<div class="editor-actions"><button type="submit" class="save-btn">Save</button>` +
+    `<button type="button" class="cancel-edit">Cancel</button></div></form>`;
+  const form = slot.querySelector("form");
+  const valueInput = form.querySelector('input[name="value"]');
+  const noteInput = form.querySelector('input[name="note"]');
+  form.addEventListener("click", (e) => e.stopPropagation());
+  form.querySelector(".cancel-edit").addEventListener("click", () => { slot.innerHTML = ""; });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = valueInput.value.trim();
+    const value = Number(raw);
+    const msg = form.querySelector(".editor-msg");
+    const problem = raw === "" || !Number.isFinite(value) ? "Enter a number."
+      : value < spec.min ? `${spec.label} cannot be below ${spec.min}.`
+      : spec.max != null && value > spec.max ? `${spec.label} must be between ${spec.min} and ${spec.max}.`
+      : spec.integer && !Number.isInteger(value) ? `${spec.label} must be a whole number.` : "";
+    if (problem) { msg.textContent = problem; msg.className = "editor-msg error"; valueInput.focus(); return; }
+    submitCorrection(card, m, field, value, noteInput.value.trim(), form);
+  });
+  valueInput.focus();
+  valueInput.select();
+}
+
+/** POST /api/correct, then show the corrected study with what changed. */
+async function submitCorrection(card, m, field, value, note, form) {
+  if (state.correcting) return;
+  state.correcting = true;
+  const msg = form.querySelector(".editor-msg");
+  msg.innerHTML = '<span class="spinner small" aria-hidden="true"></span> Re-running statistics...';
+  msg.className = "editor-msg busy";
+  form.querySelectorAll("button, input").forEach((el) => { el.disabled = true; });
+  const corrections = { [field]: value };
+  if (note) corrections.note = note;
+  try {
+    const res = await fetch("/api/correct", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ study_id: state.study.id, measurement_id: m.id, corrections }),
+    });
+    if (!res.ok) throw await httpError(res, "The correction could not be applied.");
+    const data = await res.json();
+    const event = (data.events || []).find((e) => e.event_type === "correction") || { payload: {} };
+    state.history.push({ study: state.study, evidence: state.evidence, cachedIds: new Set(state.cachedIds),
+                         panel: state.lastPanel || null });
+    const evidence = [...state.evidence, ...correctionEvidence(data, event.payload)];
+    state.highlight = { propertyId: m.property_id, statsBefore: state.study.stats };
+    renderStudy(data.study, evidence);
+    showWhatChanged(event.payload);
+    state.highlight = null;
+  } catch (err) {
+    msg.textContent = err.kind === "http" || err.kind === "showcase" ? err.message
+      : "Could not reach the CityLab API to apply the correction.";
+    msg.className = "editor-msg error";
+    form.querySelectorAll("button, input").forEach((el) => { el.disabled = false; });
+  } finally {
+    state.correcting = false;
+  }
+}
+
+/** Ledger rows for the correction and the re-run, so new [E#] tags in the brief resolve. */
+function correctionEvidence(data, payload) {
+  const rows = [];
+  const changes = payload.changes || [];
+  const field = changes[0];
+  if (payload.evidence_id && field) {
+    rows.push({ id: payload.evidence_id, tool: "correct_measurement", source: data.study.is_mock ? "mock" : "real",
+                summary: `${field.label}: ${field.before ?? "unknown"} → ${field.after ?? "unknown"} (user correction)` });
+  }
+  const tool = (data.events || []).find((e) => e.event_type === "tool_call");
+  const stats = data.study.stats || {};
+  const p = stats.predictor;
+  if (tool && tool.payload) {
+    const coef = p && stats.coefficients ? stats.coefficients[p] : null;
+    rows.push({ id: tool.payload.evidence_id, tool: "run_regression", source: tool.payload.source,
+                summary: coef == null ? "regression re-run after correction: no result"
+                  : `${p} coefficient ${fmt(coef, 4)}, n=${stats.sample_size} (re-run after correction)` });
+  }
+  return rows;
+}
+
+/** The "What changed" panel: before → after with arrows, plus the conclusion sentence. */
+function showWhatChanged(payload) {
+  state.lastPanel = payload;
+  const changes = (payload && payload.changes) || [];
+  $("what-changed").hidden = !changes.length;
+  $("undo").hidden = !state.history.length;
+  $("wc-conclusion").textContent = (payload && payload.conclusion) || "";
+  const arrow = { up: "▲", down: "▼", unchanged: "＝", "n/a": "→" };
+  const show = (v) => v == null ? "unknown" : typeof v === "number" ? fmt(v, Math.abs(v) < 1 ? 4 : 2) : esc(v);
+  $("wc-list").innerHTML = changes.map((c) =>
+    `<li class="dir-${esc(c.direction)}"><span class="wc-label">${esc(c.label)}</span>` +
+    `<span class="wc-values">${show(c.before)} <b class="wc-arrow" aria-label="${esc(c.direction)}">${arrow[c.direction] || "→"}</b> ${show(c.after)}</span></li>`).join("");
+  if (changes.length) $("what-changed").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function undoCorrection() {
+  const previous = state.history.pop();
+  if (!previous) return;
+  state.cachedIds = previous.cachedIds;
+  renderStudy(previous.study, previous.evidence);
+  if (previous.panel && state.history.length) showWhatChanged(previous.panel);
+  else { state.lastPanel = null; $("what-changed").hidden = true; }
 }
 
 /** Draw [left, top, right, bottom] source-pixel boxes scaled to the displayed image size.
@@ -378,10 +584,12 @@ function drawDetections(img, canvas, detections, sourceW, sourceH) {
   const sy = h / (sourceH > 0 ? sourceH : img.naturalHeight);
   ctx.font = "600 12px Inter, system-ui, sans-serif";
   ctx.lineWidth = 2.5;
+  canvas.boxes = []; // displayed-pixel boxes, for click hit-testing
   for (const d of detections) {
     if (!Array.isArray(d.bbox) || d.bbox.length !== 4) continue;
     const [left, top, right, bottom] = d.bbox;
     const x = left * sx, y = top * sy, bw = (right - left) * sx, bh = (bottom - top) * sy;
+    canvas.boxes.push({ x, y, w: bw, h: bh, label: d.label });
     const color = LABEL_COLORS[String(d.label).toLowerCase()] || "#e8281c";
     ctx.strokeStyle = color;
     ctx.strokeRect(x, y, bw, bh);
@@ -593,14 +801,25 @@ function renderKpis(study) {
   ].map(card).join("");
 }
 
+/** CSS class for a stats cell that changed after a correction: green if up, red if down. */
+function changeClass(before, after) {
+  if (before == null || after == null || Math.abs(before - after) < 1e-12) return "";
+  return after > before ? "changed-up" : "changed-down";
+}
+
 function renderStats(stats) {
   if (!stats || !stats.coefficients) { $("stats").innerHTML = "<p>No statistics for this study.</p>"; return; }
+  const old = (state.highlight && state.highlight.statsBefore) || null;
   const rows = Object.keys(stats.coefficients).map((name) => {
     const ci = (stats.confidence_intervals || {})[name];
     const p = (stats.p_values || {})[name];
     const [cls, text] = verdict(p);
-    return `<tr class="${name === stats.predictor ? "predictor" : ""}"><td>${esc(nice(name))}</td><td>${fmt(stats.coefficients[name])}</td>` +
-      `<td>${ci ? `${fmt(ci[0])} to ${fmt(ci[1])}` : "-"}</td><td>${fmt(p, 3)}</td><td><span class="pill ${cls}">${text}</span></td></tr>`;
+    const was = old ? { coef: (old.coefficients || {})[name], ci: (old.confidence_intervals || {})[name], p: (old.p_values || {})[name] } : {};
+    const cCoef = old ? changeClass(was.coef, stats.coefficients[name]) : "";
+    const cCi = old && ci && was.ci ? changeClass(was.ci[0] + was.ci[1], ci[0] + ci[1]) : "";
+    const cP = old ? changeClass(was.p, p) : "";
+    return `<tr class="${name === stats.predictor ? "predictor" : ""}"><td>${esc(nice(name))}</td><td class="${cCoef}">${fmt(stats.coefficients[name])}</td>` +
+      `<td class="${cCi}">${ci ? `${fmt(ci[0])} to ${fmt(ci[1])}` : "-"}</td><td class="${cP}">${fmt(p, 3)}</td><td><span class="pill ${cls}">${text}</span></td></tr>`;
   }).join("");
   $("stats").innerHTML =
     `<div class="table-wrap"><table><thead><tr><th>Factor</th><th>Effect</th><th>95% CI</th><th>p-value</th><th>Strength</th></tr></thead><tbody>${rows}</tbody></table></div>` +
@@ -622,17 +841,63 @@ function renderBuildingTable(study) {
 
 function renderSolarAndOutreach(study) {
   $("stats-card").hidden = !study.stats;
-  $("solar-card").hidden = !study.solar_results;
-  const top = (study.solar_results || []).filter((r) => r.payback_years != null).slice(0, 10);
-  const names = Object.fromEntries(study.buildings.map((b) => [b.id, b.name || b.id]));
-  $("solar-ranking").innerHTML = "<thead><tr><th>Rank</th><th>Building</th><th>Roof (sq ft)</th><th>Capacity (kW)</th><th>Energy (kWh/yr)</th><th>Payback (years)</th></tr></thead><tbody>" +
-    top.map((r) => `<tr><td>${fmt(r.rank, 0)}</td><td>${esc(names[r.property_id])}</td><td>${fmt(r.usable_roof_area_sq_ft, 0)}</td>` +
-      `<td>${fmt(r.capacity_kw, 1)}</td><td>${fmt(r.annual_energy_kwh, 0)}</td><td>${fmt(r.payback_years, 1)}</td></tr>`).join("") + "</tbody>";
+  const solar = study.solar_results;
+  $("solar-card").hidden = !solar;
+  $("outreach-card").hidden = !solar || !(study.outreach_drafts || []).length;
+  if (!solar) return;
+  const byId = Object.fromEntries(study.buildings.map((b) => [b.id, b]));
+  const ranked = solar.filter((r) => r.rank != null).slice(0, 10);
+  const paybacks = ranked.map((r) => r.payback_years).filter((v) => v != null);
+  const lo = Math.min(...paybacks), hi = Math.max(...paybacks);
+  $("solar-ranking").innerHTML = "<thead><tr><th>Rank</th><th>Building</th><th>Roof area (sq ft)</th><th>kW</th>" +
+    "<th>kWh / yr</th><th>Payback (years)</th></tr></thead><tbody>" +
+    ranked.map((r) => {
+      const b = byId[r.property_id] || {};
+      return `<tr data-id="${esc(r.property_id)}" tabindex="0"><td><span class="rank-dot" style="background:${paybackColor(r.payback_years, lo, hi)}">${esc(r.rank)}</span></td>` +
+        `<td>${esc(b.name || `Property ${r.property_id}`)}</td><td>${fmt(r.usable_roof_area_sq_ft, 0)}</td>` +
+        `<td>${fmt(r.capacity_kw, 1)}</td><td>${fmt(r.annual_energy_kwh, 0)}</td><td><strong>${fmt(r.payback_years, 1)}</strong></td></tr>`;
+    }).join("") + "</tbody>";
+  $("solar-ranking").querySelectorAll("tbody tr").forEach((row) => {
+    const id = Number(row.dataset.id);
+    row.addEventListener("click", () => selectBuilding(id, "table"));
+    row.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectBuilding(id, "table"); } });
+  });
+  const first = ranked[0] && ranked[0].property_id;
+  if (first != null && state.selected == null) state.selected = first;
+  renderEmail(study, state.selected != null ? state.selected : first);
+}
+
+/** The selected building's owner email draft (subject, body, caveats), never sent. */
+function renderEmail(study, id) {
   const drafts = study.outreach_drafts || [];
-  $("outreach-card").hidden = !drafts.length;
-  $("outreach").innerHTML = drafts.slice(0, 1).map((d) => `<h4>${esc(d.subject || "Draft")}</h4>` +
-    simpleMarkdown(d.body_markdown || "No draft text available.")).join("") +
-    (drafts.length > 1 ? `<p class="stat-note">${drafts.length - 1} more drafts are in the result for review. None were sent.</p>` : "");
+  const draft = drafts.find((d) => d.property_id === id);
+  const building = study.buildings.find((b) => b.id === id);
+  const name = building ? building.name || `Property ${building.id}` : "this building";
+  state.emailText = draft && draft.body_markdown ? `${draft.subject || ""}\n\n${draft.body_markdown}` : "";
+  $("copy-email").disabled = !state.emailText;
+  $("copy-status").textContent = "";
+  $("outreach").innerHTML = !draft || !draft.body_markdown
+    ? `<p class="stat-note">No email draft for ${esc(name)}. Drafts are written for the top ${drafts.length || 10} ranked buildings; pick one of them.</p>`
+    : `<p class="email-to">For: <strong>${esc(name)}</strong></p>` +
+      `<h4 class="email-subject">${esc(draft.subject || "(no subject)")}</h4>` +
+      `<div class="email-body">${simpleMarkdown(draft.body_markdown)}</div>` +
+      ((draft.caveats || []).length ? `<ul class="email-caveats">${draft.caveats.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : "");
+}
+
+async function copyEmail() {
+  if (!state.emailText) return;
+  try {
+    await navigator.clipboard.writeText(state.emailText);
+    $("copy-status").textContent = "Copied to clipboard.";
+  } catch {
+    // Clipboard API unavailable (e.g. not a secure context): select the text for manual copy.
+    const range = document.createRange();
+    range.selectNodeContents($("outreach"));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    $("copy-status").textContent = "Text selected: press Ctrl/Cmd+C to copy.";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -650,14 +915,24 @@ function renderStudy(study, evidence) {
   linkEvidenceTags($("brief"));
   $("caveats").innerHTML = (study.caveats || []).map((c) => `<li>${esc(c)}</li>`).join("");
   $("caveat-box").hidden = !(study.caveats || []).length;
-  renderLedger(evidence);
-  renderMap(study.buildings, study.measurements);
-  renderCards(study);
-  renderChart(study);
-  renderKpis(study);
-  renderStats(study.stats);
-  renderBuildingTable(study);
-  renderSolarAndOutreach(study);
+  if (!study.buildings.some((b) => b.id === state.selected)) state.selected = null;
+  // Each section is drawn on its own: if one fails (for example the map library or its
+  // tiles), the rest of the report still appears and the failure is named, not hidden.
+  const sections = [
+    ["evidence ledger", () => renderLedger(evidence)], ["map", () => renderMap(study)],
+    ["building cards", () => renderCards(study)], ["chart", () => renderChart(study)],
+    ["summary", () => renderKpis(study)], ["statistics", () => renderStats(study.stats)],
+    ["building table", () => renderBuildingTable(study)], ["solar view", () => renderSolarAndOutreach(study)],
+    ["selection", () => { if (study.solar_results && state.selected != null) selectBuilding(state.selected, "init"); }],
+  ];
+  const failed = [];
+  for (const [name, draw] of sections) {
+    try { draw(); } catch (err) { failed.push(name); console.warn(`CityLab: could not draw the ${name}`, err); }
+  }
+  if (failed.length) {
+    showBanner(`The results are below, but the ${failed.join(", ")} could not be drawn in this browser.`,
+      { title: "Part of the page could not be drawn." });
+  }
 }
 
 function setRunning(running) {
@@ -667,9 +942,15 @@ function setRunning(running) {
 
 async function runStudy(question) {
   if (state.controller) return;
+  state.lastQuestion = question;
+  state.history = [];
+  state.lastPanel = null;
+  state.selected = null;
+  $("what-changed").hidden = true;
   showFormError("");
   showBanner("");
   $("results").hidden = true;
+  $("skeleton").hidden = false;
   resetProgress();
   $("progress-card").scrollIntoView({ behavior: "smooth", block: "center" });
   setRunning(true);
@@ -685,18 +966,32 @@ async function runStudy(question) {
       if (event === "handoff" || event === "tool_call") addProgress(event, data);
       else if (event === "citation_check") showCitation(data);
       else if (event === "evidence") evidence = data.evidence || [];
-      else if (event === "result") { gotResult = true; finishProgress(); renderStudy(data.study, evidence); }
+      else if (event === "result") {
+        gotResult = true;
+        finishProgress();
+        $("skeleton").hidden = true;
+        renderStudy(data.study, evidence); // draws section by section; never mistaken for a network error
+      }
       else if (event === "error") throw Object.assign(new Error(data.message || "The study failed."), { kind: "server" });
     }, controller.signal);
     if (!gotResult) throw Object.assign(new Error("The connection closed before the study finished."), { kind: "network" });
   } catch (err) {
     finishProgress();
+    $("skeleton").hidden = true;
     if (err.name === "AbortError") {
-      showBanner("Cancelled. The server may finish the run in the background; cached results will be reused next time.");
+      showBanner("Cancelled. The server may finish the run in the background; cached results will be reused next time.",
+        { title: "Cancelled.", retry: true });
+    } else if (err.kind === "showcase") {
+      showBanner(err.message, { title: "Not in the offline showcase.", retry: false,
+        hint: "This server is running the offline demo. Click one of the sample questions above (Q1-Q3) to replay it." });
+    } else if (err.status === 422) {
+      showBanner(err.message, { title: "Please check your request.", retry: true });
     } else if (err.kind === "server" || err.kind === "http") {
-      showBanner(err.message, true);
+      showBanner(err.message, { title: err.status === 503 ? "The study could not run right now." : "Something went wrong.",
+        retry: true, offerDemo: true });
     } else {
-      showBanner("Could not reach the CityLab API. Check that the server is running.", true);
+      showBanner("Could not reach the CityLab API. Check that the server is running and your connection is up.",
+        { title: "Network problem.", retry: true, offerDemo: true });
     }
   } finally {
     state.controller = null;
@@ -714,8 +1009,8 @@ async function showSavedDemo() {
     renderStudy(await res.json(), []);
     $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch {
-    showBanner("The saved demo study is not reachable either. Start the server with: uvicorn backend.main:app");
-    $("show-demo").hidden = true;
+    showBanner("The saved demo study is not reachable either. Start the server with: uvicorn backend.main:app",
+      { title: "Network problem.", retry: true });
   }
 }
 
@@ -779,6 +1074,9 @@ $("ask-form").addEventListener("submit", (e) => {
 });
 $("cancel").addEventListener("click", () => { if (state.controller) state.controller.abort(); });
 $("show-demo").addEventListener("click", showSavedDemo);
+$("retry").addEventListener("click", () => { if (state.lastQuestion) runStudy(state.lastQuestion); });
+$("undo").addEventListener("click", undoCorrection);
+$("copy-email").addEventListener("click", copyEmail);
 $("more-cards").addEventListener("click", () => showMoreCards());
 $("ledger-filter").addEventListener("input", filterLedger);
 for (const id of ["market", "sample-limit", "demo-mode"]) $(id).addEventListener("change", loadPreview);
