@@ -197,7 +197,10 @@ footprint, aerial imagery, or CoStar building fields). Also say how many buildin
 no roof area from any source (skipped_no_roof). If an entry's source is "mock",
 write "(demo data)" next to its results and say the run used synthetic demo data.
 
-Next step: say the first email draft (rank 1) is available for review and was not sent.
+Next step: say the email draft for the rank 1 property is available for review and was not
+sent. Tag that sentence's property id with the evidence id of the draft_email call WHOSE
+OWN result has that same property id (read each draft_email result's property_id field to
+find it -- do not assume it is the first or last draft_email entry you read).
 
 If screen_upgrades entries exist, add a section "## Other upgrades" before "## Next step":
 for the rank 1 building, list each upgrade with its status; for estimated ones give kW,
