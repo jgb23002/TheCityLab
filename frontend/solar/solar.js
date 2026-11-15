@@ -52,6 +52,7 @@ let roofLayer = null;
 function mapRoof(b) {
   if (roofLayer) roofLayer.remove();
   roofLayer = L.layerGroup().addTo(layer);
+  $("map-note").hidden = false;
   const pts = [];
   for (const s of b.sides) {
     s.outline.forEach((p) => pts.push(p));
