@@ -23,6 +23,8 @@ b { font-weight: 700; }
 .logo { color: var(--sun); }
 .tag { font-size: 12px; font-weight: 700; color: var(--bg); background: var(--sun); padding: 2px 8px; border-radius: 99px; vertical-align: middle; }
 .oneliner { margin: 0; color: var(--muted); font-size: 16px; }
+.live-link { margin-left: auto; color: var(--sun); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.live-link:hover { text-decoration: underline; }
 .ask { display: flex; align-items: center; gap: 16px; padding: 10px 24px 16px; flex-wrap: wrap; }
 .ask-sentence { margin: 0; flex: 1 1 420px; min-width: 0; color: var(--ink); font-size: 18px; line-height: 1.5; }
 .ask-sentence .cities { display: inline-flex; vertical-align: middle; margin: 0 2px; }
