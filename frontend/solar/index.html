@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CityLab Solar</title>
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="solar.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script type="importmap">
+    { "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+  </script>
+  <script type="module" src="solar.js"></script>
+</head>
+<body>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+  <header class="top">
+    <div class="brand"><img src="logo.svg" alt="" width="30" height="30">CityLab <span class="tag">Solar</span></div>
+    <p class="oneliner">Apartment roofs are wasting money. We find them, do the math, and tell the owner.</p>
+  </header>
+
+  <section class="flight" id="flight" aria-label="How CityLab finds a roof worth solar">
+    <div class="flight-stage">
+      <canvas id="flight-canvas"></canvas>
+      <div class="flight-hud">
+        <div class="ch c1" data-ch="1">
+          <p class="kick">01 / See the potential above</p>
+          <h1>CityLab</h1>
+          <p class="big-line">Apartment roofs are wasting money.</p>
+          <p class="small-line">We find them, do the math, and tell the owner.</p>
+        </div>
+        <div class="ch left" data-ch="2">
+          <p class="kick">02 / Discover</p>
+          <h2><span id="fl-count"></span> apartment communities in <span id="fl-city"></span>.</h2>
+          <p>This one is <b id="fl-name"></b>: <span id="fl-units"></span>.</p>
+        </div>
+        <div class="ch left glass" data-ch="3">
+          <p class="kick">03 / Measure</p>
+          <h2>Every roof, traced from the air.</h2>
+          <p>Vexcel aerial photos outline <span id="fl-roofs"></span> and <b id="fl-area"></b> of roof.</p>
+        </div>
+        <div class="ch right glass" data-ch="4">
+          <p class="kick">04 / Analyze</p>
+          <h2>Every side scored against a real year of sun.</h2>
+          <p><b id="fl-pos"></b> sun positions, NASA clouds (<b id="fl-cloud"></b> of sunlight lost), a 3 ft fire gap, and room for <b id="fl-ac"></b> AC units.</p>
+        </div>
+        <div class="ch left glass" data-ch="5">
+          <p class="kick">05 / Place</p>
+          <h2><span id="fl-panels"></span> real-size panels.</h2>
+          <p><b id="fl-kw"></b> kW, placed one by one on the sunny sides.</p>
+        </div>
+        <div class="ch center" data-ch="6">
+          <p class="kick">06 / The result</p>
+          <h2><span id="fl-save"></span> a year.</h2>
+          <p><span id="fl-unit"></span> Pays for itself in <b id="fl-pay"></b>.</p>
+        </div>
+        <div class="ch c7" data-ch="7">
+          <p class="pill">Solar for apartment roofs</p>
+          <h2 class="brand-big"><img src="logo.svg" alt="" width="64" height="64">CityLab</h2>
+          <p class="kick">See the potential above.</p>
+          <button type="button" class="cta" id="flight-explore">Find the roofs in your city <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="flight-tip" id="flight-tip" hidden></div>
+        <div class="dock" id="dock">
+          <div class="dock-mode" role="group" aria-label="View">
+            <button type="button" class="on" data-mode="photo">Photo</button>
+            <button type="button" data-mode="survey" title="Points and outlines from Vexcel roof data (press L)"><i></i>Survey view</button>
+          </div>
+          <div class="dock-chapters" id="dock-chapters"></div>
+          <label class="dock-sun"><span>Sun <b id="dock-sun-label"></b></span>
+            <input type="range" id="dock-sun" min="0" max="1" step="0.01" value="0.62" aria-label="Time of day on June 21"></label>
+          <div class="dock-live"><small id="dock-roofs"></small><b id="dock-kw"></b><em id="dock-save"></em></div>
+          <button type="button" class="dock-roam" id="dock-roam" title="Drag to orbit, scroll to zoom (or Shift + drag). Esc to exit.">360° view</button>
+          <button type="button" class="dock-all" id="dock-all">Install all</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <form class="ask" id="ask">
+    <input id="question" autocomplete="off" aria-label="Your question"
+           value="Which apartment roofs in Los Angeles are wasting the most money?">
+    <div class="cities" role="radiogroup" aria-label="City">
+      <button type="button" class="city" data-city="houston">Houston</button>
+      <button type="button" class="city on" data-city="los_angeles">Los Angeles</button>
+    </div>
+    <button class="go" id="go" type="submit">Find the roofs</button>
+  </form>
+
+  <main class="stage">
+    <section class="viewer" aria-label="Roof viewer" data-lenis-prevent>
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab on" data-view="map" role="tab">Map</button>
+        <button type="button" class="tab" data-view="3d" role="tab" id="tab-3d" disabled>3D roof</button>
+      </div>
+      <div id="map" class="view on" data-view="map"></div>
+      <div id="three" class="view" data-view="3d">
+        <div class="modes" role="radiogroup" aria-label="Roof colour">
+          <button type="button" class="mode on" data-mode="photo">Real photo</button>
+          <button type="button" class="mode" data-mode="sun">Sun on each side</button>
+          <button type="button" class="mode" data-mode="bad">Panels everywhere</button>
+        </div>
+        <div class="tip" id="tip" hidden></div>
+        <div class="key3d" id="key3d"></div>
+        <div class="sunbar" id="sunbar">
+          <button type="button" class="sun-play" id="sun-play" aria-label="Play the day"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z"/></svg></button>
+          <button type="button" class="sun-hold" id="sun-hold" aria-pressed="false" title="Move the sun with your cursor; click to hold it">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3"/></svg>
+            <span>Move the sun</span></button>
+          <div class="sun-months" role="radiogroup" aria-label="Day of the year">
+            <button type="button" class="sm on" data-m="5">Jun 21</button>
+            <button type="button" class="sm" data-m="2">Mar 21</button>
+            <button type="button" class="sm" data-m="11">Dec 21</button>
+          </div>
+          <div class="sun-track">
+            <svg id="sun-curve" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <input type="range" id="sun-time" min="0" max="1430" step="10" value="720" aria-label="Time of day">
+          </div>
+          <div class="sun-read" id="sun-read"></div>
+        </div>
+      </div>
+      <div class="empty" id="empty"><b>Ask the question above.</b><span>We'll find the roofs, build each one in 3D, and do the math.</span></div>
+    </section>
+
+    <aside class="side">
+      <section class="thinking" id="thinking" hidden>
+        <h2>Working on it</h2>
+        <ol id="steps"></ol>
+      </section>
+
+      <nav class="picks" id="picks" hidden aria-label="Top roofs"></nav>
+
+      <section class="card" id="card" hidden>
+        <div class="card-top">
+          <span class="rank" id="c-rank">#1</span>
+          <div><h2 id="c-name"></h2><p class="muted" id="c-sub"></p></div>
+        </div>
+        <p class="big"><span id="c-save"></span><small> a year</small></p>
+        <p class="pay">pays for itself in <b id="c-pay"></b></p>
+        <p class="human" id="c-human"></p>
+        <div class="system">
+          <div><b id="c-panels"></b><span>solar panels</span></div>
+          <div><b id="c-kw"></b><span>kW system</span></div>
+          <div><b id="c-sides"></b><span>roof sides used</span></div>
+        </div>
+        <div class="actions">
+          <button id="b-email" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.75" y="3.25" width="12.5" height="9.5" rx="1"/><path d="M2 4l6 5 6-5"/></svg><span>Write the owner email</span></button>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div class="story" id="story" hidden>
+
+  <section class="block reveal" id="how-block">
+    <p class="eyebrow">How we got the number</p>
+    <h2>From an aerial photo to <span id="how-total"></span> a year</h2>
+    <ol class="chain" id="chain"></ol>
+  </section>
+
+  <section class="block reveal" id="trust-block">
+    <p class="eyebrow">Why you can trust it</p>
+    <h2>We checked our model two ways</h2>
+    <div class="proofs">
+      <article class="proof">
+        <h3><span class="pn">1</span>Against the U.S. government's solar model</h3>
+        <p class="lead" id="nrel-lead"></p>
+        <div class="nrel" id="nrel"></div>
+        <p class="key"><i class="k nrelk"></i><span>NREL PVWatts</span> <i class="k ours"></i><span>CityLab</span> <span class="muted">kWh per kW a year, panels tilted 25°</span></p>
+      </article>
+      <details class="proof inst-card" id="installs-block" hidden>
+        <summary><span class="pn">2</span><span class="st">Extra test: 10 real LA roofs that already have solar</span><span class="sh">Show</span></summary>
+        <p class="lead" id="inst-lead"></p>
+        <div class="inst" id="inst"></div>
+      </details>
+    </div>
+    <p class="assume" id="assume"></p>
+  </section>
+
+  </div>
+
+  <div class="modal" id="email" hidden data-lenis-prevent>
+    <section class="email" role="dialog" aria-label="Owner email draft">
+      <div class="email-head"><span>New message</span><button type="button" class="x" id="email-close" aria-label="Close">×</button></div>
+      <p class="field"><span>To</span> <b id="e-to"></b> <em id="e-role"></em></p>
+      <p class="field"><span>Subject</span> <b id="e-subject"></b></p>
+      <pre id="e-body"></pre>
+    </section>
+  </div>
+
+  <footer class="foot">Sun path: NOAA equations · Weather: NASA POWER · Solar output: NREL PVWatts · Buildings: CoStar · Roofs and photos: Vexcel</footer>
+</body>
+</html>
