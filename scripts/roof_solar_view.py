@@ -47,7 +47,9 @@ import requests  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 import shapely  # noqa: E402
 from shapely import wkt as shapely_wkt  # noqa: E402
-from shapely.geometry import Polygon, box  # noqa: E402
+from shapely import contains_xy, unary_union  # noqa: E402
+from shapely.geometry import LineString, Point, Polygon, box  # noqa: E402
+from shapely.geometry.polygon import orient  # noqa: E402
 
 from backend import config, sun, vexcel_detect  # noqa: E402
 from backend.samples import sample_buildings  # noqa: E402
@@ -301,8 +303,85 @@ def measure_heights(poly: Polygon, rays: list[dict[str, Any]], tan_e: float) -> 
 
 # ------------------------------------------------------------ roof sides
 
-def roof_sides(poly: Polygon) -> list[dict[str, Any]]:
-    """Split a gable footprint along its ridge into two sides with their facing directions."""
+EAVE_MIN_M = 2.0      # outline edges shorter than this are kinks, not eaves
+FACE_MIN_M2 = 4.0     # roof faces smaller than this are dropped
+
+
+def roof_sides(poly: Polygon, shape: str = "hip") -> list[dict[str, Any]]:
+    """Split a sloped roof into its real faces, each with the direction it faces.
+
+    A pitched roof slopes down to its eaves, so every point of the roof belongs to the face of
+    the eave edge nearest to it (this is the "straight skeleton" of the outline). A hip roof on a
+    rectangle gets 4 faces; an L-shaped roof gets one per eave edge. On a gable roof only the long
+    sides are eaves: the short ends are gable walls, so the roof never slopes toward them.
+    Each face also carries its eave line, so 3D height = eave + distance to it x tan(tilt).
+    """
+    p = orient(poly.simplify(0.75), 1.0)  # counter-clockwise: outward normal of a->b is (dy, -dx)
+    if p.is_empty or p.geom_type != "Polygon":
+        return _two_halves(poly)
+    axis, _, _ = ridge_axis(p)
+    coords = np.array(p.exterior.coords)
+    eaves = []
+    for a, b in zip(coords[:-1], coords[1:]):
+        d = b - a
+        length = float(np.hypot(*d))
+        if length < EAVE_MIN_M:
+            continue
+        if shape == "gable" and abs(float(d @ axis)) / length < 0.5:
+            continue  # gable end wall
+        eaves.append((a, b, np.array([d[1], -d[0]]) / length))
+    if len(eaves) < 2:
+        return _two_halves(poly)
+
+    # Label a fine grid by its nearest eave, then turn each label back into a polygon.
+    x0, y0, x1, y1 = p.bounds
+    cell = max(0.25, math.sqrt(p.area) / 220)
+    xs, ys = np.arange(x0 + cell / 2, x1, cell), np.arange(y0 + cell / 2, y1, cell)
+    X, Y = np.meshgrid(xs, ys)
+    inside = contains_xy(p, X, Y)
+    dist = np.full((len(eaves),) + X.shape, np.inf)
+    for k, (a, b, _) in enumerate(eaves):
+        ab = b - a
+        t = np.clip(((X - a[0]) * ab[0] + (Y - a[1]) * ab[1]) / float(ab @ ab), 0, 1)
+        dist[k] = np.hypot(X - (a[0] + t * ab[0]), Y - (a[1] + t * ab[1]))
+    label = np.where(inside, dist.argmin(axis=0), -1)
+
+    faces = []
+    for k, (a, b, n) in enumerate(eaves):
+        runs = []
+        for j in range(len(ys)):
+            row = label[j] == k
+            if not row.any():
+                continue
+            edges = np.flatnonzero(np.diff(np.concatenate([[0], row.view(np.int8), [0]])))
+            for s, e in zip(edges[::2], edges[1::2]):
+                runs.append(box(x0 + s * cell, y0 + j * cell, x0 + e * cell, y0 + (j + 1) * cell))
+        if not runs:
+            continue
+        region = unary_union(runs).intersection(p).buffer(0)
+        facing = round(math.degrees(math.atan2(n[0], n[1])) % 360, 1)
+        for part in (region.geoms if hasattr(region, "geoms") else [region]):
+            part = part.simplify(cell)
+            if part.geom_type == "Polygon" and part.area >= FACE_MIN_M2:
+                faces.append({"poly": part, "facing_deg": facing, "eave": LineString([a, b])})
+
+    # Neighbouring faces that face the same way (a stepped wall) are one roof face.
+    merged: list[dict[str, Any]] = []
+    for f in sorted(faces, key=lambda f: -f["poly"].area):
+        for m in merged:
+            gap = abs((f["facing_deg"] - m["facing_deg"] + 180) % 360 - 180)
+            if gap <= 10 and m["poly"].distance(f["poly"]) < cell * 1.5:
+                u = unary_union([m["poly"], f["poly"].buffer(cell * 0.6)]).intersection(p)
+                if u.geom_type == "Polygon":
+                    m["poly"], m["eave"] = u, unary_union([m["eave"], f["eave"]])
+                    break
+        else:
+            merged.append(dict(f))
+    return merged if len(merged) >= 2 else _two_halves(poly)
+
+
+def _two_halves(poly: Polygon) -> list[dict[str, Any]]:
+    """Fallback for outlines with no clear eaves: split along the long axis into two sides."""
     axis, _, _ = ridge_axis(poly)
     c = np.array(poly.centroid.coords[0])
     normal = np.array([axis[1], -axis[0]])
