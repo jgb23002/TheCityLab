@@ -405,9 +405,9 @@ function togglePlay(on = !T.playing) {
 
 function key3D() {
   const keep = data.assumptions.keep_sides_with_sun_pct;
-  const sunRows = `<p style="color:var(--muted)">Lines show how high the sun gets each season: ` +
-    `<i class="sw line" style="background:#FFB224"></i>highest (summer) ` +
-    `<i class="sw line" style="background:#FFD27A"></i>mid-year (spring/fall) ` +
+  const sunRows = `<p class="wrap" style="color:var(--muted)">Lines show how high the sun gets each season: ` +
+    `<i class="sw line" style="background:#FFB224"></i>highest (summer), ` +
+    `<i class="sw line" style="background:#FFD27A"></i>mid-year (spring/fall), ` +
     `<i class="sw line" style="background:#9fc0ff"></i>lowest (winter).</p>`;
   const s = current && current.skipped;
   $("key3d").innerHTML = T.mode === "photo"

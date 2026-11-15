@@ -50,7 +50,18 @@ export async function initFlight({ city = "los_angeles", onExplore } = {}) {
   });
   // kinetic headings: words rise in one by one; real numbers count up as their chapter arrives
   q(".ch h1, .ch h2").forEach(splitWords);
-  tl.to(q('[data-ch="1"]'), { opacity: 0, y: -32, duration: 0.09 }, 0.04);
+  q(".ch.c1 .kick, .ch.c1 .small-line").forEach(splitWords);
+  // chapter 1's exit: words scatter apart and blur instead of sliding off as one flat block
+  const ch1Words = [...q('[data-ch="1"] .w')];
+  ch1Words.forEach((w, i) => {
+    const angle = (i * 47) % 360, dist = 40 + (i * 13) % 60;
+    tl.to(w, {
+      opacity: 0, filter: "blur(6px)",
+      x: Math.cos(angle * Math.PI / 180) * dist, y: Math.sin(angle * Math.PI / 180) * dist - 20,
+      rotate: (i % 2 ? 1 : -1) * (8 + (i * 5) % 20),
+      duration: 0.1, ease: "power2.in",
+    }, 0.02 + i * 0.003);
+  });
   const ch = (n, a, z) => {
     tl.fromTo(q(`[data-ch="${n}"]`), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.04 }, a)
       .fromTo(q(`[data-ch="${n}"] .w`), { opacity: 0, yPercent: 60, rotateX: -50 },
@@ -363,23 +374,7 @@ function build(b, data, canvas) {
   cloud.visible = false;
   scene.add(cloud);
 
-  // ---- motion layer: radar rings, target beacon, rising energy ----
-  const hdr = (r, g, bl) => new THREE.Color(r, g, bl);  // over 1.0, so only these bloom
-  let fx0 = Infinity, fy0 = Infinity, fx1 = -Infinity, fy1 = -Infinity;
-  for (const s of sides) for (const [x, y] of s.pts) { fx0 = Math.min(fx0, x); fy0 = Math.min(fy0, y); fx1 = Math.max(fx1, x); fy1 = Math.max(fy1, y); }
-  const bcx = (fx0 + fx1) / 2, bcy = (fy0 + fy1) / 2, bR = Math.hypot(fx1 - fx0, fy1 - fy0) / 2;
-  const rings = [0, 1, 2].map(() => {
-    const m = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 96),
-      new THREE.MeshBasicMaterial({ color: hdr(0.25, 1.6, 3.2), transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
-    m.position.set(bcx, bcy, 0.6);
-    scene.add(m);
-    return m;
-  });
-  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(bR * 1.08, bR * 1.08, E * 2.2, 6, 4, true),
-    new THREE.MeshBasicMaterial({ color: hdr(0.15, 1.2, 2.6), wireframe: true, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }));
-  beacon.rotation.x = Math.PI / 2;
-  beacon.position.set(bcx, bcy, E * 1.1);
-  scene.add(beacon);
+  // ---- motion layer: rising energy ----
   // energy rising from roofs that have panels on, in proportion to each roof's panel count
   const withPanels = sides.filter((s) => s.panelsGeo), totalPanels = withPanels.reduce((a, s) => a + s.count, 0) || 1;
   const eBase = [], ePos = [], eCol = [], eSide = [];
@@ -415,6 +410,9 @@ function build(b, data, canvas) {
   composer.addPass(new OutputPass());
 
   // ---- 360° free roam ----
+  let fx0 = Infinity, fy0 = Infinity, fx1 = -Infinity, fy1 = -Infinity;
+  for (const s of sides) for (const [x, y] of s.pts) { fx0 = Math.min(fx0, x); fy0 = Math.min(fy0, y); fx1 = Math.max(fx1, x); fy1 = Math.max(fy1, y); }
+  const bcx = (fx0 + fx1) / 2, bcy = (fy0 + fy1) / 2;
   const controls = new OrbitControls(camera, canvas);
   Object.assign(controls, { enabled: false, enableDamping: true, dampingFactor: 0.06, maxPolarAngle: Math.PI / 2.1,
     minDistance: E * 1.5, maxDistance: S * 2.2, screenSpacePanning: false });
@@ -508,18 +506,6 @@ function build(b, data, canvas) {
         controls.target.copy(lookNow);
         camera.lookAt(lookNow);
       } else { camera.position.copy(cp); camera.lookAt(cl); }
-      // radar rings ripple out from the building while we look for it (faster when you scroll faster)
-      const radar = smooth(p, 0.12, 0.2) * (1 - smooth(p, 0.52, 0.62));
-      rings.forEach((r, i) => {
-        const c = (time * (0.3 + S_.speed * 0.6) + i / 3) % 1;
-        r.scale.setScalar(bR + c * S * 0.55);
-        r.material.opacity = (1 - c) * 0.6 * radar;
-        r.visible = radar > 0.01;
-      });
-      const bA = smooth(p, 0.26, 0.32) * (1 - smooth(p, 0.56, 0.62));
-      beacon.visible = bA > 0.01;
-      beacon.rotation.y = time * 0.5;
-      beacon.material.opacity = bA * (0.22 + Math.sin(time * 3) * 0.06);
       // energy rises from every roof whose panels are on
       const ea = energy.geometry.attributes.position;
       for (let i = 0; i < eSide.length; i++) {
