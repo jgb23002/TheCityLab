@@ -5,7 +5,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { initFlight } from "./flight.js";
+import { initFlight } from "./flight.js?v=noglare";
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Number(n).toLocaleString("en-US");
