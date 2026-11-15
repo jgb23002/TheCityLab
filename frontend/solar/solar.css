@@ -55,7 +55,8 @@ b { font-weight: 700; }
 .tip { position: absolute; z-index: 6; pointer-events: none; background: rgba(11,13,16,0.94); border: 1px solid var(--line);
   border-radius: 10px; padding: 8px 10px; font-size: 13px; max-width: 240px; }
 .tip b { display: block; }
-.key3d { position: absolute; z-index: 5; left: 14px; bottom: 14px; background: rgba(11,13,16,0.88); border: 1px solid var(--line);
+.overlay3d { position: absolute; z-index: 5; left: 14px; right: 14px; bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
+.key3d { align-self: flex-start; background: rgba(11,13,16,0.88); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px 12px; font-size: 12px; max-width: 290px; }
 .key3d p { margin: 3px 0; display: flex; align-items: center; gap: 8px; }
 .key3d .ramp { height: 8px; border-radius: 4px; flex: 1; background: linear-gradient(90deg, #E5534B 0%, #E5534B 49%, #A9E2C2 50%, #2E9E62 100%); }
@@ -443,9 +444,7 @@ body.intro-on .brand img { opacity: 0; }
 @media (max-width: 600px) { .inst { grid-template-columns: 1fr; } .inst-score { grid-template-columns: 1fr; } }
 
 /* sun across the day in 3D */
-.key3d { bottom: 86px; }
-.sunbar { position: absolute; z-index: 6; left: 14px; right: 14px; bottom: 14px; display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) 230px; gap: 12px; align-items: center;
+.sunbar { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr) 230px; gap: 12px; align-items: center;
   background: rgba(11,13,16,0.9); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
 .sun-play { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--sun); color: var(--sun-ink);
   display: grid; place-items: center; cursor: pointer; }
@@ -520,7 +519,6 @@ body.intro-on .brand img { opacity: 0; }
   .flight-foot { left: 16px; right: 16px; }
 }
 
-.sunbar { grid-template-columns: auto auto auto minmax(0, 1fr) 230px; }
 .sun-hold { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-2); background: none; color: var(--ink);
   border-radius: 6px; padding: 6px 10px; font: 600 12px Geist, sans-serif; cursor: pointer; }
 .sun-hold svg { width: 14px; height: 14px; color: var(--sun); }
