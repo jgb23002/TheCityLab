@@ -14,7 +14,7 @@ Built at **HackPrinceton Fall 2026** by Team Cook.
 | 🌱 **Sustainability** (main track) | Finds where rooftop solar pays off, city-wide, before anyone climbs a ladder |
 | 🏢 **CoStar** | Every building, owner, unit count and lot size comes from the CoStar dataset |
 | 🦜 **LangChain** | A DeepAgents (LangChain) agent runs the analysis; LangSmith traces every run |
-| ☁️ **Amazon** | The agent's language model runs on Amazon Bedrock |
+| ☁️ **Amazon: Best Practical AI Innovation** | A Bedrock-powered agent a solar sales team could use every day, from start to finish |
 
 ---
 
@@ -125,14 +125,48 @@ subagents (sampler, inspector, statistician, writer) and a citation check.
 Code: [backend/agent/solar_city.py](backend/agent/solar_city.py) (solar agent) and
 [backend/agent/planner.py](backend/agent/planner.py) (research agent).
 
-### ☁️ Amazon
+### ☁️ Amazon: Best Practical AI Innovation
 
-The agent's language model runs on **Amazon Bedrock** through LangChain's
-`ChatBedrockConverse`. Claude Haiku 4.5 plans and writes the summary, and Claude Sonnet
-4.6 handles the vision tasks in the research app. Bedrock calls use adaptive retries,
-so parallel agent steps back off instead of failing when throttled.
+> *"Build AI that someone would use every day, not AI that only works in a demo."*
 
-Code: [backend/llm.py](backend/llm.py). The model ids are set in `.env`.
+**Who uses it, and when.** A solar installer's sales team, or a property manager with a
+portfolio of buildings. Every morning they pick a city and click one button. They get the
+roofs worth calling about, ranked by savings, with the payback, a 3D view of the panels
+and a drafted email to the right owner or manager. Without CityLab, building that list
+means a site visit or a manual estimate for every building.
+
+**An agent that works from start to finish.** The CityLab agent runs on **Amazon
+Bedrock** (Claude Haiku 4.5, through LangChain's `ChatBedrockConverse`).
+
+| What Amazon asks for | What the CityLab agent does |
+| --- | --- |
+| **Reasons and plans** | Reads the goal, writes its own to-do list (`write_todos`) and picks the order of its tools |
+| **Takes action** | Runs five real tools across CoStar, Vexcel, NOAA, NASA and NREL, then ranks the roofs and drafts the owner emails |
+| **Takes multi-step actions** | Goes from "which roofs in Houston?" to a ranked list with 3D models and emails, with no human steps in between |
+| **Adapts** | If a tool fails, the agent gets the error and carries on. If it skips a step, the backend finishes it and says so. If the model is unavailable, the same tools still run |
+| **Learns from feedback** | In the research app (`/classic`), users can correct a measurement. Each correction re-runs the analysis without a model call and feeds a calibration report (`GET /api/calibration`) that tracks how often, and by how much, each measurement is wrong |
+| **Feels simple** | One button. The page shows each step as it happens, in plain words with real numbers |
+
+**How it scores on Amazon's four criteria**
+
+- **Creativity:** it combines a real-estate database, aerial imagery, a year of sun
+  simulation and government solar data. No one source answers the question alone.
+- **Usefulness:** it screens a whole city in minutes instead of one site visit per
+  building, for a decision worth hundreds of thousands of dollars a year per building ($5.87M a year in total across
+  43 Houston sites).
+- **Technical implementation:** every number comes from a tool, never from the model.
+  Results match NREL PVWatts (median gap 1.9% in Houston) and 53 real Los Angeles solar
+  installations. There are 439 automated tests. Bedrock calls retry with adaptive
+  backoff (up to 10 attempts), so busy periods don't break a run.
+- **User experience:** one click, a live progress panel, a map, a 3D roof you can orbit
+  and a ready-to-send email draft. The second visit is faster, because every provider
+  call is cached.
+
+**Built with:** Amazon Bedrock, LangChain + DeepAgents (agentic framework), LangSmith
+(tracing) and open-source tools (FastAPI, Shapely, Three.js, Leaflet).
+
+Code: [backend/llm.py](backend/llm.py) (Bedrock setup) and
+[backend/agent/solar_city.py](backend/agent/solar_city.py) (the agent).
 
 ---
 
