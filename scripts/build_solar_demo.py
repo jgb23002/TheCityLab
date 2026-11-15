@@ -471,7 +471,6 @@ def scene(r: dict[str, Any], b, parcel_wkt: str) -> dict[str, Any]:
 def side_photos(pid: int, parcel_wkt: str) -> list[str]:
     """Save Vexcel's four oblique (side-angle) photos of the parcel; returns the directions saved."""
     VIEW_DIR.mkdir(parents=True, exist_ok=True)
-    (VIEW_DIR / ".gitignore").write_text("*\n")  # licensed imagery: never committed
     saved = []
     for d in VIEWS:
         path = VIEW_DIR / f"{pid}_{d}.jpg"
@@ -561,6 +560,199 @@ def voice(r: dict[str, Any], city: str) -> str:
             "Right now, that money is just sitting on the roof.")
 
 
+# ------------------------------------------------------------------ the city run, in stages
+
+class CityRun:
+    """One city's solar ranking, built in the stages the CityLab agent calls as tools.
+
+    discover -> sunlight -> trace_roofs -> rank -> verify -> assemble. Each stage runs its
+    prerequisites first if they have not run, and running a stage twice returns the same
+    summary. ``assemble()`` returns the same dict the CLI writes to ``data_<city>.json``.
+    Vexcel and NREL calls go through the existing caches and honor ``USE_CACHE_ONLY``.
+    """
+
+    STAGES = ("discover", "sunlight", "trace_roofs", "rank", "verify", "assemble")
+
+    def __init__(self, city: str, n: int = 50, views: bool = True, panel: str = "400w") -> None:
+        if city not in CITY_MARKET:
+            raise ValueError(f"unknown city {city!r}; choose one of {sorted(CITY_MARKET)}")
+        global PANEL
+        PANEL = PANEL_TYPES[panel]
+        self.city, self.n, self.views = city, max(1, min(int(n), 50)), views
+        self.market = CITY_MARKET[city]
+        self.summaries: dict[str, dict[str, Any]] = {}
+        self.out: dict[str, Any] | None = None
+
+    def _need(self, stage: str) -> None:
+        if stage not in self.summaries:
+            getattr(self, stage)()
+
+    def discover(self) -> dict[str, Any]:
+        """CoStar: sample the city's apartment communities, their lot sizes, owners and power price."""
+        if "discover" in self.summaries:
+            return self.summaries["discover"]
+        sample = sample_buildings(self.city, 11, n=self.n)
+        full = {b.id: b for b in costar_data.load_properties()}
+        self.full = full
+        self.sample = [full.get(b.id, b) for b in sample if b.latitude is not None]
+        if not self.sample:
+            raise RuntimeError(f"No apartment buildings with coordinates found for {CITY_NAME[self.city]}.")
+        self.lots = lot_sizes([b.id for b in self.sample])
+        self.who = owners({b.id for b in self.sample})
+        self.price = solar.PRICE_PER_KWH.get(self.market, solar.DEFAULT_PRICE_PER_KWH)
+        self.summaries["discover"] = {
+            "city": CITY_NAME[self.city], "apartment_communities": len(self.sample),
+            "with_lot_size": len(self.lots), "with_owner": sum(1 for v in self.who.values() if v.get("owner")),
+            "power_price_usd_per_kwh": self.price, "source": "CoStar"}
+        return self.summaries["discover"]
+
+    def sunlight(self) -> dict[str, Any]:
+        """Sun positions every 10 minutes for a year plus NASA POWER monthly weather at the sample centre."""
+        if "sunlight" in self.summaries:
+            return self.summaries["sunlight"]
+        self._need("discover")
+        self.lat0 = sum(b.latitude for b in self.sample) / len(self.sample)
+        self.lon0 = sum(b.longitude for b in self.sample) / len(self.sample)
+        self.steps = sun.sky_year(self.lat0, self.lon0)
+        self.best_tilt = sun.sun_summary(self.lat0, self.lon0)["best_fixed_tilt_deg"]
+        self.best_year = sun.plane_sunlight(self.steps, self.best_tilt, 180)["kwh_m2_year"]
+        self.clim = sun.climate(self.lat0, self.lon0) or {}
+        self.summaries["sunlight"] = {
+            "sun_positions": len(self.steps), "latitude": round(self.lat0, 3), "longitude": round(self.lon0, 3),
+            "best_fixed_tilt_deg": self.best_tilt, "best_kwh_m2_year": self.best_year,
+            "cloud_loss_percent": self.clim.get("cloud_loss_percent"), "weather_source": self.clim.get("source")}
+        return self.summaries["sunlight"]
+
+    def trace_roofs(self) -> dict[str, Any]:
+        """Vexcel: match each parcel, split every roof into sides, fit real-size panels, price each site."""
+        if "trace_roofs" in self.summaries:
+            return self.summaries["trace_roofs"]
+        self._need("sunlight")
+        self.results, self.parcels = [], {}
+        self.skipped = {"no_lot_size": 0, "no_matching_parcel": 0, "no_roof_outlines": 0}
+        for b in self.sample:
+            if b.id not in self.lots:
+                self.skipped["no_lot_size"] += 1
+                continue
+            try:
+                parcel = vexcel_detect.property_parcel(b.latitude, b.longitude, self.lots[b.id])
+            except Exception:  # noqa: BLE001 - uncached offline or provider error: count it, never guess
+                parcel = None
+            if parcel is None:
+                self.skipped["no_matching_parcel"] += 1
+                continue
+            r = analyze(b, parcel["properties"], self.steps, self.best_year, self.price)
+            if r is None:
+                self.skipped["no_roof_outlines"] += 1
+                continue
+            r.update(self.who.get(b.id, {}))
+            self.results.append(r)
+            self.parcels[b.id] = parcel["wkt"]
+        self.summaries["trace_roofs"] = {
+            "analyzed": len(self.results), "roofs": sum(r["buildings_on_site"] for r in self.results),
+            "roof_sides": sum(r["roof_sides"] for r in self.results),
+            "panels": sum(r["panels"] for r in self.results),
+            "ac_units_left_room_for": sum((r.get("ac_room") or {}).get("ac_units", 0) for r in self.results),
+            **self.skipped}
+        return self.summaries["trace_roofs"]
+
+    def rank(self) -> dict[str, Any]:
+        """Rank sites by yearly savings, pick each owner email's recipient, build the top 5 in 3D."""
+        if "rank" in self.summaries:
+            return self.summaries["rank"]
+        self._need("trace_roofs")
+        results = self.results
+        results.sort(key=lambda r: -r["savings_year"])
+        for i, r in enumerate(results):
+            r["rank"] = i + 1
+            r["recipient"], r["recipient_role"] = recipient(r)
+            r["email"] = email(r, self.city)
+            r["voice"] = voice(r, self.city)
+            if i >= PANELS_FOR_TOP:
+                for s in r["sides"]:
+                    s["panel_shapes"] = []
+            r["views"] = []
+            if i < VIEWS_FOR_TOP and self.views:
+                try:
+                    r["views"] = side_photos(r["id"], self.parcels[r["id"]])
+                except Exception:  # noqa: BLE001 - photos are optional decoration
+                    r["views"] = []
+            if i < VIEWS_FOR_TOP:
+                b = self.full.get(r["id"]) or next(x for x in self.sample if x.id == r["id"])
+                r["scene"] = scene(r, b, self.parcels[r["id"]])
+        self.summaries["rank"] = {
+            "ranked": len(results), "built_in_3d": min(len(results), VIEWS_FOR_TOP),
+            "total_savings_year": sum(r["savings_year"] for r in results),
+            "top": [{"rank": r["rank"], "property_id": r["id"], "name": r.get("name"), "panels": r["panels"],
+                     "kw": r["kw"], "savings_year": r["savings_year"], "payback_range": r["payback_range"],
+                     "recipient_role": r["recipient_role"] or None} for r in results[:5]]}
+        return self.summaries["rank"]
+
+    def verify(self) -> dict[str, Any]:
+        """Compare the sun model with NREL PVWatts and summarize the evidence for each number."""
+        if "verify" in self.summaries:
+            return self.summaries["verify"]
+        self._need("rank")
+        self.nrel = nrel_check(self.lat0, self.lon0, self.steps, self.results)
+        self.proof = proof(self.results, self.steps, self.clim)
+        self.grid = sun_grid(self.steps, self.best_year, self.results, self.price)
+        self.summaries["verify"] = {"nrel_check": {k: v for k, v in self.nrel.items() if not isinstance(v, (list, dict))},
+                                    "proof": {k: v for k, v in self.proof.items() if not isinstance(v, (list, dict))}}
+        return self.summaries["verify"]
+
+    def assemble(self) -> dict[str, Any]:
+        """The full page data (same shape as data_<city>.json)."""
+        if self.out is not None:
+            return self.out
+        self._need("verify")
+        results, clim, steps = self.results, self.clim, self.steps
+        for r in results:
+            r.pop("_structs", None)
+            for sd in r["sides"]:
+                for k in ("_st", "_poly", "_panels", "_ours", "_bad"):
+                    sd.pop(k, None)
+        for r in results:  # smaller file: 6 decimals is ~10 cm
+            for sd in r["sides"]:
+                sd["outline"] = [[round(a, 6), round(b2, 6)] for a, b2 in sd["outline"]]
+                sd["panel_shapes"] = [[[round(a, 6), round(b2, 6)] for a, b2 in ps[:4]] for ps in sd["panel_shapes"]]
+        self.out = {
+            "city": CITY_NAME[self.city], "market_id": self.market,
+            "assumptions": {
+                "pitched_roof_tilt_deg": PITCHED_TILT_DEG, "flat_roof_panel_tilt_deg": FLAT_TILT_DEG,
+                "panel": {**PANEL, "efficiency_pct": round(100 * PANEL["kw"] / (PANEL["length_m"] * PANEL["width_m"]), 1)},
+                "fire_setback_ft": 3, "keep_sides_with_sun_pct": KEEP_PERCENT,
+                "row_gap_rule": "flat-roof rows spaced so none shades the next from 10 am to 2 pm on Dec 21",
+                "installed_cost_usd_per_w": list(COST_PER_W), "power_price_usd_per_kwh": self.price,
+                "savings_spread": SAVINGS_SPREAD, "incentives": "none assumed",
+            },
+            "weather": {"cloud_cover_percent": clim.get("cloud_cover_percent"),
+                        "cloud_loss_percent": clim.get("cloud_loss_percent"),
+                        "sunlight_kwh_m2_year": clim.get("sunlight_kwh_m2_year"),
+                        "temperature_c": clim.get("temperature_c"),
+                        "source": clim.get("source"),
+                        "monthly": [{k: m.get(k) for k in ("month", "sunlight_kwh_m2_day", "clear_sky_kwh_m2_day",
+                                                           "cloud_cover_percent", "temperature_c")}
+                                    for m in clim.get("monthly") or []]},
+            "proof": self.proof,
+            "sun_grid": self.grid,
+            "sky": sky_export(steps, self.city, self.best_tilt, self.best_year),
+            "nrel_check": self.nrel,
+            "sun": {"paths": {k: sorted(([round(q["azimuth_deg"], 1), round(q["elevation_deg"], 1)]
+                                         for q in sun.sun_path(self.lat0, self.lon0, date(2026, m, 21), 20)),
+                                        key=lambda a: a[0])
+                              for k, m in (("summer", 6), ("spring_fall", 3), ("winter", 12))},
+                    "latitude": round(self.lat0, 3), "longitude": round(self.lon0, 3), "positions": len(steps),
+                    "best_tilt_deg": self.best_tilt, "best_kwh_m2_year": self.best_year},
+            "counts": {"buildings_in_sample": len(self.sample), "analyzed": len(results),
+                       "roofs": sum(r["buildings_on_site"] for r in results),
+                       "roof_sides": sum(r["roof_sides"] for r in results),
+                       "panels": sum(r["panels"] for r in results),
+                       "savings_year": sum(r["savings_year"] for r in results), **self.skipped},
+            "buildings": results,
+        }
+        return self.out
+
+
 # ------------------------------------------------------------------ main
 
 def main(argv: list[str] | None = None) -> dict[str, Any]:
@@ -570,100 +762,13 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
     ap.add_argument("--no-views", action="store_true", help="skip the Vexcel side photos")
     ap.add_argument("--panel", default="400w", choices=list(PANEL_TYPES), help="panel size to lay out")
     args = ap.parse_args(argv)
-    global PANEL
-    PANEL = PANEL_TYPES[args.panel]
 
-    market = CITY_MARKET[args.city]
-    sample = sample_buildings(args.city, 11, n=args.n)
-    full = {b.id: b for b in costar_data.load_properties()}
-    sample = [full.get(b.id, b) for b in sample if b.latitude is not None]
-    lots = lot_sizes([b.id for b in sample])
-    who = owners({b.id for b in sample})
-    price = solar.PRICE_PER_KWH.get(market, solar.DEFAULT_PRICE_PER_KWH)
-
-    lat0 = sum(b.latitude for b in sample) / len(sample)
-    lon0 = sum(b.longitude for b in sample) / len(sample)
-    steps = sun.sky_year(lat0, lon0)
-    best_tilt = sun.sun_summary(lat0, lon0)["best_fixed_tilt_deg"]
-    best_year = sun.plane_sunlight(steps, best_tilt, 180)["kwh_m2_year"]
-    clim = sun.climate(lat0, lon0) or {}
-
-    results, parcels, skipped = [], {}, {"no_lot_size": 0, "no_matching_parcel": 0, "no_roof_outlines": 0}
-    for b in sample:
-        if b.id not in lots:
-            skipped["no_lot_size"] += 1
-            continue
-        try:
-            parcel = vexcel_detect.property_parcel(b.latitude, b.longitude, lots[b.id])
-        except Exception:
-            parcel = None
-        if parcel is None:
-            skipped["no_matching_parcel"] += 1
-            continue
-        r = analyze(b, parcel["properties"], steps, best_year, price)
-        if r is None:
-            skipped["no_roof_outlines"] += 1
-            continue
-        r.update(who.get(b.id, {}))
-        results.append(r)
-        parcels[b.id] = parcel["wkt"]
-
-    results.sort(key=lambda r: -r["savings_year"])
-    for i, r in enumerate(results):
-        r["rank"] = i + 1
-        r["recipient"], r["recipient_role"] = recipient(r)
-        r["email"] = email(r, args.city)
-        r["voice"] = voice(r, args.city)
-        if i >= PANELS_FOR_TOP:
-            for s in r["sides"]:
-                s["panel_shapes"] = []
-        r["views"] = side_photos(r["id"], parcels[r["id"]]) if i < VIEWS_FOR_TOP and not args.no_views else []
-        if i < VIEWS_FOR_TOP:
-            r["scene"] = scene(r, full.get(r["id"]) or next(x for x in sample if x.id == r["id"]), parcels[r["id"]])
-    for r in results:
-        r.pop("_structs", None)
-        for sd in r["sides"]:
-            for k in ("_st", "_poly", "_panels", "_ours", "_bad"):
-                sd.pop(k, None)
-
-    for r in results:  # smaller file: 6 decimals is ~10 cm
-        for sd in r["sides"]:
-            sd["outline"] = [[round(a, 6), round(b2, 6)] for a, b2 in sd["outline"]]
-            sd["panel_shapes"] = [[[round(a, 6), round(b2, 6)] for a, b2 in ps[:4]] for ps in sd["panel_shapes"]]
-    out = {
-        "city": CITY_NAME[args.city], "market_id": market,
-        "assumptions": {
-            "pitched_roof_tilt_deg": PITCHED_TILT_DEG, "flat_roof_panel_tilt_deg": FLAT_TILT_DEG,
-            "panel": {**PANEL, "efficiency_pct": round(100 * PANEL["kw"] / (PANEL["length_m"] * PANEL["width_m"]), 1)},
-            "fire_setback_ft": 3, "keep_sides_with_sun_pct": KEEP_PERCENT,
-            "row_gap_rule": "flat-roof rows spaced so none shades the next from 10 am to 2 pm on Dec 21",
-            "installed_cost_usd_per_w": list(COST_PER_W), "power_price_usd_per_kwh": price,
-            "savings_spread": SAVINGS_SPREAD, "incentives": "none assumed",
-        },
-        "weather": {"cloud_cover_percent": clim.get("cloud_cover_percent"),
-                    "cloud_loss_percent": clim.get("cloud_loss_percent"),
-                    "sunlight_kwh_m2_year": clim.get("sunlight_kwh_m2_year"),
-                    "temperature_c": clim.get("temperature_c"),
-                    "source": clim.get("source"),
-                    "monthly": [{k: m.get(k) for k in ("month", "sunlight_kwh_m2_day", "clear_sky_kwh_m2_day",
-                                                       "cloud_cover_percent", "temperature_c")}
-                                for m in clim.get("monthly") or []]},
-        "proof": proof(results, steps, clim),
-        "sun_grid": sun_grid(steps, best_year, results, price),
-        "sky": sky_export(steps, args.city, best_tilt, best_year),
-        "nrel_check": nrel_check(lat0, lon0, steps, results),
-        "sun": {"paths": {k: sorted(([round(q["azimuth_deg"], 1), round(q["elevation_deg"], 1)]
-                                     for q in sun.sun_path(lat0, lon0, date(2026, m, 21), 20)), key=lambda a: a[0])
-                          for k, m in (("summer", 6), ("spring_fall", 3), ("winter", 12))},
-                "latitude": round(lat0, 3), "longitude": round(lon0, 3), "positions": len(steps),
-                "best_tilt_deg": best_tilt, "best_kwh_m2_year": best_year},
-        "counts": {"buildings_in_sample": len(sample), "analyzed": len(results),
-                   "roofs": sum(r["buildings_on_site"] for r in results),
-                   "roof_sides": sum(r["roof_sides"] for r in results),
-                   "panels": sum(r["panels"] for r in results),
-                   "savings_year": sum(r["savings_year"] for r in results), **skipped},
-        "buildings": results,
-    }
+    out = CityRun(args.city, n=args.n, views=not args.no_views, panel=args.panel).assemble()
+    if not out["buildings"]:  # never overwrite a good page file with an empty run (e.g. offline, uncached)
+        print(json.dumps(out["counts"]))
+        print("no roofs analyzed; data file left unchanged")
+        return out
+    results = out["buildings"]
     path = PROJECT_ROOT / "frontend" / "solar" / f"data_{args.city}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
