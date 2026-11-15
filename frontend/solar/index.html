@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="solar.css?v=noinstall">
+  <link rel="stylesheet" href="solar.css?v=merged1">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -19,7 +19,7 @@
         "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
   </script>
-  <script type="module" src="solar.js?v=noinstall"></script>
+  <script type="module" src="solar.js?v=merged1"></script>
 </head>
 <body>
   <div class="progress" id="progress" aria-hidden="true"></div>
@@ -33,10 +33,9 @@
       <canvas id="flight-canvas"></canvas>
       <div class="flight-hud">
         <div class="ch c1" data-ch="1">
-          <p class="kick">01 / See the potential above</p>
-          <h1>CityLab</h1>
-          <p class="big-line">Apartment roofs are wasting money.</p>
-          <p class="small-line">We find them, do the math, and tell the owner.</p>
+          <p class="kick">The question</p>
+          <h1 class="question-line">Which of these roofs is actually worth putting solar on?</h1>
+          <p class="small-line">Nobody wants to pay for a site visit just to find out. So we look from above, measure what's really there, and do the math &mdash; before anyone climbs a ladder.</p>
         </div>
         <div class="ch left" data-ch="2">
           <p class="kick">02 / Discover</p>
@@ -86,12 +85,13 @@
   </section>
 
   <form class="ask" id="ask">
-    <input id="question" autocomplete="off" aria-label="Your question"
-           value="Which apartment roofs in Los Angeles are wasting the most money?">
-    <div class="cities" role="radiogroup" aria-label="City">
-      <button type="button" class="city" data-city="houston">Houston</button>
-      <button type="button" class="city on" data-city="los_angeles">Los Angeles</button>
-    </div>
+    <p class="ask-sentence">Rank every apartment building's roof in
+      <span class="cities" role="radiogroup" aria-label="City">
+        <button type="button" class="city" data-city="houston">Houston</button>
+        <button type="button" class="city on" data-city="los_angeles">Los Angeles</button>
+      </span>
+      by how much a solar install would be worth.</p>
+    <input id="question" type="hidden" value="Which apartment roofs in Los Angeles are wasting the most money?">
     <button class="go" id="go" type="submit">Find the roofs</button>
   </form>
 
@@ -102,6 +102,9 @@
         <button type="button" class="tab" data-view="3d" role="tab" id="tab-3d" disabled>3D roof</button>
       </div>
       <div id="map" class="view on" data-view="map"></div>
+      <p class="map-note" id="map-note" hidden>Roof outlines are Vexcel's own detected building footprint, traced from the
+        aerial photo &mdash; not something CityLab measured or guessed. Edges can be slightly off under tree cover or at
+        complex rooflines.</p>
       <div id="three" class="view" data-view="3d">
         <div class="modes" role="radiogroup" aria-label="Roof colour">
           <button type="button" class="mode on" data-mode="photo">Real photo</button>
@@ -109,22 +112,24 @@
           <button type="button" class="mode" data-mode="bad">Panels everywhere</button>
         </div>
         <div class="tip" id="tip" hidden></div>
-        <div class="key3d" id="key3d"></div>
-        <div class="sunbar" id="sunbar">
-          <button type="button" class="sun-play" id="sun-play" aria-label="Play the day"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z"/></svg></button>
-          <button type="button" class="sun-hold" id="sun-hold" aria-pressed="false" title="Move the sun with your cursor; click to hold it">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3"/></svg>
-            <span>Move the sun</span></button>
-          <div class="sun-months" role="radiogroup" aria-label="Day of the year">
-            <button type="button" class="sm on" data-m="5">Jun 21</button>
-            <button type="button" class="sm" data-m="2">Mar 21</button>
-            <button type="button" class="sm" data-m="11">Dec 21</button>
+        <div class="overlay3d">
+          <div class="key3d" id="key3d"></div>
+          <div class="sunbar" id="sunbar">
+            <button type="button" class="sun-play" id="sun-play" aria-label="Play the day"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z"/></svg></button>
+            <button type="button" class="sun-hold" id="sun-hold" aria-pressed="false" title="Move the sun with your cursor; click to hold it">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3"/></svg>
+              <span>Move the sun</span></button>
+            <div class="sun-months" role="radiogroup" aria-label="Day of the year">
+              <button type="button" class="sm on" data-m="5">Jun 21</button>
+              <button type="button" class="sm" data-m="2">Mar 21</button>
+              <button type="button" class="sm" data-m="11">Dec 21</button>
+            </div>
+            <div class="sun-track">
+              <svg id="sun-curve" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+              <input type="range" id="sun-time" min="0" max="1430" step="10" value="720" aria-label="Time of day">
+            </div>
+            <div class="sun-read" id="sun-read"></div>
           </div>
-          <div class="sun-track">
-            <svg id="sun-curve" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg>
-            <input type="range" id="sun-time" min="0" max="1430" step="10" value="720" aria-label="Time of day">
-          </div>
-          <div class="sun-read" id="sun-read"></div>
         </div>
       </div>
       <div class="empty" id="empty"><b>Ask the question above.</b><span>We'll find the roofs, build each one in 3D, and do the math.</span></div>
@@ -168,13 +173,15 @@
 
   <section class="block reveal" id="trust-block">
     <p class="eyebrow">Why you can trust it</p>
-    <h2>How we checked our model</h2>
+    <h2>We checked our model two ways</h2>
+    <p class="lead" id="nrel-lead"></p>
     <div class="proofs">
       <details class="proof inst-card" id="installs-block" hidden>
         <summary><span class="pn">1</span><span class="st">Validation: 53 Los Angeles homes with existing solar</span><span class="sh">Show</span></summary>
         <p class="lead" id="inst-lead"></p>
         <p class="inst-key" id="inst-key"></p>
         <div class="inst" id="inst"></div>
+        <ul class="inst-take" id="inst-take" hidden></ul>
       </details>
     </div>
     <p class="assume" id="assume"></p>

@@ -5,8 +5,9 @@ For each sloped roof with real panels we: split it into its two sides, score eac
 sun model (share of the best sun), and draw our choice on the real top-down photo. Then a person
 (or the blue-panel pixel test below) checks which side the real panels are on.
 
-Writes frontend/solar/views/install_<n>.jpg (Vexcel imagery, git-ignored) and
-frontend/solar/installs_check.json (numbers only).
+Writes frontend/solar/views/install_<n>_before.jpg (the plain photo, no overlay),
+frontend/solar/views/install_<n>.jpg (our choice drawn on it) -- both Vexcel imagery,
+git-ignored -- and frontend/solar/installs_check.json (numbers only).
 
 Run: python scripts/validate_installs.py
 """
@@ -95,6 +96,7 @@ def main() -> dict[str, Any]:
         b = g.bounds
         bounds = (b[0] - pad * 1.2, b[1] - pad, b[2] + pad * 1.2, b[3] + pad)
         path = OUT_DIR / f"install_{n}.jpg"
+        before_path = OUT_DIR / f"install_{n}_before.jpg"
         try:
             cols = vexcel_detect.list_collections(c.y, c.x)
             col = next(cc for cc in cols if cc["layer"] in ("urban", "urban-r"))
@@ -103,6 +105,7 @@ def main() -> dict[str, Any]:
             print(f"  roof {n}: no photo ({type(exc).__name__})")
             continue
         W, H = img.size
+        img.resize((W * 2, H * 2)).convert("RGB").save(before_path, quality=88)  # plain photo, no overlay
 
         def px(x: float, y: float) -> tuple[float, float]:
             lon, lat = c.x + x / kx, c.y + y / M_PER_DEG_LAT
@@ -134,7 +137,8 @@ def main() -> dict[str, Any]:
             d.text((u * 2, v * 2), label, fill=(237, 234, 228), font=font, anchor="mm")
         big.thumbnail((900, 900))
         big.save(path, quality=88)
-        results.append({"n": n, "image": f"views/{path.name}", "lat": round(c.y, 6), "lon": round(c.x, 6), "shape": r["shape"],
+        results.append({"n": n, "image": f"views/{path.name}", "before": f"views/{before_path.name}",
+                        "lat": round(c.y, 6), "lon": round(c.x, 6), "shape": r["shape"],
                         "pv_area_sqft": r["pv_area_sqft"], "pv_count": r["pv_count"], "pv_score": r["pv_score"],
                         "collection": col["collection"],
                         "sides": [{"facing": s["facing"], "pct": s["pct"], "ours": s["ours"],

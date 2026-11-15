@@ -6,6 +6,7 @@
   {
    "n": 0,
    "image": "views/install_0.jpg",
+   "before": "views/install_0_before.jpg",
    "lat": 33.996002,
    "lon": -118.345542,
    "shape": "hip",
@@ -67,6 +68,7 @@
   {
    "n": 1,
    "image": "views/install_1.jpg",
+   "before": "views/install_1_before.jpg",
    "lat": 33.996146,
    "lon": -118.345631,
    "shape": "hip",
@@ -135,6 +137,7 @@
   {
    "n": 2,
    "image": "views/install_2.jpg",
+   "before": "views/install_2_before.jpg",
    "lat": 33.995687,
    "lon": -118.344373,
    "shape": "hip",
@@ -210,6 +213,7 @@
   {
    "n": 3,
    "image": "views/install_3.jpg",
+   "before": "views/install_3_before.jpg",
    "lat": 33.996593,
    "lon": -118.345065,
    "shape": "hip",
@@ -271,6 +275,7 @@
   {
    "n": 4,
    "image": "views/install_4.jpg",
+   "before": "views/install_4_before.jpg",
    "lat": 33.995849,
    "lon": -118.34546,
    "shape": "hip",
@@ -332,6 +337,7 @@
   {
    "n": 5,
    "image": "views/install_5.jpg",
+   "before": "views/install_5_before.jpg",
    "lat": 34.140078,
    "lon": -118.203733,
    "shape": "hip",
@@ -391,6 +397,7 @@
   {
    "n": 6,
    "image": "views/install_6.jpg",
+   "before": "views/install_6_before.jpg",
    "lat": 34.140626,
    "lon": -118.203784,
    "shape": "gable",
@@ -431,6 +438,7 @@
   {
    "n": 7,
    "image": "views/install_7.jpg",
+   "before": "views/install_7_before.jpg",
    "lat": 34.114452,
    "lon": -118.190064,
    "shape": "gable",
@@ -464,6 +472,7 @@
   {
    "n": 8,
    "image": "views/install_8.jpg",
+   "before": "views/install_8_before.jpg",
    "lat": 34.035718,
    "lon": -118.316889,
    "shape": "hip",
@@ -539,6 +548,7 @@
   {
    "n": 9,
    "image": "views/install_9.jpg",
+   "before": "views/install_9_before.jpg",
    "lat": 34.035751,
    "lon": -118.316018,
    "shape": "hip",
@@ -605,6 +615,7 @@
   {
    "n": 10,
    "image": "views/install_10.jpg",
+   "before": "views/install_10_before.jpg",
    "lat": 34.009476,
    "lon": -118.361617,
    "shape": "hip",
@@ -680,6 +691,7 @@
   {
    "n": 11,
    "image": "views/install_11.jpg",
+   "before": "views/install_11_before.jpg",
    "lat": 34.115521,
    "lon": -118.188519,
    "shape": "gable",
@@ -725,6 +737,7 @@
   {
    "n": 12,
    "image": "views/install_12.jpg",
+   "before": "views/install_12_before.jpg",
    "lat": 34.115204,
    "lon": -118.1881,
    "shape": "hip",
@@ -807,6 +820,7 @@
   {
    "n": 13,
    "image": "views/install_13.jpg",
+   "before": "views/install_13_before.jpg",
    "lat": 34.141277,
    "lon": -118.204491,
    "shape": "hip",
@@ -866,6 +880,7 @@
   {
    "n": 14,
    "image": "views/install_14.jpg",
+   "before": "views/install_14_before.jpg",
    "lat": 34.140822,
    "lon": -118.202994,
    "shape": "hip",
@@ -911,6 +926,7 @@
   {
    "n": 15,
    "image": "views/install_15.jpg",
+   "before": "views/install_15_before.jpg",
    "lat": 34.140913,
    "lon": -118.202887,
    "shape": "hip",
@@ -951,6 +967,7 @@
   {
    "n": 16,
    "image": "views/install_16.jpg",
+   "before": "views/install_16_before.jpg",
    "lat": 34.1409,
    "lon": -118.203842,
    "shape": "gable",
@@ -991,6 +1008,7 @@
   {
    "n": 17,
    "image": "views/install_17.jpg",
+   "before": "views/install_17_before.jpg",
    "lat": 34.141046,
    "lon": -118.203836,
    "shape": "hip",
@@ -1045,6 +1063,7 @@
   {
    "n": 18,
    "image": "views/install_18.jpg",
+   "before": "views/install_18_before.jpg",
    "lat": 34.068685,
    "lon": -118.330871,
    "shape": "hip",
@@ -1134,6 +1153,7 @@
   {
    "n": 19,
    "image": "views/install_19.jpg",
+   "before": "views/install_19_before.jpg",
    "lat": 34.069436,
    "lon": -118.330627,
    "shape": "hip",
@@ -1237,6 +1257,7 @@
   {
    "n": 20,
    "image": "views/install_20.jpg",
+   "before": "views/install_20_before.jpg",
    "lat": 34.039767,
    "lon": -118.410846,
    "shape": "gable",
@@ -1284,6 +1305,7 @@
   {
    "n": 21,
    "image": "views/install_21.jpg",
+   "before": "views/install_21_before.jpg",
    "lat": 34.11654,
    "lon": -118.191556,
    "shape": "hip",
@@ -1366,6 +1388,7 @@
   {
    "n": 22,
    "image": "views/install_22.jpg",
+   "before": "views/install_22_before.jpg",
    "lat": 34.069381,
    "lon": -118.45572,
    "shape": "hip",
@@ -1448,6 +1471,7 @@
   {
    "n": 23,
    "image": "views/install_23.jpg",
+   "before": "views/install_23_before.jpg",
    "lat": 34.069376,
    "lon": -118.455718,
    "shape": "hip",
@@ -1506,6 +1530,7 @@
   {
    "n": 24,
    "image": "views/install_24.jpg",
+   "before": "views/install_24_before.jpg",
    "lat": 34.071363,
    "lon": -118.328495,
    "shape": "gable",
@@ -1539,6 +1564,7 @@
   {
    "n": 25,
    "image": "views/install_25.jpg",
+   "before": "views/install_25_before.jpg",
    "lat": 34.070566,
    "lon": -118.327708,
    "shape": "hip",
@@ -1619,6 +1645,7 @@
   {
    "n": 26,
    "image": "views/install_26.jpg",
+   "before": "views/install_26_before.jpg",
    "lat": 34.03987,
    "lon": -118.411226,
    "shape": "hip",
@@ -1701,6 +1728,7 @@
   {
    "n": 27,
    "image": "views/install_27.jpg",
+   "before": "views/install_27_before.jpg",
    "lat": 34.051181,
    "lon": -118.406982,
    "shape": "hip",
@@ -1956,6 +1984,7 @@
   {
    "n": 28,
    "image": "views/install_28.jpg",
+   "before": "views/install_28_before.jpg",
    "lat": 34.011544,
    "lon": -118.395462,
    "shape": "hip",
@@ -2022,6 +2051,7 @@
   {
    "n": 29,
    "image": "views/install_29.jpg",
+   "before": "views/install_29_before.jpg",
    "lat": 34.011656,
    "lon": -118.394831,
    "shape": "hip",
@@ -2111,6 +2141,7 @@
   {
    "n": 30,
    "image": "views/install_30.jpg",
+   "before": "views/install_30_before.jpg",
    "lat": 34.081161,
    "lon": -118.179387,
    "shape": "gable",
@@ -2151,6 +2182,7 @@
   {
    "n": 31,
    "image": "views/install_31.jpg",
+   "before": "views/install_31_before.jpg",
    "lat": 34.079386,
    "lon": -118.181805,
    "shape": "hip",
@@ -2210,6 +2242,7 @@
   {
    "n": 32,
    "image": "views/install_32.jpg",
+   "before": "views/install_32_before.jpg",
    "lat": 34.01108,
    "lon": -118.396782,
    "shape": "hip",
@@ -2271,6 +2304,7 @@
   {
    "n": 33,
    "image": "views/install_33.jpg",
+   "before": "views/install_33_before.jpg",
    "lat": 34.038426,
    "lon": -118.40903,
    "shape": "hip",
@@ -2358,6 +2392,7 @@
   {
    "n": 34,
    "image": "views/install_34.jpg",
+   "before": "views/install_34_before.jpg",
    "lat": 34.024426,
    "lon": -118.307396,
    "shape": "hip",
@@ -2410,6 +2445,7 @@
   {
    "n": 35,
    "image": "views/install_35.jpg",
+   "before": "views/install_35_before.jpg",
    "lat": 33.960635,
    "lon": -118.403605,
    "shape": "gable",
@@ -2450,6 +2486,7 @@
   {
    "n": 36,
    "image": "views/install_36.jpg",
+   "before": "views/install_36_before.jpg",
    "lat": 34.071436,
    "lon": -118.332003,
    "shape": "hip",
@@ -2546,6 +2583,7 @@
   {
    "n": 37,
    "image": "views/install_37.jpg",
+   "before": "views/install_37_before.jpg",
    "lat": 34.116802,
    "lon": -118.1884,
    "shape": "hip",
@@ -2607,6 +2645,7 @@
   {
    "n": 38,
    "image": "views/install_38.jpg",
+   "before": "views/install_38_before.jpg",
    "lat": 34.116519,
    "lon": -118.188197,
    "shape": "hip",
@@ -2659,6 +2698,7 @@
   {
    "n": 39,
    "image": "views/install_39.jpg",
+   "before": "views/install_39_before.jpg",
    "lat": 34.1166,
    "lon": -118.188035,
    "shape": "hip",
@@ -2711,6 +2751,7 @@
   {
    "n": 40,
    "image": "views/install_40.jpg",
+   "before": "views/install_40_before.jpg",
    "lat": 34.11666,
    "lon": -118.188298,
    "shape": "hip",
@@ -2758,6 +2799,7 @@
   {
    "n": 41,
    "image": "views/install_41.jpg",
+   "before": "views/install_41_before.jpg",
    "lat": 34.116035,
    "lon": -118.18843,
    "shape": "hip",
@@ -2889,6 +2931,7 @@
   {
    "n": 42,
    "image": "views/install_42.jpg",
+   "before": "views/install_42_before.jpg",
    "lat": 33.995129,
    "lon": -118.34432,
    "shape": "hip",
@@ -2971,6 +3014,7 @@
   {
    "n": 43,
    "image": "views/install_43.jpg",
+   "before": "views/install_43_before.jpg",
    "lat": 33.99554,
    "lon": -118.346929,
    "shape": "hip",
@@ -3074,6 +3118,7 @@
   {
    "n": 44,
    "image": "views/install_44.jpg",
+   "before": "views/install_44_before.jpg",
    "lat": 33.995296,
    "lon": -118.345892,
    "shape": "hip",
@@ -3156,6 +3201,7 @@
   {
    "n": 45,
    "image": "views/install_45.jpg",
+   "before": "views/install_45_before.jpg",
    "lat": 33.995093,
    "lon": -118.346277,
    "shape": "hip",
@@ -3217,6 +3263,7 @@
   {
    "n": 46,
    "image": "views/install_46.jpg",
+   "before": "views/install_46_before.jpg",
    "lat": 34.009837,
    "lon": -118.393912,
    "shape": "hip",
@@ -3285,6 +3332,7 @@
   {
    "n": 47,
    "image": "views/install_47.jpg",
+   "before": "views/install_47_before.jpg",
    "lat": 34.009747,
    "lon": -118.39288,
    "shape": "hip",
@@ -3360,6 +3408,7 @@
   {
    "n": 48,
    "image": "views/install_48.jpg",
+   "before": "views/install_48_before.jpg",
    "lat": 34.01046,
    "lon": -118.393542,
    "shape": "hip",
@@ -3428,6 +3477,7 @@
   {
    "n": 49,
    "image": "views/install_49.jpg",
+   "before": "views/install_49_before.jpg",
    "lat": 34.008921,
    "lon": -118.394485,
    "shape": "hip",
@@ -3510,6 +3560,7 @@
   {
    "n": 50,
    "image": "views/install_50.jpg",
+   "before": "views/install_50_before.jpg",
    "lat": 34.008954,
    "lon": -118.393665,
    "shape": "hip",
@@ -3585,6 +3636,7 @@
   {
    "n": 51,
    "image": "views/install_51.jpg",
+   "before": "views/install_51_before.jpg",
    "lat": 34.069424,
    "lon": -118.328503,
    "shape": "hip",
@@ -3644,6 +3696,7 @@
   {
    "n": 52,
    "image": "views/install_52.jpg",
+   "before": "views/install_52_before.jpg",
    "lat": 33.958832,
    "lon": -118.402981,
    "shape": "hip",
@@ -3719,6 +3772,7 @@
   {
    "n": 53,
    "image": "views/install_53.jpg",
+   "before": "views/install_53_before.jpg",
    "lat": 33.995868,
    "lon": -118.343372,
    "shape": "hip",
@@ -3813,6 +3867,7 @@
   {
    "n": 54,
    "image": "views/install_54.jpg",
+   "before": "views/install_54_before.jpg",
    "lat": 33.996634,
    "lon": -118.344015,
    "shape": "hip",
@@ -3907,6 +3962,7 @@
   {
    "n": 55,
    "image": "views/install_55.jpg",
+   "before": "views/install_55_before.jpg",
    "lat": 33.986515,
    "lon": -118.3184,
    "shape": "gable",
@@ -3938,6 +3994,7 @@
   {
    "n": 56,
    "image": "views/install_56.jpg",
+   "before": "views/install_56_before.jpg",
    "lat": 34.140718,
    "lon": -118.206452,
    "shape": "hip",
@@ -3992,6 +4049,7 @@
   {
    "n": 57,
    "image": "views/install_57.jpg",
+   "before": "views/install_57_before.jpg",
    "lat": 34.083207,
    "lon": -118.281573,
    "shape": "gable",
@@ -4025,6 +4083,7 @@
   {
    "n": 58,
    "image": "views/install_58.jpg",
+   "before": "views/install_58_before.jpg",
    "lat": 34.009529,
    "lon": -118.395015,
    "shape": "hip",
@@ -4100,6 +4159,7 @@
   {
    "n": 59,
    "image": "views/install_59.jpg",
+   "before": "views/install_59_before.jpg",
    "lat": 34.069218,
    "lon": -118.456424,
    "shape": "gable",
@@ -4154,6 +4214,7 @@
   {
    "n": 60,
    "image": "views/install_60.jpg",
+   "before": "views/install_60_before.jpg",
    "lat": 34.069198,
    "lon": -118.456428,
    "shape": "hip",
@@ -4212,6 +4273,7 @@
   {
    "n": 61,
    "image": "views/install_61.jpg",
+   "before": "views/install_61_before.jpg",
    "lat": 34.067862,
    "lon": -118.262984,
    "shape": "hip",
@@ -4266,6 +4328,7 @@
   {
    "n": 62,
    "image": "views/install_62.jpg",
+   "before": "views/install_62_before.jpg",
    "lat": 34.011269,
    "lon": -118.361859,
    "shape": "hip",
@@ -4348,6 +4411,7 @@
   {
    "n": 63,
    "image": "views/install_63.jpg",
+   "before": "views/install_63_before.jpg",
    "lat": 34.011101,
    "lon": -118.36113,
    "shape": "hip",
@@ -4423,6 +4487,7 @@
   {
    "n": 64,
    "image": "views/install_64.jpg",
+   "before": "views/install_64_before.jpg",
    "lat": 34.011498,
    "lon": -118.361086,
    "shape": "hip",
@@ -4484,6 +4549,7 @@
   {
    "n": 65,
    "image": "views/install_65.jpg",
+   "before": "views/install_65_before.jpg",
    "lat": 34.074888,
    "lon": -118.295162,
    "shape": "hip",
@@ -4545,6 +4611,7 @@
   {
    "n": 66,
    "image": "views/install_66.jpg",
+   "before": "views/install_66_before.jpg",
    "lat": 34.041224,
    "lon": -118.409944,
    "shape": "hip",
@@ -4641,6 +4708,7 @@
   {
    "n": 67,
    "image": "views/install_67.jpg",
+   "before": "views/install_67_before.jpg",
    "lat": 33.995224,
    "lon": -118.343782,
    "shape": "hip",
@@ -4716,6 +4784,7 @@
   {
    "n": 68,
    "image": "views/install_68.jpg",
+   "before": "views/install_68_before.jpg",
    "lat": 34.113278,
    "lon": -118.190899,
    "shape": "hip",
@@ -4763,6 +4832,7 @@
   {
    "n": 69,
    "image": "views/install_69.jpg",
+   "before": "views/install_69_before.jpg",
    "lat": 33.959218,
    "lon": -118.426545,
    "shape": "gable",
@@ -4792,6 +4862,7 @@
   {
    "n": 70,
    "image": "views/install_70.jpg",
+   "before": "views/install_70_before.jpg",
    "lat": 33.959564,
    "lon": -118.426956,
    "shape": "gable",
@@ -4823,6 +4894,7 @@
   {
    "n": 71,
    "image": "views/install_71.jpg",
+   "before": "views/install_71_before.jpg",
    "lat": 33.96044,
    "lon": -118.42675,
    "shape": "hip",
@@ -4884,6 +4956,7 @@
   {
    "n": 72,
    "image": "views/install_72.jpg",
+   "before": "views/install_72_before.jpg",
    "lat": 33.960856,
    "lon": -118.426211,
    "shape": "hip",
@@ -4936,6 +5009,7 @@
   {
    "n": 73,
    "image": "views/install_73.jpg",
+   "before": "views/install_73_before.jpg",
    "lat": 34.009688,
    "lon": -118.397032,
    "shape": "hip",
@@ -5011,6 +5085,7 @@
   {
    "n": 74,
    "image": "views/install_74.jpg",
+   "before": "views/install_74_before.jpg",
    "lat": 34.010372,
    "lon": -118.396584,
    "shape": "hip",
@@ -5056,6 +5131,7 @@
   {
    "n": 75,
    "image": "views/install_75.jpg",
+   "before": "views/install_75_before.jpg",
    "lat": 34.049233,
    "lon": -118.455913,
    "shape": "gable",
@@ -5087,6 +5163,7 @@
   {
    "n": 76,
    "image": "views/install_76.jpg",
+   "before": "views/install_76_before.jpg",
    "lat": 34.057521,
    "lon": -118.454784,
    "shape": "gable",
@@ -5141,6 +5218,7 @@
   {
    "n": 77,
    "image": "views/install_77.jpg",
+   "before": "views/install_77_before.jpg",
    "lat": 34.057249,
    "lon": -118.45464,
    "shape": "gable",
@@ -5174,6 +5252,7 @@
   {
    "n": 78,
    "image": "views/install_78.jpg",
+   "before": "views/install_78_before.jpg",
    "lat": 34.05752,
    "lon": -118.454778,
    "shape": "gable",
@@ -5202,6 +5281,7 @@
   {
    "n": 79,
    "image": "views/install_79.jpg",
+   "before": "views/install_79_before.jpg",
    "lat": 33.960188,
    "lon": -118.403157,
    "shape": "hip",
