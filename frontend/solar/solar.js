@@ -402,9 +402,9 @@ function togglePlay(on = !T.playing) {
 
 function key3D() {
   const keep = data.assumptions.keep_sides_with_sun_pct;
-  const sunRows = `<p><i class="sw line" style="background:#FFB224"></i>Sun's path, June 21</p>` +
-    `<p><i class="sw line" style="background:#FFD27A"></i>March and September 21</p>` +
-    `<p><i class="sw line" style="background:#9fc0ff"></i>December 21</p>`;
+  const sunRows = `<p><i class="sw line" style="background:#FFB224"></i>Jun 21 ` +
+    `<i class="sw line" style="background:#FFD27A"></i>Mar/Sep 21 ` +
+    `<i class="sw line" style="background:#9fc0ff"></i>Dec 21 &mdash; the sun's path overhead</p>`;
   const s = current && current.skipped;
   $("key3d").innerHTML = T.mode === "photo"
     ? `<p><i class="sw panel"></i>Solar panel, ${panelSize()}, ${data.assumptions.panel.name}</p>${sunRows}<p style="color:var(--muted)">Drag to turn · scroll to zoom · point at a roof</p>`
@@ -416,8 +416,7 @@ function key3D() {
     : `<p><b>Share of the best sun each side gets</b></p><p><span class="ramp"></span></p>` +
       `<div class="ends"><span>60%</span><span>${keep}% (panels from here)</span><span>100%</span></div>${sunRows}` +
       (current?.ac_room?.ac_units
-        ? `<p style="color:var(--muted)">Panel counts already leave room for ${fmt(current.ac_room.ac_units)} rooftop AC units ` +
-          `Vexcel found here, but this shading can't show exactly where on the roof they sit.</p>`
+        ? `<p style="color:var(--muted)">Already leaves room for ${fmt(current.ac_room.ac_units)} rooftop AC units (exact spot unknown).</p>`
         : "");
 }
 
@@ -599,21 +598,12 @@ function howBlock(b) {
     `<li><span class="n">${i + 1}</span><div><h3>${h}</h3><p>${p}</p></div><div class="val"><b>${v}</b><span class="src">${src}</span></div></li>`).join("");
 }
 
-/* ---------- why trust it: NREL check + real installs + what we assume ---------- */
+/* ---------- why trust it: NREL check (one sentence) + real installs + what we assume ---------- */
 function trustBlock() {
   const n = data.nrel_check, a = data.assumptions;
   if (n && n.rows) {
-    const rows = n.rows.filter((r) => r.tilt === 25), top = Math.max(...rows.flatMap((r) => [r.nrel, r.ours_scaled]));
-    const rhoPct = Math.round(n.rank_agreement * 100);
-    $("nrel-lead").innerHTML = `We tested ${n.rows.length} roof angles and directions (3 tilts × 8 compass directions) against ` +
-      `the U.S. government's own solar calculator, NREL PVWatts. Both pick the same best setup: ` +
-      `<b>${n.best_ours.tilt}° tilt, facing ${facingWord(n.best_ours.facing)}</b>. Across all ${n.rows.length}, the two models ` +
-      `rank angles from best to worst almost the same way (<b>${rhoPct}% agreement</b>), and are usually within ` +
-      `<b>${n.median_abs_diff_pct}%</b> of each other in energy produced. The chart below shows the 8 compass directions at the ` +
-      `best tilt (25°) &mdash; the full 24-angle comparison backs the numbers above.`;
-    $("nrel").innerHTML = rows.map((r) => `<div class="col" title="Faces ${facingWord(r.facing)}: NREL ${fmt(r.nrel)}, CityLab ${fmt(r.ours_scaled)} (${r.diff_pct > 0 ? "+" : ""}${r.diff_pct}%)">` +
-      `<div class="pair"><i class="n" style="height:${100 * r.nrel / top}%"></i><i class="o" style="height:${100 * r.ours_scaled / top}%"></i></div>` +
-      `<div class="nl"><b>${["N", "NE", "E", "SE", "S", "SW", "W", "NW"][r.facing / 45]}</b></div></div>`).join("");
+    $("nrel-lead").innerHTML = `We checked our numbers against NREL PVWatts, the U.S. government's own solar calculator ` +
+      `&mdash; they agree on the best roof angle and are usually within <b>${n.median_abs_diff_pct}%</b> of each other.`;
   }
   $("assume").innerHTML = `<b>What we assume:</b> walls are CoStar floors × 3 m · sloped roofs are ${a.pitched_roof_tilt_deg}° (measured on one roof) · ` +
     `each AC unit takes about 2 panels of space · the building uses the power it makes · no tax credits.`;
