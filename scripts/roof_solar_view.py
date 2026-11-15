@@ -45,6 +45,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import numpy as np  # noqa: E402
 import requests  # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
+import shapely  # noqa: E402
 from shapely import wkt as shapely_wkt  # noqa: E402
 from shapely.geometry import Polygon, box  # noqa: E402
 
@@ -355,11 +356,13 @@ PERFORMANCE_RATIO = 0.86  # 14% losses (wiring, inverter, heat, dirt), same as s
 KEEP_PERCENT = 80  # put panels only where yearly sun >= 80% of the best possible
 
 
-def layout_panels(side: Polygon, facing_deg: float, tilt_deg: float) -> list[Polygon]:
+def layout_panels(side: Polygon, facing_deg: float, tilt_deg: float,
+                  row_cover: float = 1.0) -> list[Polygon]:
     """Fit as many whole panels as possible on one roof side, after the fire setback.
 
     Panels run in rows along the ridge; seen from above, the down-slope length
-    shrinks by cos(tilt).
+    shrinks by cos(tilt). *row_cover* < 1 leaves walkway/shade gaps between rows
+    (tilted racks on a flat roof: about 0.7 of the row area holds panels).
     """
     inner = side.buffer(-SETBACK_M, join_style=2)
     if inner.is_empty:
@@ -376,7 +379,7 @@ def layout_panels(side: Polygon, facing_deg: float, tilt_deg: float) -> list[Pol
         for dv in (0.0, proj_len / 2):
             got = []
             for u0 in np.arange(u.min() + du, u.max() - PANEL_W_M + 1e-6, PANEL_W_M + GAP_M):
-                for v0 in np.arange(v.min() + dv, v.max() - proj_len + 1e-6, proj_len + GAP_M):
+                for v0 in np.arange(v.min() + dv, v.max() - proj_len + 1e-6, proj_len / row_cover + GAP_M):
                     corners = [along * uu + down * vv for uu, vv in
                                ((u0, v0), (u0 + PANEL_W_M, v0), (u0 + PANEL_W_M, v0 + proj_len), (u0, v0 + proj_len))]
                     rect = Polygon(corners)
@@ -384,6 +387,87 @@ def layout_panels(side: Polygon, facing_deg: float, tilt_deg: float) -> list[Pol
                         got.append(rect)
             if len(got) > len(best):
                 best = got
+    return best
+
+
+# Panel sizes we can lay out. Typical datasheet sizes for 182 mm-cell modules (not one brand):
+# 108 cells ~ 1722 x 1134 mm (~400 W), 144 cells ~ 2278 x 1134 mm (~550 W).
+PANEL_TYPES: dict[str, dict[str, Any]] = {
+    "400w": {"name": "400 W", "length_m": 1.722, "width_m": 1.134, "kw": 0.40},
+    "550w": {"name": "550 W", "length_m": 2.278, "width_m": 1.134, "kw": 0.55},
+}
+WINTER_DECLINATION_DEG = -23.44  # Dec 21, the shortest day
+
+
+def winter_row_gap(lat: float, tilt_deg: float, slope_len_m: float, facing_deg: float) -> float:
+    """Gap between tilted rows on a flat roof so no row shades the next one from 10 am to
+    2 pm (solar time) on Dec 21, the day the sun is lowest. Plain sun geometry."""
+    if tilt_deg <= 0:
+        return GAP_M
+    phi, dec = math.radians(lat), math.radians(WINTER_DECLINATION_DEG)
+    rise = slope_len_m * math.sin(math.radians(tilt_deg))
+    worst = 0.0
+    for hour_angle in (-30.0, 30.0):  # 10 am and 2 pm
+        h = math.radians(hour_angle)
+        sin_el = math.sin(phi) * math.sin(dec) + math.cos(phi) * math.cos(dec) * math.cos(h)
+        el = math.asin(max(-1.0, min(1.0, sin_el)))
+        if el <= math.radians(3):
+            continue
+        # sun azimuth from north, clockwise
+        az = math.degrees(math.atan2(math.sin(h), math.cos(h) * math.sin(phi) - math.tan(dec) * math.cos(phi))) + 180
+        along = max(0.0, math.cos(math.radians(az - facing_deg)))  # shadow length along the row direction
+        worst = max(worst, rise * along / math.tan(el))
+    return max(GAP_M, worst)
+
+
+def fit_panels(side: Polygon, facing_deg: float, tilt_deg: float, panel: dict[str, Any] | None = None,
+               row_gap_m: float = GAP_M) -> dict[str, Any]:
+    """Pack as many whole panels as fit on one roof side, inside the fire setback.
+
+    Tries the panel upright (long side down the slope) and sideways, and 4 x 4 grid
+    starting offsets for each, then keeps the arrangement with the most panels. Rows run
+    across the slope; *row_gap_m* is the clear gap between rows (seen from above).
+    Returns {"panels": [Polygon], "orientation", "rows", "row_gap_m", "panel"}.
+    """
+    panel = panel or PANEL_TYPES["400w"]
+    empty = {"panels": [], "orientation": None, "rows": 0, "row_gap_m": round(row_gap_m, 2), "panel": panel}
+    inner = side.buffer(-SETBACK_M, join_style=2)
+    if inner.is_empty:
+        return empty
+    if inner.geom_type != "Polygon":
+        inner = max(inner.geoms, key=lambda g: g.area)
+    shapely.prepare(inner)
+    down = unit(facing_deg)  # down the slope, seen from above
+    along = np.array([down[1], -down[0]])
+    pts = np.array(inner.exterior.coords)
+    u, v = pts @ along, pts @ down
+    cos_t = math.cos(math.radians(tilt_deg))
+    best = empty
+    for orientation in ("portrait", "landscape"):
+        across, slope = ((panel["width_m"], panel["length_m"]) if orientation == "portrait"
+                         else (panel["length_m"], panel["width_m"]))
+        proj = slope * cos_t  # panel depth seen from above
+        step_u, step_v = across + GAP_M, proj + row_gap_m
+        for du in np.linspace(0, step_u, 4, endpoint=False):
+            for dv in np.linspace(0, step_v, 4, endpoint=False):
+                us = np.arange(u.min() + du, u.max() - across + 1e-6, step_u)
+                vs = np.arange(v.min() + dv, v.max() - proj + 1e-6, step_v)
+                if not len(us) or not len(vs):
+                    continue
+                uu, vv = np.meshgrid(us, vs)
+                uu, vv = uu.ravel(), vv.ravel()
+                corners = np.stack([
+                    np.outer(uu, along) + np.outer(vv, down),
+                    np.outer(uu + across, along) + np.outer(vv, down),
+                    np.outer(uu + across, along) + np.outer(vv + proj, down),
+                    np.outer(uu, along) + np.outer(vv + proj, down),
+                ], axis=1)
+                rects = shapely.polygons(corners)
+                ok = shapely.contains(inner, rects)
+                if ok.sum() > len(best["panels"]):
+                    best = {"panels": list(rects[ok]), "orientation": orientation,
+                            "rows": int(len(np.unique(np.round(vv[ok], 3)))), "row_gap_m": round(row_gap_m, 2),
+                            "panel": panel}
     return best
 
 

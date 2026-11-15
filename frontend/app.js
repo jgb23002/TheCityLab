@@ -19,7 +19,6 @@ const state = {
 };
 // Editable measurement fields: label, unit, input limits (validated before sending).
 const EDITABLE = {
-  parking_space_count: { label: "Parking spaces", unit: "", min: 0, max: null, step: 1, integer: true },
   green_cover_percent: { label: "Green cover", unit: "%", min: 0, max: 100, step: 0.1, integer: false },
   roof_area_sq_ft: { label: "Roof area", unit: " sq ft", min: 0, max: null, step: 1, integer: false },
 };
@@ -345,7 +344,7 @@ function renderMap(study) {
       marker.bindPopup(
         `<strong>${esc(b.name || `Property ${b.id}`)}</strong><br>` +
         (r ? `Rank ${fmt(r.rank, 0)} · payback ${fmt(r.payback_years, 1)} years`
-          : `Rent: $${fmt(b.max_rent, 0)} · Parking: ${fmt(m.parking_space_count, 0)}<br>Green cover: ${fmt(m.green_cover_percent)}%`));
+          : `Rent: $${fmt(b.max_rent, 0)} · Units: ${fmt(b.total_num_units, 0)}`));
     }
     marker.addTo(state.markerLayer);
     marker.on("click", () => selectBuilding(b.id, "map"));
@@ -404,7 +403,6 @@ function selectBuilding(id, from) {
 function keyMeasurement(study, m) {
   const predictor = study.stats && study.stats.predictor;
   if (predictor && m[predictor] != null) return [nice(predictor), fmt(m[predictor], 1)];
-  if (m.parking_space_count != null) return ["parking spaces", fmt(m.parking_space_count, 0)];
   if (m.green_cover_percent != null) return ["green cover", `${fmt(m.green_cover_percent, 1)}%`];
   if (m.roof_area_sq_ft != null) return ["roof area", `${fmt(m.roof_area_sq_ft, 0)} sq ft`];
   return ["measurement", "not measured"];
@@ -555,13 +553,6 @@ function buildCard(study, b, m) {
       e.stopPropagation();
       openEditor(card, m, btn.dataset.field);
     }));
-    // Clicking a detection box corrects the parking count (boxes are parking detections).
-    card.querySelector(".bimg").addEventListener("click", (e) => {
-      const rect = img.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      const hit = (canvas.boxes || []).some((bx) => x >= bx.x && x <= bx.x + bx.w && y >= bx.y && y <= bx.y + bx.h);
-      if (hit) { e.stopPropagation(); openEditor(card, m, "parking_space_count"); }
-    });
   }
   card.querySelectorAll(".bcard-tab").forEach((tab) => tab.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1012,13 +1003,12 @@ function renderStats(stats) {
 
 function renderBuildingTable(study) {
   const byProp = Object.fromEntries(study.measurements.map((m) => [m.property_id, m]));
-  const head = ["Building", "Units", "Year built", "Max rent ($)", "Vacancy %", "Green cover %", "Paved %", "Parking (aerial)", "Parking (CoStar)"];
+  const head = ["Building", "Units", "Year built", "Max rent ($)", "Vacancy %", "Roof area (sq ft)"];
   $("evidence").innerHTML = `<thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
     study.buildings.map((b) => {
       const m = byProp[b.id] || {};
       return `<tr><td>${esc(b.name || b.id)}</td><td>${fmt(b.total_num_units, 0)}</td><td>${b.year_built != null ? esc(b.year_built) : "-"}</td>` +
-        `<td>${fmt(b.max_rent, 0)}</td><td>${fmt(b.vacancy_percent)}</td><td>${fmt(m.green_cover_percent)}</td>` +
-        `<td>${fmt(m.paved_surface_percent)}</td><td>${fmt(m.parking_space_count, 0)}</td><td>${fmt(b.surface_parking_spaces, 0)}</td></tr>`;
+        `<td>${fmt(b.max_rent, 0)}</td><td>${fmt(b.vacancy_percent)}</td><td>${fmt(m.roof_area_sq_ft, 0)}</td></tr>`;
     }).join("") + "</tbody>";
 }
 
@@ -1166,7 +1156,7 @@ function studyKind(study) {
 
 const canEditStudy = (study, m) => !!(m && m.id && (study.stats || study.solar_results));
 const editableFields = (study) => studyKind(study) === "research"
-  ? ["parking_space_count", "green_cover_percent", "roof_area_sq_ft"] : ["roof_area_sq_ft", "parking_space_count"];
+  ? ["green_cover_percent", "roof_area_sq_ft"] : ["roof_area_sq_ft"];
 
 function calibrationLine(field) {
   const c = state.calibration && state.calibration.fields ? state.calibration.fields[field] : null;
@@ -1199,7 +1189,6 @@ function renderInspector(id) {
     ["Building size", val(b.building_size_sq_ft, (v) => `${fmt(v, 0)} sq ft (gross)`)], ["Year built", val(b.year_built, esc)],
     ["Class", val(b.building_class, (v) => esc(CLASSES[v] || "unknown"))], ["Units", val(b.total_num_units, (v) => fmt(v, 0))],
     ["Asking rent (max)", val(b.max_rent, (v) => `$${fmt(v, 0)} / month`)], ["Vacancy", val(b.vacancy_percent, (v) => `${fmt(v, 1)}%`)],
-    ["Surface parking (CoStar)", val(b.surface_parking_spaces, (v) => fmt(v, 0))],
     ["Coordinates", b.latitude != null ? `${fmt(b.latitude, 5)}, ${fmt(b.longitude, 5)}` : UNAVAILABLE],
   ];
   if (det) {
@@ -1338,7 +1327,7 @@ function seqColor(t) {
 function colorKey(study) {
   const chosen = $("color-by").value;
   if (chosen !== "auto") return chosen;
-  return (study.stats && study.stats.predictor) || (study.solar_results ? "payback_years" : "parking_space_count");
+  return (study.stats && study.stats.predictor) || (study.solar_results ? "payback_years" : "roof_area_sq_ft");
 }
 
 // ---------------------------------------------------------------------------
@@ -1610,14 +1599,13 @@ async function initShowcaseStrip() {
   }
   const media = [
     [`/api/image/${data.property_id}`, `Aerial photo of ${data.name || "property " + data.property_id}`],
-    [`/api/image/${data.property_id}/boxes`, "Vexcel's detections boxed on the aerial photo"],
     // The cropped summary image: the annotated roof panels only, no calculation detail.
     [`/api/roof-view/${data.property_id}/summary`, "Shadow-measured roof and per-side sun report"],
   ];
   frames[0].querySelector(".strip-placeholder span").textContent =
     `${data.name || `Property ${data.property_id}`}, built ${data.year_built || "?"}, ${fmt(data.building_size_sq_ft, 0)} sq ft`;
   frames[0].querySelector(".strip-placeholder").classList.add("strip-text");
-  [1, 2, 3].forEach((frameIndex, mediaIndex) => {
+  [1, 2].forEach((frameIndex, mediaIndex) => {
     const [src, alt] = media[mediaIndex];
     const holder = frames[frameIndex].querySelector(".strip-media");
     const img = new Image();
