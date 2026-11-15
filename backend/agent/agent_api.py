@@ -1,5 +1,5 @@
-"""Agent API: POST /api/ask-agent, POST /api/ask-stream (SSE), POST /api/correct and
-GET /api/image/{id}.
+"""Agent API: POST /api/ask-agent, POST /api/ask-stream (SSE), POST /api/correct,
+GET /api/image/{id} and GET /api/roof-view/{id}.
 
 Finished studies are saved with their ledger under data/cache/studies/<id>.json so the
 correction loop (POST /api/correct, no LLM or network calls) can re-run the regression.
@@ -334,3 +334,60 @@ def building_image(property_id: int = PathParam(ge=0)) -> Response:
         return Response(placeholder_svg(property_id), media_type="image/svg+xml",
                         headers={"Cache-Control": "public, max-age=3600"})
     raise HTTPException(status_code=404, detail="No image for this property.")
+
+
+@router.get("/api/roof-view/{property_id}")
+def roof_view_image(property_id: int = PathParam(ge=0)) -> Response:
+    """Serve a building's shadow/sun roof report (scripts/roof_solar_view.py), or 404.
+
+    Only buildings scripts/roof_solar_view.py has already processed have one; the
+    frontend hides the "Sun & roof" tab on a 404 rather than treating it as an error.
+    """
+    root = (config.CACHE_DIR / "roof_view").resolve()
+    path = (root / f"property_{property_id}_report.jpg").resolve()
+    if path.parent == root and path.is_file():
+        return FileResponse(path, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="No roof report for this property.")
+
+
+# scripts/roof_solar_view.py's fixed layout constants (title_h, cap_h): the image row
+# (panels A and B, side by side) runs from y=title_h to y=title_h+ph; everything below
+# that (the oblique photo and the "How every number was calculated" text) belongs to
+# the full report, not the landing-page summary. Half the canvas width is one panel.
+_REPORT_TITLE_H, _REPORT_CAP_H = 70, 46
+
+
+@router.get("/api/roof-view/{property_id}/summary")
+def roof_view_summary_image(property_id: int = PathParam(ge=0)) -> Response:
+    """Serve only the annotated roof photo (panels A+B), cropped from the full report.
+
+    For the landing-page walkthrough, which shows what was measured without the
+    underlying calculation detail; the full report (with that detail) is still
+    reachable at GET /api/roof-view/{id}.
+    """
+    from io import BytesIO
+
+    from PIL import Image
+
+    root = (config.CACHE_DIR / "roof_view").resolve()
+    path = (root / f"property_{property_id}_report.jpg").resolve()
+    if path.parent != root or not path.is_file():
+        raise HTTPException(status_code=404, detail="No roof report for this property.")
+    with Image.open(path) as full:
+        panel_height = full.width // 2 - 30  # the square aerial panel, from the known W*2+60 canvas width
+        top = _REPORT_TITLE_H + _REPORT_CAP_H - 10
+        bottom = min(top + panel_height, full.height)
+        cropped = full.crop((0, top, full.width, bottom))
+        buffer = BytesIO()
+        cropped.convert("RGB").save(buffer, format="JPEG", quality=88)
+    return Response(buffer.getvalue(), media_type="image/jpeg")
+
+
+@router.get("/api/image/{property_id}/boxes")
+def building_detections_image(property_id: int = PathParam(ge=0)) -> Response:
+    """Serve a building's boxed aerial detections (scripts/measure_sample.py), or 404."""
+    root = (config.CACHE_DIR / "vexcel" / "detect").resolve()
+    path = (root / f"property_{property_id}_boxes.jpg").resolve()
+    if path.parent == root and path.is_file():
+        return FileResponse(path, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="No detection image for this property.")

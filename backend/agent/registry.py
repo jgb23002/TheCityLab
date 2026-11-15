@@ -372,8 +372,10 @@ class _Runner:
     def solar(self, property_id: int) -> dict[str, Any]:
         """solar_payback for one inspected building, from ledger records only.
 
-        Uses the image-measured roof (Measurement.roof_area_sq_ft), never floor area. A
-        building with no measured roof is recorded as skipped instead of estimated.
+        Math first, model last: estimate_solar uses a measured roof when the measurement
+        carries one (a Vexcel parcel footprint, or the aerial image) and otherwise falls
+        back to CoStar building-footprint fields, recording which in roof_area_source.
+        Only a building with no roof area from any source is recorded as skipped.
         """
         building = self._building(property_id)
         measurement = next((m for m in self.measurements() if m.property_id == property_id), None)
@@ -381,13 +383,22 @@ class _Runner:
         if building is None or measurement is None:
             self._fail("solar_payback", args, ValueError(
                 f"property {property_id} needs a sample_buildings record and a successful vision_inspect first"))
-        roof = measurement.roof_area_sq_ft
-        args["roof_area_sq_ft"] = roof
-        if roof is None or roof <= 0:
-            source: Source = "mock" if self.mode == "mock" else "real"
-            return self._record("solar_payback", args, {"property_id": property_id, "skipped": True,
-                                "reason": "no measured roof area"}, source)
-        return self.run("solar_payback", {"building": building, "vision_result": measurement}, args)
+        args["roof_area_sq_ft"] = measurement.roof_area_sq_ft
+        try:
+            value, source = self._call("solar_payback", {"building": building, "vision_result": measurement})
+            result = _as_result("solar_payback", value)
+        except NotImplementedError:
+            raise
+        except Exception as exc:
+            self._fail("solar_payback", args, exc)
+        args["roof_area_source"] = (result.get("assumptions") or {}).get("roof_area_source")
+        if result.get("usable_roof_area_sq_ft") is None and result.get("capacity_kw") is None:
+            return self._record("solar_payback", args, {
+                "property_id": property_id, "skipped": True,
+                "reason": "no roof area from any source (aerial measurement, Vexcel footprint or CoStar fields)",
+                "caveats": result.get("caveats") or [],
+            }, source)
+        return self._record("solar_payback", args, result, source)
 
     def solar_estimates(self) -> list[SolarResult]:
         """Latest successful (non-skipped) solar_payback result per property."""
