@@ -29,11 +29,78 @@ FIELD_SOURCES = {
     "max_rent": "apartment-listing.maxRent; dollars/month; zero or missing becomes unknown",
     "vacancy_percent": "commercial-property.propertyApartment.vacancyPercent; percent, including zero",
     "surface_parking_spaces": "sum(commercial-property.parking[].totalSpaces where parkingType in [1, 2]); unknown if absent or incomplete",
+    "gross_typical_floor_sq_ft": "commercial-property.grossTypicalFloorSquareFeet",
+    "num_stories_above_grade": "commercial-property.numStoriesAboveGrade",
+    "floor_areas_sq_ft": "commercial-property.floors[].floorSize.squareFeet; JSON list, per floor, not summed",
+    "building_height_ft": "commercial-property.buildingHeightInFeet",
+    "lot_size": "commercial-property.lotSize",
+    "lot_size_measurement_type": "commercial-property.lotSizeMeasurementType",
+    "building_construction_material": "commercial-property.buildingConstructionMaterial",
+    "last_sale_price": "commercial-sale-comp.soldForPrice of the latest priced sale whose entities[].propertyId is this property (an entity's allocatedPrice in a portfolio sale)",
+    "last_sale_price_status": "commercial-sale-comp.salePriceStatus of that sale",
+    "last_sale_price_per_unit": "commercial-sale-comp.pricePerUnit of that sale; unknown for portfolio sales",
+    "last_sale_date": "commercial-sale-comp.soldDate of that sale (date part)",
 }
 INTEGER_FIELDS = (
     "property_id", "market_id", "property_type", "total_num_units", "year_built",
     "building_class", "apartment_listing_id", "surface_parking_spaces",
+    "num_stories_above_grade", "lot_size_measurement_type", "building_construction_material",
+    "last_sale_price_status",
 )
+# Geometry fields are enrichment only: they never gate eligibility or affect
+# which properties are sampled, so adding them cannot change the selected set.
+GEOMETRY_FIELDS = (
+    "gross_typical_floor_sq_ft", "num_stories_above_grade", "floor_areas_sq_ft",
+    "building_height_ft", "lot_size", "lot_size_measurement_type",
+    "building_construction_material",
+)
+
+
+def floor_areas_json(floors: object) -> str | None:
+    """Return floors[].floorSize.squareFeet as a JSON list, or None if none are known."""
+    if not isinstance(floors, list):
+        return None
+    areas = [
+        finite_number(floor["floorSize"]["squareFeet"])
+        for floor in floors
+        if isinstance(floor, dict) and isinstance(floor.get("floorSize"), dict)
+    ]
+    areas = [a for a in areas if a is not None]
+    return json.dumps(areas) if areas else None
+
+
+def latest_sales(sales: pd.DataFrame | None) -> dict[int, dict]:
+    """{propertyId: the latest priced sale}, mirroring backend.tools.costar_data._sale_map.
+
+    A single-property sale's soldForPrice is the building's price; in a portfolio sale
+    only an entity's own allocatedPrice counts, and pricePerUnit (a portfolio figure)
+    is left unknown. Enrichment only: sales never affect which buildings are sampled.
+    """
+    if sales is None or sales.empty:
+        return {}
+    latest: dict[int, dict] = {}
+    for record in sales.to_dict(orient="records"):
+        raw_entities = record.get("entities")
+        entities = [e for e in raw_entities if isinstance(e, dict)] if isinstance(raw_entities, list) else []
+        portfolio = len(entities) > 1
+        sold_for = finite_number(record.get("soldForPrice"))
+        sold_date = record.get("soldDate")
+        date = str(sold_date)[:10] if isinstance(sold_date, str) and sold_date else None
+        for entity in entities:
+            pid = finite_number(entity.get("propertyId"))
+            price = finite_number(entity.get("allocatedPrice")) if portfolio else sold_for
+            if pid is None or price is None or price <= 0:
+                continue
+            pid = int(pid)
+            if pid not in latest or (date or "") > (latest[pid]["last_sale_date"] or ""):
+                status = finite_number(record.get("salePriceStatus"))
+                latest[pid] = {
+                    "last_sale_price": price,
+                    "last_sale_price_status": int(status) if status is not None else None,
+                    "last_sale_price_per_unit": None if portfolio else finite_number(record.get("pricePerUnit")),
+                    "last_sale_date": date,
+                }
+    return latest
 
 
 def finite_number(value: object) -> float | None:
@@ -75,7 +142,8 @@ def surface_parking_spaces(parking: object) -> int | None:
     return int(sum(counts))
 
 
-def prepare_candidates(properties: pd.DataFrame, listings: pd.DataFrame) -> pd.DataFrame:
+def prepare_candidates(properties: pd.DataFrame, listings: pd.DataFrame,
+                       sales: pd.DataFrame | None = None) -> pd.DataFrame:
     """Join listing outcomes to apartment properties with complete valid controls."""
     if properties["id"].isna().any() or properties["id"].duplicated().any():
         raise ValueError("Commercial property ids must be present and unique.")
@@ -83,6 +151,7 @@ def prepare_candidates(properties: pd.DataFrame, listings: pd.DataFrame) -> pd.D
     if linked["propertyId"].duplicated().any():
         raise ValueError("Apartment listings must have unique propertyId values.")
     listing_by_property = linked.set_index("propertyId").to_dict(orient="index")
+    sale_by_property = latest_sales(sales)
     rows = []
     for record in properties.loc[properties["propertyType"].eq(11)].to_dict(orient="records"):
         address = record.get("primaryAddress")
@@ -117,6 +186,14 @@ def prepare_candidates(properties: pd.DataFrame, listings: pd.DataFrame) -> pd.D
             "max_rent": rent if rent is not None and rent > 0 else None,
             "vacancy_percent": vacancy if vacancy is not None and 0 <= vacancy <= 100 else None,
             "surface_parking_spaces": surface_parking_spaces(record.get("parking")),
+            "gross_typical_floor_sq_ft": finite_number(record.get("grossTypicalFloorSquareFeet")),
+            "num_stories_above_grade": finite_number(record.get("numStoriesAboveGrade")),
+            "floor_areas_sq_ft": floor_areas_json(record.get("floors")),
+            "building_height_ft": finite_number(record.get("buildingHeightInFeet")),
+            "lot_size": finite_number(record.get("lotSize")),
+            "lot_size_measurement_type": finite_number(record.get("lotSizeMeasurementType")),
+            "building_construction_material": finite_number(record.get("buildingConstructionMaterial")),
+            **sale_by_property.get(int(record["id"]), {}),
         })
     candidates = pd.DataFrame(rows, columns=list(FIELD_SOURCES))
     for column in INTEGER_FIELDS:
@@ -133,7 +210,9 @@ def build_samples(
         raise ValueError("Sample size must be positive.")
     properties = pd.read_json(data_dir / "commercial-property.jsonl", lines=True)
     listings = pd.read_json(data_dir / "apartment-listing.jsonl", lines=True)
-    candidates = prepare_candidates(properties, listings)
+    sales_path = data_dir / "commercial-sale-comp.jsonl"
+    sales = pd.read_json(sales_path, lines=True) if sales_path.exists() else None
+    candidates = prepare_candidates(properties, listings, sales)
     samples = {}
     cities = {}
     for city, market_id in CITY_MARKETS.items():
@@ -156,6 +235,7 @@ def build_samples(
             "selected_with_vacancy": int(sample["vacancy_percent"].notna().sum()),
             "selected_with_zero_vacancy": int(sample["vacancy_percent"].eq(0).sum()),
             "selected_with_surface_parking": int(sample["surface_parking_spaces"].notna().sum()),
+            "selected_with_last_sale": int(sample["last_sale_price"].notna().sum()),
             "file": f"{city}.csv",
         }
     manifest = {

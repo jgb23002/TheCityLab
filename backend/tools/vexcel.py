@@ -125,6 +125,57 @@ def _point_id(prefix: str, lat: float, lon: float) -> str:
     return f"{prefix}-" + hashlib.sha256(f"{lat:.7f},{lon:.7f}".encode()).hexdigest()[:12]
 
 
+def _bearing_deg(p1: tuple[float, float], p2: tuple[float, float]) -> float:
+    """Return the compass bearing in [0, 360) from lon/lat point p1 to p2."""
+    lon1, lat1 = math.radians(p1[0]), math.radians(p1[1])
+    lon2, lat2 = math.radians(p2[0]), math.radians(p2[1])
+    d_lon = lon2 - lon1
+    x = math.sin(d_lon) * math.cos(lat2)
+    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(d_lon)
+    return math.degrees(math.atan2(x, y)) % 360
+
+
+def parcel_bearing_deg(info: VexcelPropertyInfo) -> float | None:
+    """Return the compass bearing of the parcel polygon's longest edge, or None.
+
+    Reselects the same feature ``get_property_info`` chose (the parcel
+    containing the point, else the nearest) from its full ``raw_response``,
+    then walks its boundary to find the longest segment. A point-only or
+    missing geometry returns None rather than a guessed orientation.
+    """
+    features = (info.raw_response or {}).get("features") or []
+    if not isinstance(features, list):
+        return None
+    feature = _parcel_for_point(features, info.latitude, info.longitude)
+    if feature is None:
+        return None
+    try:
+        geometry = shape(feature["geometry"])
+        # A parcel can be a MultiPolygon (disjoint pieces); use the largest piece.
+        polygons = list(geometry.geoms) if hasattr(geometry, "geoms") else [geometry]
+        polygons = [p for p in polygons if hasattr(p, "exterior")]
+        if not polygons:
+            return None
+        largest = max(polygons, key=lambda p: p.area)
+        coords = list(largest.exterior.coords)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return None
+    if len(coords) < 2:
+        return None
+    longest: tuple[float, float, float, float] | None = None
+    longest_len = -1.0
+    for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
+        length = math.hypot(x2 - x1, y2 - y1)
+        if length > longest_len:
+            longest, longest_len = (x1, y1, x2, y2), length
+    if longest is None or longest_len <= 0:
+        return None
+    x1, y1, x2, y2 = longest
+    bearing = _bearing_deg((x1, y1), (x2, y2))
+    # A roof-facing azimuth is the edge's direction mod 180 (a line has two ends).
+    return bearing % 180
+
+
 # ---------------------------------------------------------------------------
 # Public tool functions (signatures frozen in docs/CONTRACTS.md)
 # ---------------------------------------------------------------------------
