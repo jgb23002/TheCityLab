@@ -41,6 +41,16 @@ longitude-first WKT, SRID 4326, header authentication, cached responses and
 `USE_CACHE_ONLY`. Provider dotted keys remain literal keys in `attributes`,
 `structures` and `raw_response`; they are not renamed into guessed fields.
 
+`parcel_bearing_deg(info: VexcelPropertyInfo) -> float | None` (internal
+helper, not a `###`-checked contract since it returns `float | None` rather
+than a schema model) computes the compass bearing (0–180°, since a line has
+two ends) of the selected parcel polygon's longest edge from the geometry
+already present in `raw_response["features"]`. It makes no new network call.
+Used by `backend.tools.solar` as the panel azimuth when a polygon is
+available, replacing the earlier hardcoded due-south assumption; returns
+`None` (falls back to the stated due-south assumption) for a point-only or
+missing parcel geometry.
+
 ### backend.tools.vision
 
 ```python
@@ -59,7 +69,7 @@ interchangeable. Unknown values remain null, not zero.
 ### backend.tools.solar
 
 ```python
-def estimate_solar(building: Building, vision_result: Measurement) -> SolarResult: ...
+def estimate_solar(building: Building, vision_result: Measurement | None = None) -> SolarResult: ...
 def rank_buildings(estimates: list[SolarResult]) -> list[SolarResult]: ...
 ```
 
@@ -68,7 +78,17 @@ are preserved: usable roof area in square feet, capacity in kW, annual energy in
 kWh. `score` is a future documented ranking metric and `rank` is 1-based.
 `payback_years` is optional simple payback in years, with its assumptions in
 `assumptions`. Missing payback is unknown and sorts after known paybacks.
-Report assumptions and caveats; a floor-area control is not a measured roof area.
+Report assumptions and caveats; `assumptions.roof_area_source` names which one
+was used. Roof area prefers a real measurement — `vision_result.roof_area_sq_ft`
+when `vision_result.observations["source"]` is a tagged real-measurement source
+(e.g. Vexcel's detected structure footprint; see `scripts/measure_sample.py`) —
+else falls back to CoStar building footprint fields
+(`backend.tools.geometry.roof_footprint_sq_ft`). A vision *model's* photo-read
+roof area (untagged `roof_area_sq_ft`) is never used as the roof-area source:
+math first, model last. `vision_result` is optional; besides a measured roof
+area, it supplies only caveats a formula can't derive (existing rooftop
+obstructions or visible solar panels) and `observations["parcel_bearing_deg"]`
+for azimuth. Its absence never blocks an estimate.
 
 ### backend.tools.stats
 
@@ -102,7 +122,20 @@ def get_model(model_id: str) -> MatterportModel: ...
 
 Return schema: **MatterportModel**. This optional tool is included so that every
 tool stub in the package is covered. Its `id` is the Matterport model id and its
-provider data belongs in `metadata` / `raw_response`.
+provider data belongs in `metadata` / `raw_response`. Requests each room's and
+floor's `dimensionEstimates` (`area`, `width`, `depth`, `height`,
+`lowerElevation`, `units`); `metadata["rooms"]`/`metadata["floors"]` hold the
+raw GraphQL lists. Cached by model id via `backend.cache.cached_json_call`.
+
+`building_height_ft(model: MatterportModel) -> float | None` (internal helper,
+not a `###`-checked contract since it returns `float | None`) is the median of
+rooms' positive `dimensionEstimates.height`; a room whose ceiling plane
+couldn't be resolved reports `height: 0.0` and is excluded, not treated as a
+real zero height. Used by `backend.agent.study` as a real-measurement height
+source (`SolarResult.assumptions["estimated_building_height_ft"]`) for
+buildings with a known `matterport_model_id`, falling back to
+`backend.tools.geometry.building_height_ft`'s CoStar-story-count math
+otherwise. Height is reported context only; it is not a `payback` input.
 
 ## Building field mappings
 
@@ -121,6 +154,38 @@ against the local CoStar model docs, and are not new source-field claims:
 | `max_rent` | apartment-listing `maxRent`, dollars/month, joined on `propertyId == Building.id`; zero means unreported |
 | `vacancy_percent` | `propertyApartment.vacancyPercent`; a reported zero is valid |
 | `surface_parking_spaces` | sum of `parking[].totalSpaces` for types 1 Surface and 2 SurfaceTandem; absent/incomplete counts are unknown |
+| `num_stories_above_grade` | `numStoriesAboveGrade` |
+| `gross_typical_floor_sq_ft` | `grossTypicalFloorSquareFeet` (the building's most common floor size, not a sum) |
+| `floor_areas_sq_ft` | `floors[].floorSize.squareFeet`; a list, one entry per floor, not summed |
+| `building_height_ft` | `buildingHeightInFeet`; sparse (populated on a minority of records) but a real measurement when present |
+| `lot_size` | `lotSize`; CoStar pre-converts square meters to square feet, so only `lotSizeMeasurementType` 1 (SquareFeet) and 2 (Acres) occur in practice |
+| `lot_size_measurement_type` | `lotSizeMeasurementType`; 0 Unknown, 1 SquareFeet, 2 Acres |
+| `building_construction_material` | `buildingConstructionMaterial`; 0 Unknown, 1 Masonry, 2 Metal, 3 ReinforcedConcrete, 4 Steel, 5 WoodFrame, 6 Brownstone, 7 Limestone |
+
+### backend.tools.geometry (internal helper, not an agent tool)
+
+`backend.tools.geometry` is a plain-arithmetic internal module consumed by
+`backend.tools.solar`; it is not itself an agent-facing tool and its functions
+return `float | None`, not a schema model, so it is documented here rather than
+as a `###`-checked contract section. No network, no model call. Signatures:
+
+```python
+def roof_footprint_sq_ft(building: Building) -> float | None: ...
+def building_height_ft(building: Building) -> float | None: ...
+def lot_size_sq_ft(building: Building) -> float | None: ...
+def open_ground_sq_ft(building: Building) -> float | None: ...
+```
+
+Per the project's "math first, model last" rule, this module is the roof-area/
+height source for `backend.tools.solar`, replacing the earlier vision-model-
+measured roof area. `roof_footprint_sq_ft` falls back through
+`gross_typical_floor_sq_ft`, then the largest of `floor_areas_sq_ft`, then
+`building_size_sq_ft` divided by `num_stories_above_grade`. `building_height_ft`
+prefers CoStar's own measured `building_height_ft` field when present, else
+`num_stories_above_grade` times `FLOOR_TO_FLOOR_FT` (a stated 12 ft assumption,
+since CoStar's ceiling-height field is null on every sampled record). Every
+function returns `None`, never 0 or a guess, when its required source fields
+are missing.
 
 ## Study and API schemas
 

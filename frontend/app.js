@@ -19,7 +19,6 @@ const state = {
 };
 // Editable measurement fields: label, unit, input limits (validated before sending).
 const EDITABLE = {
-  parking_space_count: { label: "Parking spaces", unit: "", min: 0, max: null, step: 1, integer: true },
   green_cover_percent: { label: "Green cover", unit: "%", min: 0, max: 100, step: 0.1, integer: false },
   roof_area_sq_ft: { label: "Roof area", unit: " sq ft", min: 0, max: null, step: 1, integer: false },
 };
@@ -253,6 +252,20 @@ function showCitation(data) {
     list.hidden = !list.hidden || !problems.length;
     badge.setAttribute("aria-expanded", String(!list.hidden));
   };
+  // The to-do tool has no "failed" status, so a step that actually failed can still
+  // show as completed. If the study turned out incomplete, say so next to the plan
+  // rather than let it silently contradict every green checkmark above it.
+  const plan = $("plan");
+  const allDone = plan && [...plan.querySelectorAll(".todo")].every((li) => li.classList.contains("completed"));
+  const note = document.getElementById("plan-mismatch-note");
+  if (note) note.remove();
+  if (!passed && data.message.includes("incomplete") && allDone) {
+    const p = document.createElement("p");
+    p.id = "plan-mismatch-note";
+    p.className = "plan-mismatch";
+    p.textContent = "Every step above shows completed, but the study did not actually finish - see the citation result below for why.";
+    $("plan-box").after(p);
+  }
 }
 
 function finishProgress() {
@@ -301,7 +314,9 @@ function renderMap(study) {
   const filter = $("map-filter").value;
   const colorOf = (v) => v == null ? "#b3bac1" : key === "payback_years" ? paybackColor(v, vlo, vhi)
     : seqColor(vhi > vlo ? (v - vlo) / (vhi - vlo) : 0.5);
-  $("map-legend").textContent = values.length
+  $("map-legend").textContent = !buildings.length
+    ? "No buildings could be sampled for this question - see the brief above for why."
+    : values.length
     ? `Colour: ${nice(key)} from ${fmt(vlo, 1)} (${key === "payback_years" ? "green, shortest" : "light"}) to ${fmt(vhi, 1)} ` +
       `(${key === "payback_years" ? "red, longest" : "dark"}); grey = unavailable. Numbered pins are the solar top 10.`
     : `No building has a value for ${nice(key)}.`;
@@ -329,7 +344,7 @@ function renderMap(study) {
       marker.bindPopup(
         `<strong>${esc(b.name || `Property ${b.id}`)}</strong><br>` +
         (r ? `Rank ${fmt(r.rank, 0)} · payback ${fmt(r.payback_years, 1)} years`
-          : `Rent: $${fmt(b.max_rent, 0)} · Parking: ${fmt(m.parking_space_count, 0)}<br>Green cover: ${fmt(m.green_cover_percent)}%`));
+          : `Rent: $${fmt(b.max_rent, 0)} · Units: ${fmt(b.total_num_units, 0)}`));
     }
     marker.addTo(state.markerLayer);
     marker.on("click", () => selectBuilding(b.id, "map"));
@@ -388,7 +403,6 @@ function selectBuilding(id, from) {
 function keyMeasurement(study, m) {
   const predictor = study.stats && study.stats.predictor;
   if (predictor && m[predictor] != null) return [nice(predictor), fmt(m[predictor], 1)];
-  if (m.parking_space_count != null) return ["parking spaces", fmt(m.parking_space_count, 0)];
   if (m.green_cover_percent != null) return ["green cover", `${fmt(m.green_cover_percent, 1)}%`];
   if (m.roof_area_sq_ft != null) return ["roof area", `${fmt(m.roof_area_sq_ft, 0)} sq ft`];
   return ["measurement", "not measured"];
@@ -417,6 +431,58 @@ function showMoreCards(study = state.study) {
   $("more-cards").textContent = `Show more buildings (${state.cards.length - state.cardsShown} left)`;
 }
 
+/** Short labels for where a solar estimate's roof area and height actually came from. */
+const SOURCE_LABEL = {
+  "Vexcel detected structure footprint": "Vexcel aerial footprint",
+  "Matterport room scan (median room height)": "Matterport scan",
+};
+function sourceLabel(text) {
+  if (!text) return null;
+  return SOURCE_LABEL[text] || (text.startsWith("CoStar") ? "CoStar record" : text.split(",")[0].split("(")[0].trim());
+}
+
+/** The building's solar assumptions, if the study produced one (retrofit mode only). */
+function solarFor(study, propertyId) {
+  return (study.solar_results || []).find((r) => r.property_id === propertyId) || null;
+}
+
+/** One sentence an owner can act on: is this roof worth a solar call, and why. */
+function ownerVerdict(solar) {
+  if (!solar) return null;
+  const years = solar.payback_years;
+  if (years == null) {
+    return { cls: "no", text: "Not enough roof data to screen this building for solar yet." };
+  }
+  const a = solar.assumptions || {};
+  const perUnit = a.savings_per_unit_per_month_usd;
+  const detail = perUnit != null
+    ? `, about $${fmt(perUnit, 0)}/unit/month in savings once it does`
+    : solar.annual_energy_kwh != null ? `, about ${fmt(solar.annual_energy_kwh, 0)} kWh/year once it does` : "";
+  if (years <= 8) return { cls: "ok", text: `Worth a solar call: pays for itself in about ${fmt(years, 1)} years${detail}.` };
+  if (years <= 15) return { cls: "weak", text: `Possible candidate: payback is about ${fmt(years, 1)} years${detail} — worth a closer look.` };
+  return { cls: "no", text: `Not a strong candidate right now: payback is about ${fmt(years, 1)} years${detail}.` };
+}
+
+/** A compact provenance strip: where the roof, height and facing numbers came from. */
+function provenanceRow(solar) {
+  if (!solar || !solar.assumptions) return "";
+  const a = solar.assumptions;
+  const chips = [];
+  const roof = sourceLabel(a.roof_area_source);
+  if (roof) chips.push(`<span class="prov-chip" title="${esc(a.roof_area_source)}">Roof · ${esc(roof)}</span>`);
+  const height = sourceLabel(a.building_height_source);
+  if (height != null && a.estimated_building_height_ft != null) {
+    chips.push(`<span class="prov-chip" title="${esc(a.building_height_source)}">Height · ${fmt(a.estimated_building_height_ft, 1)} ft (${esc(height)})</span>`);
+  }
+  if (a.azimuth_deg != null) {
+    chips.push(`<span class="prov-chip" title="${esc(a.azimuth_source || "")}">Facing · ${fmt(a.azimuth_deg, 0)}°</span>`);
+  }
+  if (a.weather_station && a.weather_station.distance != null) {
+    chips.push(`<span class="prov-chip" title="NREL PVWatts weather station">Weather · ${fmt(a.weather_station.distance / 1000, 1)} km away</span>`);
+  }
+  return chips.length ? `<div class="provenance">${chips.join("")}</div>` : "";
+}
+
 function buildCard(study, b, m) {
   const card = document.createElement("article");
   card.className = "bcard";
@@ -429,39 +495,69 @@ function buildCard(study, b, m) {
     `<button type="button" class="edit-value" data-field="${field}" title="Correct ${esc(spec.label.toLowerCase())}">` +
     `<span>${esc(spec.label)}</span><strong>${m[field] == null ? "unknown" : esc(fmt(m[field], spec.integer ? 0 : 1)) + spec.unit}</strong>` +
     `<i aria-hidden="true">✎</i></button>`).join("") : "";
+  const solar = solarFor(study, b.id);
+  const verdict = ownerVerdict(solar);
+  const hasTour = !!b.matterport_model_id;
+  // A solar study's question is about the roof and sun, not what the vision model
+  // counted in the parking lot, so its card image leads with the roof-and-sun report
+  // instead of the parking/obstruction detection overlay; research cards still lead
+  // with the plain aerial photo and its boxed detections (what the study is about there).
+  const isSolarStudy = studyKind(study) !== "research";
+  const roofImgSrc = `/api/roof-view/${encodeURIComponent(b.id)}/summary`;
+  // The Sun & roof tab is always offered; it checks for its own report image on click.
+  const tabs = `<div class="bcard-tabs" role="tablist">` +
+    (hasTour ? `<button type="button" class="bcard-tab" data-tab="tour" role="tab">3D tour</button>` : "") +
+    `<button type="button" class="bcard-tab" data-tab="roof" role="tab">Sun &amp; roof</button></div>` +
+    (hasTour ? `<div class="bcard-panel" data-panel="tour" hidden></div>` : "") +
+    `<div class="bcard-panel" data-panel="roof" hidden></div>`;
   card.innerHTML =
-    `<div class="bimg"><img alt="Aerial image of property ${esc(b.id)}" loading="lazy" decoding="async" src="/api/image/${encodeURIComponent(b.id)}">` +
+    `<div class="bimg"><img alt="${isSolarStudy ? "Roof and sun report for" : "Aerial image of"} property ${esc(b.id)}" ` +
+    `loading="lazy" decoding="async" src="${isSolarStudy ? roofImgSrc : `/api/image/${encodeURIComponent(b.id)}`}">` +
     `<canvas class="boxes" aria-hidden="true"></canvas><span class="noimg" hidden>No aerial image</span>` +
     `${study.is_mock ? '<span class="demo-tag">Demo data</span>' : ""}` +
     `${m && m.is_corrected ? '<span class="corrected-tag">Corrected</span>' : ""}</div>` +
     `<div class="bbody"><h4>${esc(b.name || `Property ${b.id}`)}</h4>` +
     `${where ? `<p class="addr">${esc(where)}</p>` : ""}` +
+    (verdict ? `<p class="verdict-line pill ${verdict.cls}">${esc(verdict.text)}</p>` : "") +
     (canEdit ? `<div class="edit-values">${editable}</div>`
       : `<p class="key"><span>${esc(label)}</span><strong>${esc(value)}</strong></p>`) +
     `<div class="editor-slot"></div>` +
+    provenanceRow(solar) + tabs +
     `<dl><dt>Rent</dt><dd>${b.max_rent != null ? "$" + fmt(b.max_rent, 0) : "-"}</dd>` +
     `<dt>Units</dt><dd>${fmt(b.total_num_units, 0)}</dd><dt>Built</dt><dd>${b.year_built != null ? esc(b.year_built) : "-"}</dd></dl>` +
     `<p class="pid">Property ${esc(b.id)}</p></div>`;
   const img = card.querySelector("img");
   const canvas = card.querySelector("canvas");
   const obs = (m && m.observations) || {};
-  const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
-  img.addEventListener("load", draw);
-  img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
+  if (isSolarStudy) {
+    // No roof report yet for this building: fall back to the plain aerial photo
+    // (still no detection boxes -- the point is to not show parking/pool overlays
+    // on a solar card). If that also fails, show the normal "no image" message.
+    img.addEventListener("error", function onRoofImgError() {
+      img.removeEventListener("error", onRoofImgError);
+      if (img.src.endsWith(roofImgSrc)) {
+        img.src = `/api/image/${encodeURIComponent(b.id)}`;
+      } else {
+        img.hidden = true;
+        card.querySelector(".noimg").hidden = false;
+      }
+    });
+  } else {
+    const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
+    img.addEventListener("load", draw);
+    img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
+  }
   if ("ResizeObserver" in window) new ResizeObserver(draw).observe(img);
   if (canEdit) {
     card.querySelectorAll(".edit-value").forEach((btn) => btn.addEventListener("click", (e) => {
       e.stopPropagation();
       openEditor(card, m, btn.dataset.field);
     }));
-    // Clicking a detection box corrects the parking count (boxes are parking detections).
-    card.querySelector(".bimg").addEventListener("click", (e) => {
-      const rect = img.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      const hit = (canvas.boxes || []).some((bx) => x >= bx.x && x <= bx.x + bx.w && y >= bx.y && y <= bx.y + bx.h);
-      if (hit) { e.stopPropagation(); openEditor(card, m, "parking_space_count"); }
-    });
   }
+  card.querySelectorAll(".bcard-tab").forEach((tab) => tab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openBuildingTab(card, tab.dataset.tab, b);
+  }));
   card.addEventListener("click", () => selectBuilding(b.id, "card"));
   card.addEventListener("keydown", (e) => {
     if (e.target !== card) return; // typing in the editor must not select the card
@@ -470,6 +566,49 @@ function buildCard(study, b, m) {
   if (state.selected === b.id) card.classList.add("selected");
   if (state.highlight && state.highlight.propertyId === b.id) card.classList.add("flash-card");
   return card;
+}
+
+/** Load the clicked tab's panel the first time (3D tour iframe, or the roof-view report), and toggle it. */
+async function openBuildingTab(card, name, building) {
+  const tabs = card.querySelectorAll(".bcard-tab");
+  const panels = card.querySelectorAll(".bcard-panel");
+  const target = card.querySelector(`.bcard-panel[data-panel="${name}"]`);
+  const wasOpen = target && !target.hidden;
+  panels.forEach((p) => (p.hidden = true));
+  tabs.forEach((t) => t.classList.remove("active"));
+  if (wasOpen) return; // clicking an open tab just closes it
+  card.querySelector(`.bcard-tab[data-tab="${name}"]`).classList.add("active");
+  target.hidden = false;
+  if (target.dataset.loaded) return;
+  target.dataset.loaded = "1";
+  if (name === "tour") {
+    try {
+      const config = await getConfig();
+      if (!config.matterport_sdk_key) throw new Error("no key");
+      const url = `https://my.matterport.com/show/?m=${encodeURIComponent(building.matterport_model_id)}` +
+        `&play=1&qs=1&applicationKey=${encodeURIComponent(config.matterport_sdk_key)}`;
+      target.innerHTML = `<iframe src="${esc(url)}" title="3D tour of property ${esc(building.id)}" ` +
+        `allow="xr-spatial-tracking" allowfullscreen loading="lazy"></iframe>`;
+    } catch {
+      target.innerHTML = `<p class="panel-empty">The 3D tour is not available right now.</p>`;
+    }
+  } else {
+    target.innerHTML = `<p class="panel-empty">Loading the roof report&hellip;</p>`;
+    const img = new Image();
+    img.alt = `Shadow and roof-sun report for property ${building.id}`;
+    // loading="lazy" only works once the element is in the DOM; this image starts
+    // detached, so eager-loading here is correct.
+    img.onerror = () => { target.innerHTML = `<p class="panel-empty">No roof report has been generated for this building yet.</p>`; };
+    img.onload = () => target.replaceChildren(img);
+    img.src = `/api/roof-view/${encodeURIComponent(building.id)}`;
+  }
+}
+
+let configPromise = null;
+/** GET /api/config once per page load (the Matterport SDK key, never a secret token). */
+function getConfig() {
+  if (!configPromise) configPromise = fetch("/api/config").then((r) => r.ok ? r.json() : {});
+  return configPromise;
 }
 
 /** Inline editor: number input with the current value, a note, Save / Cancel. */
@@ -864,13 +1003,12 @@ function renderStats(stats) {
 
 function renderBuildingTable(study) {
   const byProp = Object.fromEntries(study.measurements.map((m) => [m.property_id, m]));
-  const head = ["Building", "Units", "Year built", "Max rent ($)", "Vacancy %", "Green cover %", "Paved %", "Parking (aerial)", "Parking (CoStar)"];
+  const head = ["Building", "Units", "Year built", "Max rent ($)", "Vacancy %", "Roof area (sq ft)"];
   $("evidence").innerHTML = `<thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
     study.buildings.map((b) => {
       const m = byProp[b.id] || {};
       return `<tr><td>${esc(b.name || b.id)}</td><td>${fmt(b.total_num_units, 0)}</td><td>${b.year_built != null ? esc(b.year_built) : "-"}</td>` +
-        `<td>${fmt(b.max_rent, 0)}</td><td>${fmt(b.vacancy_percent)}</td><td>${fmt(m.green_cover_percent)}</td>` +
-        `<td>${fmt(m.paved_surface_percent)}</td><td>${fmt(m.parking_space_count, 0)}</td><td>${fmt(b.surface_parking_spaces, 0)}</td></tr>`;
+        `<td>${fmt(b.max_rent, 0)}</td><td>${fmt(b.vacancy_percent)}</td><td>${fmt(m.roof_area_sq_ft, 0)}</td></tr>`;
     }).join("") + "</tbody>";
 }
 
@@ -884,13 +1022,19 @@ function renderSolarAndOutreach(study) {
   const ranked = solar.filter((r) => r.rank != null).slice(0, 10);
   const paybacks = ranked.map((r) => r.payback_years).filter((v) => v != null);
   const lo = Math.min(...paybacks), hi = Math.max(...paybacks);
-  $("solar-ranking").innerHTML = "<thead><tr><th>Rank</th><th>Building</th><th>Roof area (sq ft)</th><th>kW</th>" +
-    "<th>kWh / yr</th><th>Payback (years)</th></tr></thead><tbody>" +
+  $("solar-ranking").innerHTML = "<thead><tr><th>Rank</th><th>Building</th><th>Roof area (sq ft)</th><th>Roof from</th>" +
+    "<th>Facing</th><th>kW</th><th>kWh / yr</th><th>Payback (years)</th><th>Savings / unit / mo</th></tr></thead><tbody>" +
     ranked.map((r) => {
       const b = byId[r.property_id] || {};
+      const a = r.assumptions || {};
+      const roofFrom = sourceLabel(a.roof_area_source) || "-";
+      const facing = a.azimuth_deg != null ? `${fmt(a.azimuth_deg, 0)}°` : "-";
+      const perUnit = a.savings_per_unit_per_month_usd != null ? `$${fmt(a.savings_per_unit_per_month_usd, 2)}` : "-";
       return `<tr data-id="${esc(r.property_id)}" tabindex="0"><td><span class="rank-dot" style="background:${paybackColor(r.payback_years, lo, hi)}">${esc(r.rank)}</span></td>` +
         `<td>${esc(b.name || `Property ${r.property_id}`)}</td><td>${fmt(r.usable_roof_area_sq_ft, 0)}</td>` +
-        `<td>${fmt(r.capacity_kw, 1)}</td><td>${fmt(r.annual_energy_kwh, 0)}</td><td><strong>${fmt(r.payback_years, 1)}</strong></td></tr>`;
+        `<td>${esc(roofFrom)}</td><td>${esc(facing)}</td>` +
+        `<td>${fmt(r.capacity_kw, 1)}</td><td>${fmt(r.annual_energy_kwh, 0)}</td><td><strong>${fmt(r.payback_years, 1)}</strong></td>` +
+        `<td>${esc(perUnit)}</td></tr>`;
     }).join("") + "</tbody>";
   $("solar-ranking").querySelectorAll("tbody tr").forEach((row) => {
     const id = Number(row.dataset.id);
@@ -992,6 +1136,10 @@ function renderPlan(payload) {
   const icon = { completed: "✓", in_progress: "◐", pending: "○" };
   $("plan").innerHTML = todos.map((t) => `<li class="todo ${esc(t.status)}"><span class="todo-icon" aria-hidden="true">` +
     `${icon[t.status] || "○"}</span><span>${esc(t.content)}</span><small>${esc(String(t.status).replace("_", " "))}</small></li>`).join("");
+  const done = todos.filter((t) => t.status === "completed").length;
+  const current = todos.find((t) => t.status === "in_progress");
+  $("run-status").textContent = current ? `${current.content} (step ${done + 1} of ${todos.length})`
+    : todos.length ? `${done} of ${todos.length} steps done` : "";
 }
 
 function addNote(data) {
@@ -1008,7 +1156,7 @@ function studyKind(study) {
 
 const canEditStudy = (study, m) => !!(m && m.id && (study.stats || study.solar_results));
 const editableFields = (study) => studyKind(study) === "research"
-  ? ["parking_space_count", "green_cover_percent", "roof_area_sq_ft"] : ["roof_area_sq_ft", "parking_space_count"];
+  ? ["green_cover_percent", "roof_area_sq_ft"] : ["roof_area_sq_ft"];
 
 function calibrationLine(field) {
   const c = state.calibration && state.calibration.fields ? state.calibration.fields[field] : null;
@@ -1041,7 +1189,6 @@ function renderInspector(id) {
     ["Building size", val(b.building_size_sq_ft, (v) => `${fmt(v, 0)} sq ft (gross)`)], ["Year built", val(b.year_built, esc)],
     ["Class", val(b.building_class, (v) => esc(CLASSES[v] || "unknown"))], ["Units", val(b.total_num_units, (v) => fmt(v, 0))],
     ["Asking rent (max)", val(b.max_rent, (v) => `$${fmt(v, 0)} / month`)], ["Vacancy", val(b.vacancy_percent, (v) => `${fmt(v, 1)}%`)],
-    ["Surface parking (CoStar)", val(b.surface_parking_spaces, (v) => fmt(v, 0))],
     ["Coordinates", b.latitude != null ? `${fmt(b.latitude, 5)}, ${fmt(b.longitude, 5)}` : UNAVAILABLE],
   ];
   if (det) {
@@ -1180,7 +1327,7 @@ function seqColor(t) {
 function colorKey(study) {
   const chosen = $("color-by").value;
   if (chosen !== "auto") return chosen;
-  return (study.stats && study.stats.predictor) || (study.solar_results ? "payback_years" : "parking_space_count");
+  return (study.stats && study.stats.predictor) || (study.solar_results ? "payback_years" : "roof_area_sq_ft");
 }
 
 // ---------------------------------------------------------------------------
@@ -1202,6 +1349,12 @@ function renderStudy(study, evidence) {
   linkEvidenceTags($("brief"));
   $("caveats").innerHTML = (study.caveats || []).map((c) => `<li>${esc(c)}</li>`).join("");
   $("caveat-box").hidden = !(study.caveats || []).length;
+  // When the run ended incomplete, the real reason is already in the brief above (e.g.
+  // "could not be found in the CoStar database") - bring it into view instead of leaving
+  // the reader on the progress panel with only a generic "study incomplete" badge.
+  if (/study.{0,20}incomplete/i.test(study.brief_markdown || "")) {
+    $("report-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   if (!study.buildings.some((b) => b.id === state.selected)) state.selected = null;
   if (state.selected == null && study.buildings.length) {
     const top = (study.solar_results || []).find((r) => r.rank === 1);
@@ -1318,17 +1471,24 @@ async function showSavedDemo() {
 // ---------------------------------------------------------------------------
 
 // The judging scenarios (also recorded in the offline showcase as S1-S3).
+// All three stay on the one problem CityLab solves: which apartment buildings are
+// worth a rooftop-solar call. Earlier versions mixed in office/commercial-building
+// wording that doesn't match the real cohort (apartment communities only) -- these
+// match backend/agent/samples.py's actual sample population and property type.
 const SCENARIO_EXAMPLES = [
-  { id: "S1", mode: "research", market_id: 14, question: "Do office buildings with more parking spaces have higher vacancy rates in Houston?" },
-  { id: "S2", mode: "retrofit", market_id: 20, question: "Which commercial buildings in Los Angeles have the best rooftop solar retrofit potential?" },
-  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for building upgrades" },
+  { id: "S1", mode: "retrofit", market_id: 14, question: "Which 10 Houston apartment buildings are the best rooftop-solar candidates?" },
+  { id: "S2", mode: "retrofit", market_id: 20, question: "Which Los Angeles apartment buildings have the fastest solar payback?" },
+  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for a rooftop solar retrofit" },
 ];
 
 async function loadExamples() {
   let questions = [];
   try {
     const res = await fetch("/api/questions");
-    if (res.ok) questions = (await res.json()).questions || [];
+    // Keep the chip row on the one problem CityLab solves (solar screening); the
+    // manifest's research/correlation questions (Q1, Q2) are left for the API and
+    // docs, not the demo surface.
+    if (res.ok) questions = ((await res.json()).questions || []).filter((q) => q.mode === "retrofit");
   } catch { /* examples are optional */ }
   try {
     for (const q of [...questions, ...SCENARIO_EXAMPLES]) {
@@ -1404,5 +1564,62 @@ for (const id of ["color-by", "map-filter"]) $(id).addEventListener("change", ()
 $("more-cards").addEventListener("click", () => showMoreCards());
 $("ledger-filter").addEventListener("input", filterLedger);
 for (const id of ["market", "sample-limit", "demo-mode"]) $(id).addEventListener("change", loadPreview);
+/** Fills the five landing-page frames with one real building's actual data, then cycles them. */
+async function initShowcaseStrip() {
+  const strip = $("strip");
+  if (!strip) return;
+  const frames = [...strip.querySelectorAll(".strip-frame")];
+  const dotsBox = strip.querySelector(".strip-dots");
+  dotsBox.innerHTML = frames.map((_, i) => `<button type="button" role="tab" aria-label="Step ${i + 1}"></button>`).join("");
+  const dots = [...dotsBox.querySelectorAll("button")];
+  let step = 0, timer = null;
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function show(i) {
+    step = i;
+    frames.forEach((f, idx) => f.classList.toggle("active", idx === i));
+    dots.forEach((d, idx) => d.classList.toggle("active", idx === i));
+  }
+  function advance() { show((step + 1) % frames.length); }
+  dots.forEach((dot, i) => dot.addEventListener("click", () => { show(i); restart(); }));
+  function restart() {
+    if (timer) clearInterval(timer);
+    if (!reduced) timer = setInterval(advance, 3200);
+  }
+
+  let data;
+  try {
+    const res = await fetch("/api/showcase-strip");
+    if (!res.ok) throw new Error("not ready");
+    data = await res.json();
+  } catch {
+    strip.querySelectorAll(".strip-placeholder span").forEach((s) => { s.textContent = "No fully-measured building is cached yet."; });
+    show(0);
+    return;
+  }
+  const media = [
+    [`/api/image/${data.property_id}`, `Aerial photo of ${data.name || "property " + data.property_id}`],
+    // The cropped summary image: the annotated roof panels only, no calculation detail.
+    [`/api/roof-view/${data.property_id}/summary`, "Shadow-measured roof and per-side sun report"],
+  ];
+  frames[0].querySelector(".strip-placeholder span").textContent =
+    `${data.name || `Property ${data.property_id}`}, built ${data.year_built || "?"}, ${fmt(data.building_size_sq_ft, 0)} sq ft`;
+  frames[0].querySelector(".strip-placeholder").classList.add("strip-text");
+  [1, 2].forEach((frameIndex, mediaIndex) => {
+    const [src, alt] = media[mediaIndex];
+    const holder = frames[frameIndex].querySelector(".strip-media");
+    const img = new Image();
+    img.alt = alt;
+    // loading="lazy" only works once the element is in the DOM; these start detached,
+    // so eager-loading here is correct (the browser still won't render them until active).
+    img.onload = () => { holder.classList.remove("strip-placeholder"); holder.replaceChildren(img); };
+    img.onerror = () => { holder.querySelector("span").textContent = "Not available for this building."; };
+    img.src = src;
+  });
+  show(0);
+  restart();
+}
+initShowcaseStrip();
+
 loadExamples();
 loadPreview();

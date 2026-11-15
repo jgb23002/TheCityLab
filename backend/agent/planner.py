@@ -235,6 +235,30 @@ def _strip_preamble(text: str) -> str:
     return text[match.start():].strip() if match else text
 
 
+def _lookup_failure_reason(ledger: Ledger) -> str | None:
+    """The error message of the latest failed lookup_property call, if any."""
+    for entry in reversed(ledger.all()):
+        if entry["tool"] == "lookup_property" and "error" in entry["result"]:
+            return str(entry["result"]["error"])
+    return None
+
+
+def _property_not_found_brief(question: str, reason: str) -> str:
+    """A clean, honest brief for a single-property lookup that never found a building.
+
+    Synthesized here rather than trusted from the model: when lookup_property fails,
+    the orchestrator sometimes gives up and writes its own ad-hoc reply (for example
+    asking the user to resend the address with a city and state, which a one-shot API
+    call has no way to receive) instead of properly delegating to the writer. That
+    reply would otherwise become the "brief" verbatim and fail the citation check as
+    unverified chatter, so this case is handled directly instead.
+    """
+    return (f"## Question\n{question}\n\n## Property\n\n**Study Status: Incomplete**\n\n"
+            f"{reason} No building record was available, so no inspection, upgrade screening "
+            "or outreach draft could be produced.\n\n## Next step\n\nTry a property already in the "
+            "sample (a Houston or Los Angeles apartment community), or a CoStar property id.\n")
+
+
 def _brief_from(messages: list[BaseMessage]) -> str:
     """Prefer the writer subagent's own output; fall back to the final AI message."""
     writer_calls = {call["id"] for m in messages if isinstance(m, AIMessage) for call in m.tool_calls
@@ -254,6 +278,27 @@ def _problems(brief: str, ledger: Ledger) -> list[str]:
     if any(e["source"] == "mock" for e in ledger.all()) and MOCK_LABEL not in brief:
         problems.append(f'mock results are not labelled "{MOCK_LABEL}"')
     return problems
+
+
+def _fix_next_step_citation(brief: str, ledger: Ledger) -> str:
+    """Retag the retrofit brief's "Next step" sentence with its OWN draft_email evidence id.
+
+    The writer picks the top candidate's property id correctly but sometimes tags it
+    with a different draft_email call's evidence id (e.g. the first one it read,
+    rather than the one for that property) -- a wrong-but-plausible citation the
+    single writer fix-retry does not reliably catch. The correct id is unambiguous
+    from the ledger, so it is corrected here instead of trusted from the model.
+    """
+    match = re.search(r"(Next step.*?property )(\d+)(\s*\[E(\d+)\])", brief, re.S)
+    if not match:
+        return brief
+    property_id, wrong_id = match.group(2), match.group(4)
+    for entry in ledger.all():
+        if entry["tool"] == "draft_email" and str(entry["result"].get("property_id")) == property_id:
+            if entry["id"] != f"E{wrong_id}":
+                return brief[:match.start(3)] + f" [{entry['id']}]" + brief[match.end(3):]
+            return brief
+    return brief
 
 
 
@@ -393,8 +438,20 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         messages = list(state.get("messages", []))
         missing = missing_steps(ledger, study_intent)
 
-    brief = str(redact(_brief_from(messages)))
-    problems = _problems(brief, ledger)
+    # A single-property lookup that never found a building sometimes makes the
+    # orchestrator give up and reply directly (for example asking for a city and state
+    # a one-shot call cannot receive) instead of delegating to the writer. Write a
+    # clean, honest brief ourselves rather than trust whatever it said.
+    lookup_reason = _lookup_failure_reason(ledger) if study_intent == "property" and "lookup_property" in missing else None
+    if lookup_reason:
+        print("LOOKUP GUARD: lookup_property failed; writing the incomplete brief directly.", flush=True)
+        brief = str(redact(_property_not_found_brief(question, lookup_reason)))
+        problems: list[str] = []
+    else:
+        brief = str(redact(_brief_from(messages)))
+        if study_intent == "retrofit":
+            brief = _fix_next_step_citation(brief, ledger)
+        problems = _problems(brief, ledger)
 
     if problems:
         listed = "\n".join(f"- {p}" for p in problems)
@@ -406,6 +463,8 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         print(f"CITATION CHECK found {len(problems)} problems; asking the writer to fix them.", flush=True)
         state = agent.invoke({"messages": [*messages, fix]}, config=run_config)
         brief = str(redact(_brief_from(list(state.get("messages", [])))))
+        if study_intent == "retrofit":
+            brief = _fix_next_step_citation(brief, ledger)
         problems = _problems(brief, ledger)
 
     incomplete = [_incomplete_caveat(step) for step in missing]

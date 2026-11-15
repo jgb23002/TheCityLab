@@ -6,10 +6,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from pydantic import JsonValue, ValidationError
 
-from backend.config import FRONTEND_DIR, PROJECT_ROOT
-from backend.schemas import AskRequest, AskResponse, Building, StudyResult
+from backend.config import CACHE_DIR, FRONTEND_DIR, MP_SDK_KEY, PROJECT_ROOT
+from backend.schemas import AskRequest, AskResponse, Building, Measurement, StudyResult
 from backend.agent.study import StudyUnavailable, preview_buildings, run_study
 from backend.agent.agent_api import router as agent_router
+from backend.samples import sample_buildings
+from backend.tools import costar_data, geometry, solar
 
 SHOWCASE_DIR = PROJECT_ROOT / "data" / "showcase"
 
@@ -47,6 +49,17 @@ def health() -> dict[str, bool]:
     return {"ok": True}
 
 
+@app.get("/api/config")
+def frontend_config() -> dict[str, JsonValue]:
+    """Public, non-secret settings the frontend needs; never a credential pair.
+
+    The Matterport Showcase SDK key is a publishable, domain-restricted key (used to
+    embed a model viewer client-side), unlike MP_TOKEN_ID/MP_TOKEN_SECRET, which stay
+    server-only and are never returned here.
+    """
+    return {"matterport_sdk_key": MP_SDK_KEY}
+
+
 @app.get("/api/questions")
 def questions() -> dict[str, JsonValue]:
     """Return the existing three showcase questions without modifying their metadata."""
@@ -57,6 +70,49 @@ def questions() -> dict[str, JsonValue]:
 def mock_study() -> StudyResult:
     """Return the validated synthetic StudyResult for a frontend preview."""
     return _load_study()
+
+
+def _has_measurement_with_boxes(building_id: int) -> bool:
+    """True when a cached measurement and its boxed aerial photo both exist for this id."""
+    measurement_path = CACHE_DIR / "vision" / f"m-{building_id}.json"
+    boxes_path = CACHE_DIR / "vexcel" / "detect" / f"property_{building_id}_boxes.jpg"
+    return measurement_path.is_file() and boxes_path.is_file()
+
+
+def _has_roof_view(building_id: int) -> bool:
+    return (CACHE_DIR / "roof_view" / f"property_{building_id}_report.jpg").is_file()
+
+
+@app.get("/api/showcase-strip")
+def showcase_strip() -> dict[str, JsonValue]:
+    """One real, fully-measured building for the landing-page walkthrough.
+
+    Picks the first sampled Houston building that already has a cached measurement,
+    a boxed aerial photo and a roof-sun report (all produced by scripts/measure_sample.py
+    and scripts/roof_solar_view.py, never computed on request), so the page never
+    triggers a live Vexcel, vision or NREL call. Returns 404 if none qualifies yet.
+    """
+    for sample in sample_buildings("houston", 11, n=50):
+        if not (_has_measurement_with_boxes(sample.id) and _has_roof_view(sample.id)):
+            continue
+        # The committed sample CSV is a lean join key; the full CoStar record (name,
+        # address, size) lives in the local kit, same as backend.agent.study's cohort.
+        building = costar_data.get_property(sample.id) or sample
+        measurement = Measurement.model_validate_json(
+            (CACHE_DIR / "vision" / f"m-{building.id}.json").read_text(encoding="utf-8"))
+        roof = geometry.roof_footprint_sq_ft(building)
+        estimate = solar.estimate_solar(building, measurement)
+        return {
+            "property_id": building.id,
+            "name": building.name,
+            "address": (building.primary_address or {}).get("city"),
+            "building_size_sq_ft": building.building_size_sq_ft,
+            "year_built": building.year_built,
+            "roof_area_sq_ft": roof,
+            "payback_years": estimate.payback_years,
+            "capacity_kw": estimate.capacity_kw,
+        }
+    raise HTTPException(status_code=404, detail="No fully-measured showcase building is cached yet.")
 
 
 @app.get("/api/buildings", response_model=list[Building])
