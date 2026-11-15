@@ -26,7 +26,7 @@ unchanged.
 | CoStar market data | Working for samples (local kit, `backend/tools/costar_data.py`) | tests, live runs |
 | Single property / address | Missing (no intent, no lookup tool) | code trace |
 | Owners / tenants | Missing | code trace |
-| Vexcel + vision | Working: imagery, precomputed attributes, detections, vision JSON validated by pydantic, cached | tests, `scripts/measure_sample.py` |
+| Vexcel + vision | Working: imagery, precomputed attributes, detections, vision JSON validated by pydantic, cached | tests, `scripts/measure_vision_sample.py` |
 | Matterport | Stub (`NotImplementedError`) | `backend/tools/matterport.py` |
 | Statistics | Working: OLS + HC3, controls size/age, listwise deletion, VIF | `tests/test_stats.py` |
 | Rooftop solar + payback | Working (PVWatts when configured, regional fallback otherwise) | `tests/test_solar.py` |

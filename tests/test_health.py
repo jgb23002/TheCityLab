@@ -27,10 +27,23 @@ def test_config_exposes_only_the_publishable_sdk_key(monkeypatch: pytest.MonkeyP
         assert leaked not in response.text
 
 
-def test_frontend() -> None:
-    """The root mount serves the supplied CityLab interface and its static files."""
+def test_home_page_is_the_solar_page() -> None:
+    """The root serves the solar page and its relative assets; /solar/ still works."""
     with TestClient(app) as client:
-        response = client.get("/")
+        home = client.get("/")
+        assert home.status_code == 200 and "<title>CityLab Solar</title>" in home.text
+        for asset in ("/solar.css", "/flight.js", "/logo.svg", "/data_houston.json"):
+            assert client.get(asset).status_code == 200, asset
+        script = client.get("/solar.js")
+        assert script.status_code == 200 and "/api/solar-city/stream" in script.text
+        assert client.get("/solar/").text == home.text
+        assert client.get("/solar/solar.js").status_code == 200
+
+
+def test_frontend() -> None:
+    """/classic serves the original question-box interface and its static files."""
+    with TestClient(app) as client:
+        response = client.get("/classic")
         assert response.status_code == 200
         assert "<title>CityLab: field reports for buildings</title>" in response.text
         assert 'id="ask-form"' in response.text
