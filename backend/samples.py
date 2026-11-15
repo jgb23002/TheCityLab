@@ -8,6 +8,7 @@ a data helper, not an agent tool; the agent-facing loader is
 
 from __future__ import annotations
 
+import json
 import math
 
 import pandas as pd
@@ -23,8 +24,11 @@ CITY_FILES = {
     "la": "los_angeles",
 }
 _INT_FIELDS = ("market_id", "property_type", "total_num_units", "year_built",
-               "building_class", "surface_parking_spaces")
-_FLOAT_FIELDS = ("latitude", "longitude", "max_rent", "vacancy_percent")
+               "building_class", "surface_parking_spaces", "num_stories_above_grade",
+               "lot_size_measurement_type", "building_construction_material", "last_sale_price_status")
+_FLOAT_FIELDS = ("latitude", "longitude", "max_rent", "vacancy_percent",
+                  "gross_typical_floor_sq_ft", "building_height_ft", "lot_size",
+                  "last_sale_price", "last_sale_price_per_unit")
 
 
 def _value(raw: object, as_int: bool) -> int | float | None:
@@ -36,6 +40,17 @@ def _value(raw: object, as_int: bool) -> int | float | None:
     if not math.isfinite(f):
         return None
     return int(f) if as_int else f
+
+
+def _floor_areas(raw: object) -> list[float] | None:
+    """Parse the CSV's JSON-encoded per-floor area list, or None for a blank cell."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        areas = json.loads(raw)
+    except ValueError:
+        return None
+    return [float(a) for a in areas] if isinstance(areas, list) and areas else None
 
 
 def sample_buildings(
@@ -66,6 +81,9 @@ def sample_buildings(
     for row in df.to_dict(orient="records"):
         fields = {k: _value(row.get(k), True) for k in _INT_FIELDS}
         fields.update({k: _value(row.get(k), False) for k in _FLOAT_FIELDS})
+        fields["floor_areas_sq_ft"] = _floor_areas(row.get("floor_areas_sq_ft"))
+        sale_date = row.get("last_sale_date")
+        fields["last_sale_date"] = sale_date if isinstance(sale_date, str) and sale_date.strip() else None
         building = Building(id=int(row["property_id"]), **fields)
         if outcome is None or getattr(building, outcome) is not None:
             buildings.append(building)

@@ -147,9 +147,9 @@ def run_study(
     return result
 
 
-def estimate_solar(building: Building, vision_result: Measurement) -> SolarResult:
+def estimate_solar(building: Building, vision_result: Measurement | None = None) -> SolarResult:
     """Return fixed synthetic solar capacity, energy and simple payback in years."""
-    if vision_result.property_id != building.id:
+    if vision_result is not None and vision_result.property_id != building.id:
         raise ValueError("Measurement property_id must match the sampled building.")
     slot = building.id % 3
     return SolarResult(

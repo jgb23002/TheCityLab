@@ -2,14 +2,27 @@
 
 Usage:
     python scripts/measure_sample.py --city houston|los_angeles [--property-type 11]
-        [--n 50] [--workers 3] [--retry-errors] [--dry-run]
+        [--n 50] [--workers 3] [--retry-errors] [--enrich-parcels] [--dry-run]
 
 Per building (from backend.samples.sample_buildings; buildings without coordinates
 are skipped and counted):
-  1. Vexcel precomputed attributes  - vexcel.get_property_info (cached by backend/cache.py)
-  2. aerial image                   - vexcel.get_aerial (cached)
+  1. Vexcel parcel                  - vexcel_detect.property_parcel: the parcel whose area
+                                      matches CoStar lotSize (CoStar's point often sits in a
+                                      small neighbouring parcel); falls back to the parcel at
+                                      the point via vexcel.get_property_info
+  2. aerial image                   - vexcel.get_aerial, centred on the matched parcel (cached)
   3. element detections             - vexcel_detect.detect for DETECT_PROMPTS (cached)
   4. vision measurement             - vision.measure_building on the aerial image
+
+When the parcel matched, Vexcel's own measurements fill green cover, paved surface and
+roof area (sum of structure footprints) and the Measurement is tagged
+observations["source"] = SOURCE, which backend/tools/solar.py treats as a real
+measurement. The vision model's numbers for those three fields are kept as a second
+opinion in observations["sky_inspector"]; its parking count and boxes stay as they are.
+An unmatched parcel's values may describe a neighbour, so they are kept as notes only.
+
+--enrich-parcels runs only step 1 for buildings whose cached measurement predates the
+parcel logic (vision-only, no source tag): about one Vexcel call each and no model call.
 
 The final Measurement is saved to data/cache/vision/m-<property_id>.json in the same
 format study.py's _cached_measurement reads and scripts/accuracy_check.py writes. A
@@ -33,18 +46,24 @@ from typing import Any, Callable
 if __package__ in (None, ""):  # allow `python scripts/measure_sample.py` from the repo root
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from shapely import wkt as shapely_wkt  # noqa: E402
+
 from backend import config, samples, vexcel_detect  # noqa: E402
 from backend.agent.registry import load_cached_measurement, redact, save_cached_measurement  # noqa: E402
-from backend.schemas import Building, Measurement  # noqa: E402
+from backend.schemas import Building, Measurement, VexcelPropertyInfo  # noqa: E402
 from backend.tools import vexcel, vision  # noqa: E402
 
+# solar.py recognises this exact string as a real (non-model) roof measurement.
+SOURCE = "Vexcel precomputed parcel attributes"
 DETECT_PROMPTS = ["parking space", "car", "tree", "pool", "solar panel"]
 MAX_WORKERS = 8
 ATTEMPTS = 2  # first try plus one retry
-# Upper bound on paid calls for one building with nothing cached yet: property/extract,
-# ortho/extract (aerial), elements/detect, ortho/extract (detect image), one vision call.
-VEXCEL_CALLS_PER_BUILDING = 4
+# Upper bound on paid calls for one building with nothing cached yet: parcel search,
+# property/extract, ortho/extract (aerial), elements/detect, ortho/extract (detect image),
+# and one vision call.
+VEXCEL_CALLS_PER_BUILDING = 5
 MODEL_CALLS_PER_BUILDING = 1
+PARCEL_FIELDS = ("green_cover_percent", "paved_surface_percent", "roof_area_sq_ft")
 
 
 def status_path() -> Path:
@@ -68,6 +87,98 @@ def _previous_failures(city: str) -> set[int]:
         return set()
 
 
+def _num(value: Any) -> float | None:
+    """A finite number or None."""
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def lot_sizes(ids: list[int]) -> dict[int, float]:
+    """CoStar lotSize in acres for *ids* (empty when the kit is not unzipped)."""
+    path = config.COSTAR_DATA_DIR / "commercial-property.jsonl"
+    if not path.exists():
+        return {}
+    from backend.tools.costar_data import _load_jsonl
+
+    df = _load_jsonl("commercial-property.jsonl")
+    df = df[df["id"].isin(ids)]
+    out: dict[int, float] = {}
+    for pid, size, unit in zip(df["id"], df.get("lotSize"), df.get("lotSizeMeasurementType")):
+        size = _num(size)
+        if size is None or size <= 0:
+            continue
+        if unit == 2:  # acres
+            out[int(pid)] = size
+        elif unit == 1:  # square feet
+            out[int(pid)] = size / 43_560.0
+    return out
+
+
+def parcel_values(props: dict[str, Any]) -> dict[str, Any]:
+    """Green %, paved %, roof sq ft and a few context fields from Vexcel parcel attributes."""
+    footprints = [
+        _num(s.get("footprint.area")) for s in props.get("structures") or [] if isinstance(s, dict)
+    ]
+    footprints = [f for f in footprints if f is not None and f > 0]
+    green = _num(props.get("parcel-tree-cover.percent"))
+    paved = _num(props.get("hardscapes.percent"))
+    return {
+        "green_cover_percent": green if green is not None and 0 <= green <= 100 else None,
+        "paved_surface_percent": paved if paved is not None and 0 <= paved <= 100 else None,
+        "roof_area_sq_ft": round(sum(footprints), 1) if footprints else None,
+        "structure_count": len(footprints),
+        "pool_detected": props.get("pool.detected"),
+        "capture_date": props.get("metadata.ortho-date-estimate"),
+    }
+
+
+def parcel_for(building: Building, info: VexcelPropertyInfo) -> dict[str, Any]:
+    """Vexcel parcel facts for one building, matched by CoStar lotSize when possible."""
+    lat, lon = building.latitude, building.longitude
+    lot_acres = lot_sizes([building.id]).get(building.id)
+    parcel = vexcel_detect.property_parcel(lat, lon, lot_acres) if lot_acres else None
+    if parcel is not None:
+        props, basis = parcel["properties"], "parcel matching CoStar lotSize"
+        centre = shapely_wkt.loads(parcel["wkt"]).centroid
+        image_center = (centre.y, centre.x)
+    else:
+        props = {**(info.attributes or {}), "structures": info.structures or []}
+        basis = "parcel at CoStar point (no parcel matched lotSize)"
+        image_center = (lat, lon)
+    return {
+        "matched": parcel is not None,
+        "values": parcel_values(props),
+        "basis": basis,
+        "image_center": image_center,
+        "lot_acres": lot_acres,
+        "parcel_acres": round(parcel["acres"], 2) if parcel else None,
+        "parcel_area_error": round(parcel["area_error"], 3) if parcel else None,
+    }
+
+
+def apply_parcel(measurement: Measurement, facts: dict[str, Any]) -> Measurement:
+    """Fill the parcel-measured fields and tag the source when the parcel matched."""
+    values = facts["values"]
+    observations = dict(measurement.observations or {})
+    observations.setdefault("sky_inspector", {field: getattr(measurement, field) for field in PARCEL_FIELDS})
+    observations.update({
+        "area_basis": facts["basis"],
+        "image_center": list(facts["image_center"]),
+        "lot_acres": facts["lot_acres"],
+        "structure_count": values["structure_count"],
+        "capture_date": values["capture_date"],
+        "roof_area_note": "sum of Vexcel structure footprints; not pitched roof surface",
+    })
+    fields: dict[str, Any] = {}
+    if facts["matched"]:
+        observations.update({"source": SOURCE, "parcel_acres": facts["parcel_acres"],
+                             "parcel_area_error": facts["parcel_area_error"]})
+        observations.pop("unmatched_parcel_values", None)
+        fields = {field: values[field] for field in PARCEL_FIELDS if values[field] is not None}
+    else:
+        observations["unmatched_parcel_values"] = {field: values[field] for field in PARCEL_FIELDS}
+    return measurement.model_copy(update={**fields, "observations": observations})
+
+
 def measure_one(building: Building) -> Measurement:
     """Run the four steps for one building and return a successful real Measurement.
 
@@ -76,10 +187,13 @@ def measure_one(building: Building) -> Measurement:
     """
     lat, lon, pid = building.latitude, building.longitude, building.id
     info = vexcel.get_property_info(lat, lon)
-    image = vexcel.get_aerial(lat, lon, pid)
+    facts = parcel_for(building, info)
+    img_lat, img_lon = facts["image_center"]
+
+    image = vexcel.get_aerial(img_lat, img_lon, pid)
     if not image.image_path:
         raise RuntimeError("get_aerial returned no image")
-    detections = vexcel_detect.detect(lat, lon, DETECT_PROMPTS, pid)
+    detections = vexcel_detect.detect(img_lat, img_lon, DETECT_PROMPTS, pid)
     measurement = vision.measure_building(image.image_path, pid)
     observations = dict(measurement.observations or {})
     if observations.get("error"):
@@ -96,7 +210,24 @@ def measure_one(building: Building) -> Measurement:
         "vexcel_detect_annotated_image": detections.annotated_image_path,
         "measured_by": "scripts/measure_sample.py",
     })
-    return measurement.model_copy(update={"observations": observations})
+    return apply_parcel(measurement.model_copy(update={"observations": observations}), facts)
+
+
+def enrich_one(building: Building) -> Measurement | None:
+    """Add the Vexcel parcel measurement to a cached vision-only measurement; None if nothing to do."""
+    cached = load_cached_measurement(building.id)
+    if cached is None or (cached.observations or {}).get("source") == SOURCE:
+        return None
+    info = vexcel.get_property_info(building.latitude, building.longitude)
+    facts = parcel_for(building, info)
+    enriched = apply_parcel(cached, facts)
+    return enriched.model_copy(update={"observations": {
+        **(enriched.observations or {}), "enriched_by": "scripts/measure_sample.py --enrich-parcels"}})
+
+
+def _needs_enrichment(property_id: int) -> bool:
+    cached = load_cached_measurement(property_id)
+    return cached is not None and (cached.observations or {}).get("source") != SOURCE
 
 
 def _process(building: Building, measure: Callable[[Building], Measurement]) -> tuple[str, str]:
@@ -115,9 +246,22 @@ def _process(building: Building, measure: Callable[[Building], Measurement]) -> 
     return "failed", reason
 
 
+def _enrich(building: Building) -> tuple[str, str]:
+    """Enrich one cached measurement (no retry; the only paid call is a cached parcel search)."""
+    try:
+        measurement = enrich_one(building)
+    except Exception as exc:
+        return "failed", _short_reason(exc)
+    if measurement is None:
+        return "cached", ""
+    if not save_cached_measurement(measurement):
+        return "failed", "enriched measurement not cacheable"
+    return "enriched", ""
+
+
 def run(
     city: str, property_type: int = 11, n: int = 50, workers: int = 3, retry_errors: bool = False,
-    dry_run: bool = False, measure: Callable[[Building], Measurement] = measure_one,
+    dry_run: bool = False, enrich: bool = False, measure: Callable[[Building], Measurement] = measure_one,
     out: Callable[[str], None] = print,
 ) -> dict[str, Any]:
     """Measure a city sample and return the summary (also written to measure_status.json)."""
@@ -129,13 +273,17 @@ def run(
     total = len(buildings)
 
     summary: dict[str, Any] = {"city": city_key, "property_type": property_type, "sampled": total,
-                               "ok": 0, "cached": 0, "failed": 0, "skipped": len(no_coords),
+                               "ok": 0, "cached": 0, "enriched": 0, "failed": 0, "skipped": len(no_coords),
                                "skipped_no_coordinates": [b.id for b in no_coords],
                                "skipped_previous_failure": [], "failed_ids": [], "failures": {}}
     todo: list[Building] = []
+    to_enrich: list[Building] = []
     for b in located:
         if load_cached_measurement(b.id) is not None:
-            summary["cached"] += 1
+            if enrich and _needs_enrichment(b.id):
+                to_enrich.append(b)
+            else:
+                summary["cached"] += 1
         elif b.id in previous:
             summary["skipped"] += 1
             summary["skipped_previous_failure"].append(b.id)
@@ -144,15 +292,17 @@ def run(
 
     if dry_run:
         summary.update({
-            "dry_run": True, "would_measure": [b.id for b in todo],
-            "estimated_vexcel_calls_max": len(todo) * VEXCEL_CALLS_PER_BUILDING,
+            "dry_run": True, "would_measure": [b.id for b in todo], "would_enrich": [b.id for b in to_enrich],
+            "estimated_vexcel_calls_max": len(todo) * VEXCEL_CALLS_PER_BUILDING + len(to_enrich),
             "estimated_model_calls": len(todo) * MODEL_CALLS_PER_BUILDING,
         })
         for b in todo:
             out(f"would measure property {b.id} ({b.latitude:.5f}, {b.longitude:.5f})")
-        out(f"DRY RUN: {len(todo)} to measure, {summary['cached']} cached, {summary['skipped']} skipped; "
-            f"up to {summary['estimated_vexcel_calls_max']} Vexcel calls (fewer if already cached) "
-            f"and {summary['estimated_model_calls']} vision model calls. No calls made.")
+        for b in to_enrich:
+            out(f"would enrich property {b.id} with its Vexcel parcel measurement")
+        out(f"DRY RUN: {len(todo)} to measure, {len(to_enrich)} to enrich, {summary['cached']} cached, "
+            f"{summary['skipped']} skipped; up to {summary['estimated_vexcel_calls_max']} Vexcel calls "
+            f"(fewer if already cached) and {summary['estimated_model_calls']} vision model calls. No calls made.")
         return summary
 
     lock = threading.Lock()
@@ -167,7 +317,7 @@ def run(
     for b in no_coords:
         log(b, "skipped", "no latitude/longitude")
     for b in located:
-        if b in todo:
+        if b in todo or b in to_enrich:
             continue
         if b.id in summary["skipped_previous_failure"]:
             log(b, "skipped", "failed in an earlier run (use --retry-errors)")
@@ -178,9 +328,11 @@ def run(
         summary["missing_from_cache"] = [b.id for b in todo]
         for b in todo:
             log(b, "missing", "not cached and USE_CACHE_ONLY=true")
+        for b in to_enrich:
+            summary["cached"] += 1
+            log(b, "cached", "parcel enrichment needs a Vexcel call; USE_CACHE_ONLY=true")
     else:
-        def work(building: Building) -> None:
-            status, reason = _process(building, measure)
+        def finish(building: Building, status: str, reason: str) -> None:
             with lock:
                 summary[status] += 1
                 if status == "failed":
@@ -188,14 +340,21 @@ def run(
                     summary["failures"][str(building.id)] = reason
             log(building, status, reason)
 
+        def work(building: Building) -> None:
+            finish(building, *_process(building, measure))
+
+        def work_enrich(building: Building) -> None:
+            finish(building, *_enrich(building))
+
         with ThreadPoolExecutor(max_workers=max(1, min(workers, MAX_WORKERS))) as pool:
             list(pool.map(work, todo))
+            list(pool.map(work_enrich, to_enrich))
 
     summary["failed_ids"].sort()
     _write_status(city_key, summary)
-    out(f"TOTALS: ok {summary['ok']}, cached {summary['cached']}, failed {summary['failed']}, "
-        f"skipped {summary['skipped']}" + (f", missing {len(summary['missing_from_cache'])} (cache-only)"
-                                         if "missing_from_cache" in summary else ""))
+    out(f"TOTALS: ok {summary['ok']}, cached {summary['cached']}, enriched {summary['enriched']}, "
+        f"failed {summary['failed']}, skipped {summary['skipped']}"
+        + (f", missing {len(summary['missing_from_cache'])} (cache-only)" if "missing_from_cache" in summary else ""))
     out(f"Status written to {status_path()}")
     return summary
 
@@ -222,9 +381,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--n", type=int, default=50)
     ap.add_argument("--workers", type=int, default=3, help=f"parallel buildings (1-{MAX_WORKERS})")
     ap.add_argument("--retry-errors", action="store_true", help="retry ids that failed in an earlier run")
+    ap.add_argument("--enrich-parcels", action="store_true",
+                    help="add the Vexcel parcel measurement to cached vision-only measurements (no model calls)")
     ap.add_argument("--dry-run", action="store_true", help="list what would be measured; make no calls")
     args = ap.parse_args(argv)
-    summary = run(args.city, args.property_type, args.n, args.workers, args.retry_errors, args.dry_run)
+    summary = run(args.city, args.property_type, args.n, args.workers, args.retry_errors, args.dry_run,
+                  enrich=args.enrich_parcels)
     return 1 if summary.get("failed") else 0
 
 
