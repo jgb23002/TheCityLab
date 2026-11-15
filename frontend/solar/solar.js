@@ -74,7 +74,7 @@ function init3D() {
   T.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   el.prepend(T.renderer.domElement);
   T.scene = new THREE.Scene();
-  T.scene.background = new THREE.Color("#0E1114");
+  T.scene.background = new THREE.Color("#8FB8D9");  // daytime sky; setDay()/lightFrom() repaint this once the sun position is known
   T.camera = new THREE.PerspectiveCamera(38, 1, 0.5, 6000);
   T.camera.up.set(0, 0, 1);
   T.controls = new OrbitControls(T.camera, T.renderer.domElement);
@@ -208,6 +208,11 @@ function build3D(b) {
   lg.setAttribute("position", new THREE.Float32BufferAttribute(pl, 3));
   const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x9fc0ff, transparent: true, opacity: 0.55 }));
   T.group.add(panels, lines);
+  // Hidden in "Real photo" mode: that view is the bare aerial photo, not the panel layout.
+  // T.mode is already set (to "photo" by default) before this runs, so apply it here too,
+  // not just in setMode() -- the scene's first build never calls setMode itself.
+  panels.visible = lines.visible = T.mode !== "photo";
+  T.panels = panels; T.panelLines = lines;
   // "Panels everywhere": what we did NOT do -- panels on the shady sides, in orange.
   const bp = [];
   for (const p of sc.bad_panels || []) {
@@ -311,7 +316,7 @@ function setDay(month, minute) {
   const k = Math.sin(el);
   T.sun.intensity = 0.6 + 2.4 * k;
   T.hemi.intensity = 0.45 + 0.65 * k;
-  T.scene.background.set("#07090C").lerp(new THREE.Color("#141A22"), Math.min(1, k * 1.6));
+  T.scene.background.set("#07090C").lerp(new THREE.Color("#8FB8D9"), Math.min(1, k * 1.6));
   const kw = roofPowerKw(st);
   if (T.panelMat) T.panelMat.emissiveIntensity = 0.55 * kw / T.dayPeak;
   $("sun-read").innerHTML = `<b>${hm} · <em>${fmt(Math.round(kw))} kW</em> now</b>` +
@@ -341,7 +346,7 @@ function lightFrom(st) {
   const k = Math.sin(el);
   T.sun.intensity = 0.6 + 2.4 * k;
   T.hemi.intensity = 0.45 + 0.65 * k;
-  T.scene.background.set("#07090C").lerp(new THREE.Color("#141A22"), Math.min(1, k * 1.6));
+  T.scene.background.set("#07090C").lerp(new THREE.Color("#8FB8D9"), Math.min(1, k * 1.6));
   const kw = roofPowerKw(st);
   if (T.panelMat) T.panelMat.emissiveIntensity = 0.55 * kw / (T.dayPeak || kw || 1);
   return kw;
@@ -416,6 +421,8 @@ function setMode(mode) {
   document.querySelectorAll(".mode").forEach((m) => m.classList.toggle("on", m.dataset.mode === mode));
   for (const r of T.roofs || []) r.material = mode === "photo" ? T.photoMat : r.userData.sunMat;
   if (T.bad) T.bad.visible = mode === "bad";
+  if (T.panels) T.panels.visible = mode !== "photo";
+  if (T.panelLines) T.panelLines.visible = mode !== "photo";
   if (data) key3D();
 }
 
