@@ -413,7 +413,11 @@ function key3D() {
         `<p style="color:var(--muted)">Those extra panels would take ${s.payback_years} years to pay back</p>`
         : `<p><b>Every roof side here is sunny.</b></p><p style="color:var(--muted)">No panels were left off. Try a Houston roof to see shady sides.</p>`)
     : `<p><b>Share of the best sun each side gets</b></p><p><span class="ramp"></span></p>` +
-      `<div class="ends"><span>60%</span><span>${keep}% (panels from here)</span><span>100%</span></div>${sunRows}`;
+      `<div class="ends"><span>60%</span><span>${keep}% (panels from here)</span><span>100%</span></div>${sunRows}` +
+      (current?.ac_room?.ac_units
+        ? `<p style="color:var(--muted)">Panel counts already leave room for ${fmt(current.ac_room.ac_units)} rooftop AC units ` +
+          `Vexcel found here, but this shading can't show exactly where on the roof they sit.</p>`
+        : "");
 }
 
 function setMode(mode) {
