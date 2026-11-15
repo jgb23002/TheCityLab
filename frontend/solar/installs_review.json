@@ -1,0 +1,29 @@
+{
+  "how": "Vexcel marks 17 sloped LA roofs that already have solar panels. scripts/validate_installs.py drew our model's choice on each real aerial photo (green = we'd put panels, red = we'd skip; % = share of the best sun). Each photo was then checked by eye for where the real panels are.",
+  "excluded": [
+    {"n": 1, "why": "house covered by a fumigation tent in the photo"},
+    {"n": 4, "why": "large mostly-flat complex, not a two-sided roof"},
+    {"n": 9, "why": "parking canopy, not a roof"},
+    {"n": 10, "why": "parking canopy, not a roof"},
+    {"n": 13, "why": "ground-mounted solar field, not a roof"},
+    {"n": 2, "why": "same house as #3 (second photo)"},
+    {"n": 16, "why": "same warehouse as #14 (second photo)"}
+  ],
+  "roofs": [
+    {"n": 0, "agree": true, "note": "Panels on the west side. We rate west and east equally (86%) and would use both."},
+    {"n": 5, "agree": true, "note": "Panels on the west side, a side we choose (86%)."},
+    {"n": 8, "agree": true, "note": "Panels on the south-facing half (100%); the north half we skip (66%) is left empty."},
+    {"n": 11, "agree": true, "note": "Panels on both the west and east sides; we choose both (86% each)."},
+    {"n": 12, "agree": true, "note": "Panels on the west side, a side we choose (86%)."},
+    {"n": 15, "agree": true, "note": "Panels on the south-west side (96%), the side we choose."},
+    {"n": 6, "agree": false, "note": "Panels on a side we score 78%, just under our 80% cut-off."},
+    {"n": 7, "agree": false, "note": "The installer also used the north-facing side, which we score 67% and skip."},
+    {"n": 3, "agree": false, "note": "L-shaped roof: our two-side split doesn't match its real slopes, so this is our geometry's fault."},
+    {"n": 14, "agree": false, "note": "Low-slope warehouse with panels on both sides. We assume a 27° slope, which makes the north side look worse (73%) than it is on a nearly flat roof."}
+  ],
+  "takeaways": [
+    "6 of 10 real roofs: every panel sits on a side our model picks.",
+    "In 3 of the 4 that differ, the installer used a side our rules skip (a 78% side, a 67% north side, and a low-slope warehouse's north side). Our rules are stricter than some installers, so our panel counts lean careful.",
+    "Installers keep picking west-facing sides: on 3 houses we rate east and west the same and installers chose west each time, and on #6 they chose the west-north-west side over the east-south-east one. This matches NREL's finding that LA afternoons are sunnier than mornings, which our model (monthly NASA averages) doesn't capture. That's our clearest thing to improve."
+  ]
+}
