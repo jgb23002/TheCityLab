@@ -87,10 +87,10 @@ def main() -> dict[str, Any]:
         kx = M_PER_DEG_LAT * math.cos(math.radians(c.y))
         local = Polygon([((x - c.x) * kx, (y - c.y) * M_PER_DEG_LAT) for x, y in g.exterior.coords])
         sides = []
-        for sd in roof_sides(local):
+        for sd in roof_sides(local, r['shape']):
             pct = round(100 * sun.plane_sunlight(steps, PITCHED_TILT_DEG, sd["facing_deg"])["kwh_m2_year"] / best_year)
             sides.append({"facing": sd["facing_deg"], "pct": pct, "poly": sd["poly"], "ours": pct >= KEEP_PERCENT})
-        if len(sides) != 2:
+        if len(sides) < 2:
             continue
         pad = 6 / M_PER_DEG_LAT
         b = g.bounds

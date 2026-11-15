@@ -81,7 +81,7 @@ from `data/cache/vision/m-<property_id>.json`, so a repeat run makes no vision m
 
 ## Measuring the sample
 
-`python scripts/measure_sample.py --city houston|los_angeles [--n 50] [--workers 3] [--dry-run]`
+`python scripts/measure_vision_sample.py --city houston|los_angeles [--n 50] [--workers 3] [--dry-run]`
 measures each building in `data/samples/<city>.csv` once: Vexcel attributes, aerial
 image, element detections (parking space, car, tree, pool, solar panel), then the vision
 measurement. It saves `data/cache/vision/m-<id>.json`, which the agent, the web study and

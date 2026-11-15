@@ -90,7 +90,7 @@ export async function initFlight({ city = "los_angeles", onExplore } = {}) {
     if (window.__lenis) window.__lenis.scrollTo(y, { duration: 1.6 }); else scrollTo({ top: y, behavior: "smooth" });
   }));
   $("dock-sun").addEventListener("input", (e) => { S_.sunT = Number(e.target.value); view.setSun(); });
-  $("dock-all").addEventListener("click", () => view.installAll());
+  view.installAll();  // every roof starts with its panels on; a click on a roof turns that roof off or on
   document.querySelectorAll(".dock-mode button").forEach((btn) => btn.addEventListener("click", () => setSurvey(btn.dataset.mode === "survey")));
   addEventListener("keydown", (e) => {
     if (e.key.toLowerCase() === "l" && !e.metaKey && !e.ctrlKey && !/input|textarea/i.test(document.activeElement.tagName)) setSurvey(!S_.surveyOn);
@@ -323,7 +323,7 @@ function build(b, data, canvas) {
   scene.add(scan);
 
   // ---- panels: one mesh per roof side, so each side can be installed or removed ----
-  const panelMat = new THREE.MeshStandardMaterial({ color: 0x163a8a, roughness: 0.25, metalness: 0.6, side: THREE.DoubleSide,
+  const panelMat = new THREE.MeshStandardMaterial({ color: 0x163a8a, roughness: 0.55, metalness: 0.25, side: THREE.DoubleSide,
     emissive: 0x3d6bff, emissiveIntensity: 0 });
   const bySide = {};
   for (const p of sc.panels) (bySide[p[0]] ||= []).push(p);
@@ -544,8 +544,8 @@ function build(b, data, canvas) {
       let on = 0, kw = 0, save = 0, roofsOn = 0, roofsAll = 0;
       for (const s of sides) {
         const isHover = s.i === hovered;
-        s.mat.emissiveIntensity = THREE.MathUtils.lerp(s.mat.emissiveIntensity, isHover ? 0.55 : 0, damp);
-        s.mat.color.set(isHover ? 0x0ea5e9 : 0x5a616b);
+        s.mat.emissiveIntensity = THREE.MathUtils.lerp(s.mat.emissiveIntensity, isHover ? 0.16 : 0, damp);  // gentle: stronger blows out under bloom
+        s.mat.color.set(isHover ? 0x3b82a8 : 0x5a616b);
         s.mat.opacity = 1 - 0.55 * sv;
         if (!s.panelsGeo) continue;
         roofsAll++;
@@ -561,7 +561,6 @@ function build(b, data, canvas) {
       $("dock-roofs").textContent = `${roofsOn}/${roofsAll} roofs`;
       $("dock-kw").textContent = `${fmt(on)} panels · ${fmt(Math.round(kw))} kW`;
       $("dock-save").textContent = `$${fmt(Math.round(save))}/yr`;
-      $("dock-all").textContent = sides.every((s) => !s.panelsGeo || S_.overrides[s.i] === true) ? "Reset roofs" : "Install all";
       if (p >= 0.91) $("flight-tip").hidden = true;
       composer.render();
     },
