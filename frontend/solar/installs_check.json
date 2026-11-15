@@ -6,6 +6,7 @@
   {
    "n": 0,
    "image": "views/install_0.jpg",
+   "before": "views/install_0_before.jpg",
    "lat": 34.035718,
    "lon": -118.316889,
    "shape": "hip",
@@ -26,12 +27,12 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ],
-   "before": "views/install_0_before.jpg"
+   ]
   },
   {
    "n": 1,
    "image": "views/install_1.jpg",
+   "before": "views/install_1_before.jpg",
    "lat": 34.035751,
    "lon": -118.316018,
    "shape": "hip",
@@ -52,12 +53,12 @@
      "ours": false,
      "panel_pixels_pct": 25.6
     }
-   ],
-   "before": "views/install_1_before.jpg"
+   ]
   },
   {
    "n": 2,
    "image": "views/install_2.jpg",
+   "before": "views/install_2_before.jpg",
    "lat": 34.069381,
    "lon": -118.45572,
    "shape": "hip",
@@ -78,38 +79,38 @@
      "ours": true,
      "panel_pixels_pct": 2.8
     }
-   ],
-   "before": "views/install_2_before.jpg"
+   ]
   },
   {
    "n": 3,
    "image": "views/install_3.jpg",
-   "lat": 34.069376,
-   "lon": -118.455718,
+   "before": "views/install_3_before.jpg",
+   "lat": 34.069381,
+   "lon": -118.45572,
    "shape": "hip",
-   "pv_area_sqft": 364,
+   "pv_area_sqft": 336,
    "pv_count": 1,
    "pv_score": 0.99,
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 304.7,
+     "facing": 304.6,
      "pct": 76,
      "ours": false,
-     "panel_pixels_pct": 10.1
+     "panel_pixels_pct": 9.7
     },
     {
-     "facing": 124.7,
+     "facing": 124.6,
      "pct": 94,
      "ours": true,
-     "panel_pixels_pct": 2.1
+     "panel_pixels_pct": 2.8
     }
-   ],
-   "before": "views/install_3_before.jpg"
+   ]
   },
   {
    "n": 4,
    "image": "views/install_4.jpg",
+   "before": "views/install_4_before.jpg",
    "lat": 34.051181,
    "lon": -118.406982,
    "shape": "hip",
@@ -130,12 +131,12 @@
      "ours": true,
      "panel_pixels_pct": 0.6
     }
-   ],
-   "before": "views/install_4_before.jpg"
+   ]
   },
   {
    "n": 5,
    "image": "views/install_5.jpg",
+   "before": "views/install_5_before.jpg",
    "lat": 34.024426,
    "lon": -118.307396,
    "shape": "hip",
@@ -156,12 +157,12 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ],
-   "before": "views/install_5_before.jpg"
+   ]
   },
   {
    "n": 6,
    "image": "views/install_6.jpg",
+   "before": "views/install_6_before.jpg",
    "lat": 34.083207,
    "lon": -118.281573,
    "shape": "gable",
@@ -182,12 +183,12 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ],
-   "before": "views/install_6_before.jpg"
+   ]
   },
   {
    "n": 7,
    "image": "views/install_7.jpg",
+   "before": "views/install_7_before.jpg",
    "lat": 34.067862,
    "lon": -118.262984,
    "shape": "hip",
@@ -208,12 +209,12 @@
      "ours": true,
      "panel_pixels_pct": 3.6
     }
-   ],
-   "before": "views/install_7_before.jpg"
+   ]
   },
   {
    "n": 8,
    "image": "views/install_8.jpg",
+   "before": "views/install_8_before.jpg",
    "lat": 34.074888,
    "lon": -118.295162,
    "shape": "hip",
@@ -234,12 +235,12 @@
      "ours": false,
      "panel_pixels_pct": 11.6
     }
-   ],
-   "before": "views/install_8_before.jpg"
+   ]
   },
   {
    "n": 9,
    "image": "views/install_9.jpg",
+   "before": "views/install_9_before.jpg",
    "lat": 33.959218,
    "lon": -118.426545,
    "shape": "gable",
@@ -260,12 +261,12 @@
      "ours": true,
      "panel_pixels_pct": 15.8
     }
-   ],
-   "before": "views/install_9_before.jpg"
+   ]
   },
   {
    "n": 10,
    "image": "views/install_10.jpg",
+   "before": "views/install_10_before.jpg",
    "lat": 33.959564,
    "lon": -118.426956,
    "shape": "gable",
@@ -286,12 +287,12 @@
      "ours": true,
      "panel_pixels_pct": 0.1
     }
-   ],
-   "before": "views/install_10_before.jpg"
+   ]
   },
   {
    "n": 11,
    "image": "views/install_11.jpg",
+   "before": "views/install_11_before.jpg",
    "lat": 33.96044,
    "lon": -118.42675,
    "shape": "hip",
@@ -312,12 +313,12 @@
      "ours": true,
      "panel_pixels_pct": 2.2
     }
-   ],
-   "before": "views/install_11_before.jpg"
+   ]
   },
   {
    "n": 12,
    "image": "views/install_12.jpg",
+   "before": "views/install_12_before.jpg",
    "lat": 33.960856,
    "lon": -118.426211,
    "shape": "hip",
@@ -338,8 +339,7 @@
      "ours": true,
      "panel_pixels_pct": 3.5
     }
-   ],
-   "before": "views/install_12_before.jpg"
+   ]
   },
   {
    "n": 13,
@@ -396,6 +396,7 @@
   {
    "n": 15,
    "image": "views/install_15.jpg",
+   "before": "views/install_15_before.jpg",
    "lat": 34.057249,
    "lon": -118.45464,
    "shape": "gable",
@@ -416,12 +417,12 @@
      "ours": true,
      "panel_pixels_pct": 6.5
     }
-   ],
-   "before": "views/install_15_before.jpg"
+   ]
   },
   {
    "n": 16,
    "image": "views/install_16.jpg",
+   "before": "views/install_16_before.jpg",
    "lat": 34.05752,
    "lon": -118.454778,
    "shape": "gable",
@@ -442,8 +443,7 @@
      "ours": false,
      "panel_pixels_pct": 21.7
     }
-   ],
-   "before": "views/install_16_before.jpg"
+   ]
   }
  ]
 }
