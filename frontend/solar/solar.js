@@ -628,11 +628,21 @@ async function installsBlock() {
   const roofs = review.roofs.filter((r) => byN[r.n]);
   const agree = roofs.filter((r) => r.agree).length;
   $("inst-lead").innerHTML = `On <b>${agree} of ${roofs.length}</b> real LA roofs with panels, every panel sits on a side our model picks. ` +
-    `Where we differ, installers used a side our stricter rules skip. Green = we'd put panels, red = we'd skip.`;
-  $("inst").innerHTML = roofs.map((r) => `<figure class="${r.agree ? "ok" : "no"}" title="${esc(r.note)}">` +
-    `<img loading="lazy" src="${byN[r.n].image}" alt="Roof with existing solar panels and our model's choice drawn on it">` +
-    `<figcaption>${r.agree ? "✓ Match" : "≈ Differs"}</figcaption></figure>`).join("");
+    `Where we differ, installers used a side our stricter rules skip. Each pair: the plain roof, then our choice drawn on it ` +
+    `(green = we'd put panels, red = we'd skip).`;
+  $("inst").innerHTML = roofs.map((r) => {
+    const before = byN[r.n].before;
+    return `<figure class="${r.agree ? "ok" : "no"}">` +
+      (before ? `<div class="pair2"><img loading="lazy" src="${before}" alt="Plain aerial photo of the roof, no annotation">` +
+        `<img loading="lazy" src="${byN[r.n].image}" alt="Our model's choice drawn on the same roof"></div>` :
+        `<img loading="lazy" src="${byN[r.n].image}" alt="Roof with existing solar panels and our model's choice drawn on it">`) +
+      `<figcaption><b>${r.agree ? "✓ Match" : "≈ Differs"}</b><span>${esc(r.note)}</span></figcaption></figure>`;
+  }).join("");
   $("inst").querySelectorAll("img").forEach((img) => img.addEventListener("error", () => img.closest("figure").classList.add("noimg")));
+  if (Array.isArray(review.takeaways) && review.takeaways.length) {
+    $("inst-take").innerHTML = review.takeaways.map((t) => `<li>${esc(t)}</li>`).join("");
+    $("inst-take").hidden = false;
+  }
   $("installs-block").hidden = false;
 }
 
