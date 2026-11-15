@@ -86,12 +86,13 @@
   </section>
 
   <form class="ask" id="ask">
-    <input id="question" autocomplete="off" aria-label="Your question"
-           value="Which apartment roofs in Los Angeles are wasting the most money?">
-    <div class="cities" role="radiogroup" aria-label="City">
-      <button type="button" class="city" data-city="houston">Houston</button>
-      <button type="button" class="city on" data-city="los_angeles">Los Angeles</button>
-    </div>
+    <p class="ask-sentence">Rank every apartment building's roof in
+      <span class="cities" role="radiogroup" aria-label="City">
+        <button type="button" class="city" data-city="houston">Houston</button>
+        <button type="button" class="city on" data-city="los_angeles">Los Angeles</button>
+      </span>
+      by how much a solar install would be worth.</p>
+    <input id="question" type="hidden" value="Which apartment roofs in Los Angeles are wasting the most money?">
     <button class="go" id="go" type="submit">Find the roofs</button>
   </form>
 
