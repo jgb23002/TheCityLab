@@ -452,6 +452,43 @@ def test_property_not_found_brief_is_clean_and_honest() -> None:
     assert planner._problems(brief, planner.Ledger()) == []
 
 
+def test_fix_next_step_citation_retags_the_right_draft_email() -> None:
+    """A "Next step" sentence tagged with the wrong draft_email entry gets corrected.
+
+    Reproduces a real run on "Which 10 Houston apartment buildings are the best
+    rooftop-solar candidates?": the writer named the rank-1 property correctly but
+    tagged it with a different building's draft_email evidence id (the first one it
+    read, not the one for that property), which the citation check could not match
+    but a writer fix-retry did not reliably catch either.
+    """
+    from backend.agent.evidence import Ledger
+
+    ledger = Ledger()
+    ledger.add("draft_email", {}, {"property_id": 794320}, "real")  # E1: a different building
+    ledger.add("draft_email", {}, {"property_id": 92530}, "real")  # E2: the rank-1 property
+    brief = "## Next step\n\nThe email draft for property 92530 [E1] is available for human review and has not been sent.\n"
+    fixed = planner._fix_next_step_citation(brief, ledger)
+    assert "92530 [E2]" in fixed
+    assert "[E1]" not in fixed
+
+
+def test_fix_next_step_citation_leaves_a_correct_tag_and_unmatched_text_alone() -> None:
+    """Already-correct citations, and briefs with no matching draft_email, are untouched."""
+    from backend.agent.evidence import Ledger
+
+    ledger = Ledger()
+    ledger.add("draft_email", {}, {"property_id": 92530}, "real")  # E1
+    correct = "## Next step\n\nThe email draft for property 92530 [E1] is available for human review.\n"
+    assert planner._fix_next_step_citation(correct, ledger) == correct
+
+    no_section = "## Answer\n\nProperty 92530 [E1] is the top candidate.\n"
+    assert planner._fix_next_step_citation(no_section, ledger) == no_section
+
+    empty_ledger = Ledger()
+    unresolvable = "## Next step\n\nThe email draft for property 92530 [E9] is available for review.\n"
+    assert planner._fix_next_step_citation(unresolvable, empty_ledger) == unresolvable
+
+
 class GivesUpLookupAgent:
     """Fails the lookup, then gives up and replies directly instead of delegating to the writer.
 
