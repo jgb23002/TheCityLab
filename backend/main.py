@@ -3,6 +3,7 @@
 import json
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import JsonValue, ValidationError
 
@@ -10,6 +11,7 @@ from backend.config import CACHE_DIR, FRONTEND_DIR, MP_SDK_KEY, PROJECT_ROOT
 from backend.schemas import AskRequest, AskResponse, Building, Measurement, StudyResult
 from backend.agent.study import StudyUnavailable, preview_buildings, run_study
 from backend.agent.agent_api import router as agent_router
+from backend.agent.solar_city import router as solar_city_router
 from backend.samples import sample_buildings
 from backend.tools import costar_data, geometry, solar
 
@@ -145,6 +147,18 @@ def ask(request: AskRequest) -> AskResponse:
 
 
 app.include_router(agent_router)
+app.include_router(solar_city_router)
 
-# Keep API routes above the root static mount.
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
+
+@app.get("/classic", include_in_schema=False)
+def classic_page() -> FileResponse:
+    """The original question-box app (its assets are absolute paths served by the root mount)."""
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+
+# Keep API routes above the root static mount. The solar page is the home page: the root
+# mount looks in frontend/solar/ first, then frontend/ (app.js, style.css, and /solar/ itself).
+frontend_files = StaticFiles(directory=FRONTEND_DIR, html=True)
+frontend_files.all_directories = [FRONTEND_DIR / "solar", FRONTEND_DIR]
+app.mount("/", frontend_files, name="frontend")
