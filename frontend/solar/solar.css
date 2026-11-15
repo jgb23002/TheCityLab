@@ -473,6 +473,10 @@ body.intro-on .brand img { opacity: 0; }
 @media (max-width: 1100px) { .proof .inst { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .proof .inst { grid-template-columns: 1fr; } }
 .assume { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+.map-note { position: absolute; z-index: 5; left: 14px; right: 14px; bottom: 14px; margin: 0; padding: 8px 12px;
+  font-size: 12px; line-height: 1.4; color: var(--muted); background: rgba(11,13,16,0.9); border: 1px solid var(--line);
+  border-radius: 8px; pointer-events: none; }
+@media (max-width: 900px) { .map-note { display: none; } }
 .assume b { color: var(--ink); }
 .chain li { grid-template-columns: 44px minmax(0, 1fr) 210px; padding: 10px 0; }
 .chain .val b { font-size: 20px; }

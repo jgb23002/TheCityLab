@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="solar.css?v=445f6d78">
+  <link rel="stylesheet" href="solar.css?v=4302608c">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -19,7 +19,7 @@
         "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
         "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
   </script>
-  <script type="module" src="solar.js?v=a3567ace"></script>
+  <script type="module" src="solar.js?v=4302608c"></script>
 </head>
 <body>
   <div class="progress" id="progress" aria-hidden="true"></div>
@@ -103,6 +103,9 @@
         <button type="button" class="tab" data-view="3d" role="tab" id="tab-3d" disabled>3D roof</button>
       </div>
       <div id="map" class="view on" data-view="map"></div>
+      <p class="map-note" id="map-note" hidden>Roof outlines are Vexcel's own detected building footprint, traced from the
+        aerial photo &mdash; not something CityLab measured or guessed. Edges can be slightly off under tree cover or at
+        complex rooflines.</p>
       <div id="three" class="view" data-view="3d">
         <div class="modes" role="radiogroup" aria-label="Roof colour">
           <button type="button" class="mode on" data-mode="photo">Real photo</button>
