@@ -8,7 +8,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { initFlight } from "./flight.js";
+import { initFlight } from "./flight.js?v=noglare";
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Number(n).toLocaleString("en-US");
@@ -651,30 +651,28 @@ function trustBlock() {
 }
 
 async function installsBlock() {
-  let check, review;
-  try {
-    [check, review] = await Promise.all(["installs_check.json", "installs_review.json"].map((f) => fetch(f).then((r) => (r.ok ? r.json() : null))));
-  } catch { return; }
-  if (!check || !review) return;
-  const byN = Object.fromEntries(check.roofs.map((r) => [r.n, r]));
-  const roofs = review.roofs.filter((r) => byN[r.n]);
-  const agree = roofs.filter((r) => r.agree).length;
-  $("inst-lead").innerHTML = `On <b>${agree} of ${roofs.length}</b> real LA roofs with panels, every panel sits on a side our model picks. ` +
-    `Where we differ, installers used a side our stricter rules skip. Each pair: the plain roof, then our choice drawn on it ` +
-    `(green = we'd put panels, red = we'd skip).`;
+  // Measured, not judged by eye: Vexcel's panel detector outlines the real panels; we measure
+  // how much of that panel area lands on roof faces our model picks (scripts/detect_installs.py).
+  let check;
+  try { check = await fetch("installs_check.json").then((r) => (r.ok ? r.json() : null)); } catch { return; }
+  const sum = check && check.measured_summary;
+  if (!sum || !sum.tested) return;
+  const roofs = check.roofs.filter((r) => r.measured && ["match", "differs"].includes(r.measured.status))
+    .sort((a, z) => z.measured.share_on_our_sides - a.measured.share_on_our_sides);
+  const band = sum.panel_area_by_our_score_pct || {};
+  $("inst-lead").innerHTML = `We evaluated <b>${sum.tested} Los Angeles homes with existing solar installations</b>. ` +
+    `Vexcel's AI detected every installed panel, and we measured how much of that panel area lies on roof faces our model recommends. ` +
+    `On the median home, <b>${sum.median_roof_share_pct}% of installed panels</b> are on recommended faces, and <b>no</b> installed panels ` +
+    `were found on faces our model rates below 60% of optimal sunlight.`;
+  $("inst-key").innerHTML = `<span><i class="k-g"></i>Recommended roof face</span><span><i class="k-r"></i>Not recommended (low sunlight)</span>` +
+    `<span><i class="k-b"></i>Installed panels, detected by Vexcel AI</span><span><b>sun 92%</b>&nbsp;Annual sunlight relative to an optimal roof</span>`;
   $("inst").innerHTML = roofs.map((r) => {
-    const before = byN[r.n].before;
-    return `<figure class="${r.agree ? "ok" : "no"}">` +
-      (before ? `<div class="pair2"><img loading="lazy" src="${before}" alt="Plain aerial photo of the roof, no annotation">` +
-        `<img loading="lazy" src="${byN[r.n].image}" alt="Our model's choice drawn on the same roof"></div>` :
-        `<img loading="lazy" src="${byN[r.n].image}" alt="Roof with existing solar panels and our model's choice drawn on it">`) +
-      `<figcaption><b>${r.agree ? "✓ Match" : "≈ Differs"}</b><span>${esc(r.note)}</span></figcaption></figure>`;
+    const ok = r.measured.status === "match", s = r.measured.share_on_our_sides;
+    return `<figure class="${ok ? "ok" : "no"}" title="${fmt(r.measured.panel_m2)} m² of installed panels detected">` +
+      `<img loading="lazy" src="${r.image}" alt="Home with installed solar panels and the model's recommended roof faces">` +
+      `<figcaption>${ok ? "✓" : "≈"} ${s}% of panels on recommended faces</figcaption></figure>`;
   }).join("");
   $("inst").querySelectorAll("img").forEach((img) => img.addEventListener("error", () => img.closest("figure").classList.add("noimg")));
-  if (Array.isArray(review.takeaways) && review.takeaways.length) {
-    $("inst-take").innerHTML = review.takeaways.map((t) => `<li>${esc(t)}</li>`).join("");
-    $("inst-take").hidden = false;
-  }
   $("installs-block").hidden = false;
 }
 

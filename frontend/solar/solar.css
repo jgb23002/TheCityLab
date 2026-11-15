@@ -606,3 +606,9 @@ body.intro-on .brand img { opacity: 0; }
 .inst-card summary:hover .sh { color: var(--sun); }
 .inst-card > :not(summary) { margin-left: 20px; margin-right: 20px; }
 .inst-card[open] { padding-bottom: 20px; }
+.inst-key { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
+.inst-key span { display: inline-flex; align-items: center; gap: 6px; }
+.inst-key b { color: var(--ink); font-family: "Geist Mono", monospace; font-size: 11px; background: #0B0D10; padding: 1px 4px; border-radius: 3px; }
+.inst-key i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.inst-key .k-g { background: #46B97C; } .inst-key .k-r { background: #E5534B; }
+.inst-key .k-b { height: 10px; background: rgba(56,189,248,0.6); }
