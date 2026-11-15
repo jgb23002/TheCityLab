@@ -584,3 +584,19 @@ body.intro-on .brand img { opacity: 0; }
 .flight-stage.roaming .ch { visibility: hidden; }
 .dock-chapters button i { font-style: normal; }
 @media (max-width: 1560px) { .dock-chapters button i { display: none; } .dock-chapters button span { margin: 0; } }
+
+/* real-install test: closed by default */
+.proofs { grid-template-columns: 1fr; }
+.inst-card { padding: 0; }
+.inst-card summary { display: flex; align-items: center; gap: 12px; list-style: none; cursor: pointer; padding: 16px 20px;
+  font: 600 16px Geist, sans-serif; color: var(--ink); }
+.inst-card summary::-webkit-details-marker { display: none; }
+.inst-card summary .st { flex: 1; }
+.inst-card summary .sh { font: 500 12px "Geist Mono", monospace; color: var(--muted); }
+.inst-card summary .sh::after { content: " +"; }
+.inst-card[open] summary .sh::after { content: " −"; }
+.inst-card[open] summary .sh { font-size: 0; }
+.inst-card[open] summary .sh::after { font-size: 12px; content: "Hide −"; }
+.inst-card summary:hover .sh { color: var(--sun); }
+.inst-card > :not(summary) { margin-left: 20px; margin-right: 20px; }
+.inst-card[open] { padding-bottom: 20px; }
