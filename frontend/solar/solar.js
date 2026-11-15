@@ -603,8 +603,13 @@ function trustBlock() {
   const n = data.nrel_check, a = data.assumptions;
   if (n && n.rows) {
     const rows = n.rows.filter((r) => r.tilt === 25), top = Math.max(...rows.flatMap((r) => [r.nrel, r.ours_scaled]));
-    $("nrel-lead").innerHTML = `Same best angle (<b>${n.best_ours.tilt}° facing ${facingWord(n.best_ours.facing)}</b>), the same ranking of all ${n.rows.length} angles we tested ` +
-      `(<b>${n.rank_agreement}</b> out of 1), typically within <b>${n.median_abs_diff_pct}%</b>.`;
+    const rhoPct = Math.round(n.rank_agreement * 100);
+    $("nrel-lead").innerHTML = `We tested ${n.rows.length} roof angles and directions (3 tilts × 8 compass directions) against ` +
+      `the U.S. government's own solar calculator, NREL PVWatts. Both pick the same best setup: ` +
+      `<b>${n.best_ours.tilt}° tilt, facing ${facingWord(n.best_ours.facing)}</b>. Across all ${n.rows.length}, the two models ` +
+      `rank angles from best to worst almost the same way (<b>${rhoPct}% agreement</b>), and are usually within ` +
+      `<b>${n.median_abs_diff_pct}%</b> of each other in energy produced. The chart below shows the 8 compass directions at the ` +
+      `best tilt (25°) &mdash; the full 24-angle comparison backs the numbers above.`;
     $("nrel").innerHTML = rows.map((r) => `<div class="col" title="Faces ${facingWord(r.facing)}: NREL ${fmt(r.nrel)}, CityLab ${fmt(r.ours_scaled)} (${r.diff_pct > 0 ? "+" : ""}${r.diff_pct}%)">` +
       `<div class="pair"><i class="n" style="height:${100 * r.nrel / top}%"></i><i class="o" style="height:${100 * r.ours_scaled / top}%"></i></div>` +
       `<div class="nl"><b>${["N", "NE", "E", "SE", "S", "SW", "W", "NW"][r.facing / 45]}</b></div></div>`).join("");
