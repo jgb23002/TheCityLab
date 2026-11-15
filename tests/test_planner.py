@@ -432,6 +432,100 @@ def test_retrofit_missing_ranking_is_incomplete() -> None:
     assert planner.missing_steps(ledger, "research") == ["run_regression"]
 
 
+def test_lookup_failure_reason_reads_the_latest_failed_lookup() -> None:
+    """_lookup_failure_reason finds the error on a failed lookup_property entry, else None."""
+    from backend.agent.evidence import Ledger
+
+    ledger = Ledger()
+    assert planner._lookup_failure_reason(ledger) is None
+    ledger.add("lookup_property", {"query": "704 Johnson St"},
+               {"error": "No demo property matches that id or address."}, "mock")
+    assert planner._lookup_failure_reason(ledger) == "No demo property matches that id or address."
+
+
+def test_property_not_found_brief_is_clean_and_honest() -> None:
+    """The synthesized brief states the failure plainly and cites no unverified numbers."""
+    brief = planner._property_not_found_brief("704 Johnson St", "No demo property matches that id or address.")
+    assert "Study Status: Incomplete" in brief
+    assert "No demo property matches that id or address." in brief
+    assert "704 Johnson St" in brief
+    assert planner._problems(brief, planner.Ledger()) == []
+
+
+def test_fix_next_step_citation_retags_the_right_draft_email() -> None:
+    """A "Next step" sentence tagged with the wrong draft_email entry gets corrected.
+
+    Reproduces a real run on "Which 10 Houston apartment buildings are the best
+    rooftop-solar candidates?": the writer named the rank-1 property correctly but
+    tagged it with a different building's draft_email evidence id (the first one it
+    read, not the one for that property), which the citation check could not match
+    but a writer fix-retry did not reliably catch either.
+    """
+    from backend.agent.evidence import Ledger
+
+    ledger = Ledger()
+    ledger.add("draft_email", {}, {"property_id": 794320}, "real")  # E1: a different building
+    ledger.add("draft_email", {}, {"property_id": 92530}, "real")  # E2: the rank-1 property
+    brief = "## Next step\n\nThe email draft for property 92530 [E1] is available for human review and has not been sent.\n"
+    fixed = planner._fix_next_step_citation(brief, ledger)
+    assert "92530 [E2]" in fixed
+    assert "[E1]" not in fixed
+
+
+def test_fix_next_step_citation_leaves_a_correct_tag_and_unmatched_text_alone() -> None:
+    """Already-correct citations, and briefs with no matching draft_email, are untouched."""
+    from backend.agent.evidence import Ledger
+
+    ledger = Ledger()
+    ledger.add("draft_email", {}, {"property_id": 92530}, "real")  # E1
+    correct = "## Next step\n\nThe email draft for property 92530 [E1] is available for human review.\n"
+    assert planner._fix_next_step_citation(correct, ledger) == correct
+
+    no_section = "## Answer\n\nProperty 92530 [E1] is the top candidate.\n"
+    assert planner._fix_next_step_citation(no_section, ledger) == no_section
+
+    empty_ledger = Ledger()
+    unresolvable = "## Next step\n\nThe email draft for property 92530 [E9] is available for review.\n"
+    assert planner._fix_next_step_citation(unresolvable, empty_ledger) == unresolvable
+
+
+class GivesUpLookupAgent:
+    """Fails the lookup, then gives up and replies directly instead of delegating to the writer.
+
+    Reproduces the bug reported for "704 Johnson St": the orchestrator's own confused
+    reply (asking for a city and state a one-shot call cannot receive) would otherwise
+    leak through as the brief and fail the citation check as unverified chatter.
+    """
+
+    def __init__(self, tools: list[Any]) -> None:
+        self.tools = {tool.name: tool for tool in tools}
+        self.calls = 0
+
+    def invoke(self, inputs: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Attempt the lookup (it fails and is recorded in the ledger either way), then reply directly."""
+        self.calls += 1
+        try:
+            self.tools["lookup_property"].invoke({"query": "704 Johnson St"})
+        except Exception:
+            pass
+        reply = ("I cannot proceed with delegating to the writer because the lookup tool has not "
+                 "yet produced a result for 704 Johnson St. Please provide the complete address, "
+                 "including city and state.")
+        return {"messages": [*inputs["messages"], AIMessage(content=reply)]}
+
+
+def test_property_lookup_failure_writes_a_clean_brief_not_the_orchestrators_chatter() -> None:
+    """A property-intent run whose lookup fails gets the synthesized brief, not raw model text."""
+    run = planner.run_question("704 Johnson St", mode="mock", intent="property",
+                                agent_factory=GivesUpLookupAgent)
+    assert "Study Status: Incomplete" in run.study.brief_markdown
+    assert "please provide the complete address" not in run.study.brief_markdown.lower()
+    assert all("Study incomplete:" in p for p in run.problems)
+    assert any("lookup_property" in p for p in run.problems)
+    assert run.verified is False
+    assert run.complete is False
+
+
 def test_intent_auto_and_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
     """auto detects retrofit from the question; explicit intent overrides it; CLI passes --intent."""
     seen: list[str] = []

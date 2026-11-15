@@ -500,6 +500,12 @@ function buildCard(study, b, m) {
   const solar = solarFor(study, b.id);
   const verdict = ownerVerdict(solar);
   const hasTour = !!b.matterport_model_id;
+  // A solar study's question is about the roof and sun, not what the vision model
+  // counted in the parking lot, so its card image leads with the roof-and-sun report
+  // instead of the parking/obstruction detection overlay; research cards still lead
+  // with the plain aerial photo and its boxed detections (what the study is about there).
+  const isSolarStudy = studyKind(study) !== "research";
+  const roofImgSrc = `/api/roof-view/${encodeURIComponent(b.id)}/summary`;
   // The Sun & roof tab is always offered; it checks for its own report image on click.
   const tabs = `<div class="bcard-tabs" role="tablist">` +
     (hasTour ? `<button type="button" class="bcard-tab" data-tab="tour" role="tab">3D tour</button>` : "") +
@@ -507,7 +513,8 @@ function buildCard(study, b, m) {
     (hasTour ? `<div class="bcard-panel" data-panel="tour" hidden></div>` : "") +
     `<div class="bcard-panel" data-panel="roof" hidden></div>`;
   card.innerHTML =
-    `<div class="bimg"><img alt="Aerial image of property ${esc(b.id)}" loading="lazy" decoding="async" src="/api/image/${encodeURIComponent(b.id)}">` +
+    `<div class="bimg"><img alt="${isSolarStudy ? "Roof and sun report for" : "Aerial image of"} property ${esc(b.id)}" ` +
+    `loading="lazy" decoding="async" src="${isSolarStudy ? roofImgSrc : `/api/image/${encodeURIComponent(b.id)}`}">` +
     `<canvas class="boxes" aria-hidden="true"></canvas><span class="noimg" hidden>No aerial image</span>` +
     `${study.is_mock ? '<span class="demo-tag">Demo data</span>' : ""}` +
     `${m && m.is_corrected ? '<span class="corrected-tag">Corrected</span>' : ""}</div>` +
@@ -524,9 +531,24 @@ function buildCard(study, b, m) {
   const img = card.querySelector("img");
   const canvas = card.querySelector("canvas");
   const obs = (m && m.observations) || {};
-  const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
-  img.addEventListener("load", draw);
-  img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
+  if (isSolarStudy) {
+    // No roof report yet for this building: fall back to the plain aerial photo
+    // (still no detection boxes -- the point is to not show parking/pool overlays
+    // on a solar card). If that also fails, show the normal "no image" message.
+    img.addEventListener("error", function onRoofImgError() {
+      img.removeEventListener("error", onRoofImgError);
+      if (img.src.endsWith(roofImgSrc)) {
+        img.src = `/api/image/${encodeURIComponent(b.id)}`;
+      } else {
+        img.hidden = true;
+        card.querySelector(".noimg").hidden = false;
+      }
+    });
+  } else {
+    const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
+    img.addEventListener("load", draw);
+    img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
+  }
   if ("ResizeObserver" in window) new ResizeObserver(draw).observe(img);
   if (canEdit) {
     card.querySelectorAll(".edit-value").forEach((btn) => btn.addEventListener("click", (e) => {
@@ -1338,6 +1360,12 @@ function renderStudy(study, evidence) {
   linkEvidenceTags($("brief"));
   $("caveats").innerHTML = (study.caveats || []).map((c) => `<li>${esc(c)}</li>`).join("");
   $("caveat-box").hidden = !(study.caveats || []).length;
+  // When the run ended incomplete, the real reason is already in the brief above (e.g.
+  // "could not be found in the CoStar database") - bring it into view instead of leaving
+  // the reader on the progress panel with only a generic "study incomplete" badge.
+  if (/study.{0,20}incomplete/i.test(study.brief_markdown || "")) {
+    $("report-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   if (!study.buildings.some((b) => b.id === state.selected)) state.selected = null;
   if (state.selected == null && study.buildings.length) {
     const top = (study.solar_results || []).find((r) => r.rank === 1);
@@ -1454,17 +1482,24 @@ async function showSavedDemo() {
 // ---------------------------------------------------------------------------
 
 // The judging scenarios (also recorded in the offline showcase as S1-S3).
+// All three stay on the one problem CityLab solves: which apartment buildings are
+// worth a rooftop-solar call. Earlier versions mixed in office/commercial-building
+// wording that doesn't match the real cohort (apartment communities only) -- these
+// match backend/agent/samples.py's actual sample population and property type.
 const SCENARIO_EXAMPLES = [
-  { id: "S1", mode: "research", market_id: 14, question: "Do office buildings with more parking spaces have higher vacancy rates in Houston?" },
-  { id: "S2", mode: "retrofit", market_id: 20, question: "Which commercial buildings in Los Angeles have the best rooftop solar retrofit potential?" },
-  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for building upgrades" },
+  { id: "S1", mode: "retrofit", market_id: 14, question: "Which 10 Houston apartment buildings are the best rooftop-solar candidates?" },
+  { id: "S2", mode: "retrofit", market_id: 20, question: "Which Los Angeles apartment buildings have the fastest solar payback?" },
+  { id: "S3", mode: "retrofit", market_id: 14, question: "Evaluate property 23453 for a rooftop solar retrofit" },
 ];
 
 async function loadExamples() {
   let questions = [];
   try {
     const res = await fetch("/api/questions");
-    if (res.ok) questions = (await res.json()).questions || [];
+    // Keep the chip row on the one problem CityLab solves (solar screening); the
+    // manifest's research/correlation questions (Q1, Q2) are left for the API and
+    // docs, not the demo surface.
+    if (res.ok) questions = ((await res.json()).questions || []).filter((q) => q.mode === "retrofit");
   } catch { /* examples are optional */ }
   try {
     for (const q of [...questions, ...SCENARIO_EXAMPLES]) {

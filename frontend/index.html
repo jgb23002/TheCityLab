@@ -35,28 +35,32 @@
     <header class="hero">
       <div class="hero-text">
         <p class="eyebrow"><i></i> Aerial photos + CoStar data</p>
-        <h1>Got a hunch about a city?<br><em>Let's go check the rooftops.</em></h1>
-        <p class="lede">Ask in plain English. We measure real aerial photos, run the numbers, and tell you what the evidence says.</p>
-        <p class="demo-note" role="note">Real data runs CoStar buildings through aerial analysis, reusing cached measurements. Name the city in your question. Turn on Demo mode to explore with synthetic numbers and no paid calls.</p>
+        <h1>Which roofs are worth<br><em>a solar call?</em></h1>
+        <p class="lede">Ask about apartment buildings in Houston or Los Angeles. We measure each roof from a real
+          aerial photo, work out the sun it gets all year, and rank which ones actually pay for solar.</p>
+        <p class="demo-note" role="note">Real data runs CoStar apartment buildings through aerial measurement and sun math, reusing cached measurements. Name the city in your question. Turn on Demo mode to explore with synthetic numbers and no paid calls.</p>
         <details class="scope-note">
           <summary>What questions can this actually answer?</summary>
-          <p>The cohort is <strong>apartment communities in Houston or Los Angeles</strong>. A question works best when
-            it compares one of these aerial measurements &mdash; green cover, paved surface, parking spaces, roof area
-            &mdash; against a CoStar outcome: asking rent or reported vacancy.</p>
-          <p><strong>Good:</strong> "Do greener Houston apartments charge more rent?" &middot; "Do LA buildings with
-            more parking have higher vacancy?" &middot; "Which 10 LA apartment buildings are the best solar candidates?"</p>
-          <p><strong>Won't work yet:</strong> office, retail or industrial buildings (no vacancy/rent data in this cohort)
-            &middot; cities other than Houston and Los Angeles &middot; anything the aerial photo can't show, like
-            interior condition or tenant names.</p>
+          <p>The cohort is <strong>apartment communities in Houston or Los Angeles</strong>. CityLab measures each
+            building's roof from its aerial photo, works out how much sun it gets over a year, and ranks the sample
+            by solar payback.</p>
+          <p><strong>Good:</strong> "Which 10 Houston apartment buildings are the best solar candidates?" &middot;
+            "Which LA apartment buildings have the fastest solar payback?" &middot; "Evaluate property 23453 for
+            a rooftop solar retrofit."</p>
+          <p>Typing a street address or a CoStar property id screens that one building instead &mdash; but only
+            addresses already in this sample are found (it is not a general Houston/LA property lookup).</p>
+          <p><strong>Won't work yet:</strong> office, retail or industrial buildings (not in this cohort) &middot;
+            cities other than Houston and Los Angeles &middot; an address that is not already in the sample &middot;
+            anything the aerial photo can't show, like roof condition up close or financing terms.</p>
         </details>
         <form id="ask-form" class="search">
           <input id="question" type="text" autocomplete="off" aria-label="Your question"
-                 placeholder="Do greener buildings charge more rent?">
+                 placeholder="Which apartment buildings are the best solar candidates?">
           <button type="submit" id="run">Find the answer</button>
         </form>
         <div class="study-options">
           <label>City<select id="market"><option value="14">Houston</option><option value="20">Los Angeles</option></select></label>
-          <label>Study<select id="mode"><option value="research">Research</option><option value="retrofit">Solar screening</option></select></label>
+          <label>Study<select id="mode"><option value="retrofit" selected>Solar screening</option><option value="research">Research (rent/vacancy correlation)</option></select></label>
           <label>Buildings<input id="sample-limit" form="ask-form" type="number" min="1" max="50" value="50" required></label>
           <label class="toggle"><input id="demo-mode" type="checkbox"> <span>Demo mode <small>(synthetic data, no paid calls)</small></span></label>
         </div>
@@ -93,17 +97,18 @@
       <div class="purpose-inner">
         <h2>Why CityLab exists</h2>
         <p><strong>The gap:</strong> a property owner can't tell whether a roof is worth a solar call without paying
-          for a site visit, and a researcher can't test a hunch about a city &mdash; "do greener buildings rent for
-          more?" &mdash; without weeks of manual data work. The data to answer both questions already exists; it's
-          just scattered across a real-estate database, satellite photos, and public weather records.</p>
-        <p><strong>What CityLab does:</strong> ask a plain-English question about Houston or Los Angeles apartment
-          buildings. CityLab samples a real cohort from CoStar, measures each roof from aerial imagery and sun
-          geometry, runs the actual statistics, and writes a brief that cites exactly where every number came from.
-          For solar questions, it ranks real buildings by payback and drafts (never sends) an email to the owner.</p>
-        <p><strong>What it refuses to do:</strong> invent a number no tool produced, call a correlation a cause, or
-          let a model guess at something a formula can already answer &mdash; roof area, building height, and sun
-          exposure are arithmetic over real data, not a model's reading of a photo. The one thing it asks a vision
-          model to do is the one thing a formula can't: count what's actually in a photograph.</p>
+          for a site visit. Across a city of apartment buildings, that means guessing, or visiting them all. The
+          data to answer this already exists &mdash; it's just scattered across a real-estate database, satellite
+          photos, and public weather records.</p>
+        <p><strong>What CityLab does:</strong> ask which Houston or Los Angeles apartment buildings are worth a solar
+          call. CityLab samples a real cohort from CoStar, measures each roof from its aerial photo, works out the
+          sun it gets all year from real sun-position and weather data, ranks the buildings by payback, and drafts
+          (never sends) an outreach email to the owner &mdash; with every number in the brief cited to where it came
+          from.</p>
+        <p><strong>What it refuses to do:</strong> invent a number no tool produced, or let a model guess at something
+          a formula can already answer &mdash; roof area, building height, and sun exposure are arithmetic over real
+          data, not a model's reading of a photo. The one thing it asks a vision model to do is the one thing a
+          formula can't: count what's actually in a photograph.</p>
       </div>
     </section>
 

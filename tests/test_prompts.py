@@ -89,7 +89,7 @@ def test_retrofit_prompts() -> None:
     assert "| Rank | Property id |" in writer and "[E40]" in writer
     assert "PVWatts" in writer and "fallback" in writer
     assert "incentives and financing" in writer and "aerial imagery" in writer
-    assert "first email draft" in writer and "skipped_no_roof" in writer
+    assert "rank 1 property" in writer and "skipped_no_roof" in writer
     orchestrator = prompts.ORCHESTRATOR_PROMPT
     assert "RETROFIT flow" in orchestrator and "never call the statistician" in orchestrator
     assert "roof_area_sq_ft" in prompts.INSPECTOR_PROMPT
