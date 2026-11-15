@@ -3,11 +3,7 @@
 __pycache__/
 data/costar/
 data/cache/
-.env
-.venv/
-__pycache__/
-data/costar/
-data/cache/
 notes/vexcel/
 .pytest_cache/
 out.json
+.vscode/

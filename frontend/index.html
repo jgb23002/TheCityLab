@@ -30,6 +30,7 @@
   <circle cx="35.5" cy="26" r="2.4" fill="#fffaf0" stroke="#1c2733" stroke-width="1.6"/>
 </svg><span class="wordmark">City<em>Lab</em></span></div>
       <span class="nav-note">Field reports for buildings</span>
+      <a class="nav-note" href="/solar/">Solar demo &rarr;</a>
     </nav>
 
     <header class="hero">
@@ -60,7 +61,7 @@
         </form>
         <div class="study-options">
           <label>City<select id="market"><option value="14">Houston</option><option value="20">Los Angeles</option></select></label>
-          <label>Study<select id="mode"><option value="retrofit" selected>Solar screening</option><option value="research">Research (rent/vacancy correlation)</option></select></label>
+          <label hidden>Study<select id="mode"><option value="retrofit" selected>Solar screening</option></select></label>
           <label>Buildings<input id="sample-limit" form="ask-form" type="number" min="1" max="50" value="50" required></label>
           <label class="toggle"><input id="demo-mode" type="checkbox"> <span>Demo mode <small>(synthetic data, no paid calls)</small></span></label>
         </div>
@@ -80,12 +81,8 @@
               <p class="strip-caption">2. Pull the Vexcel aerial photo centered on that address.</p>
             </div>
             <div class="strip-frame" data-step="2">
-              <div class="strip-media strip-placeholder"><span>Loading the detections&hellip;</span></div>
-              <p class="strip-caption">3. Box what the aerial model can see: parking, trees, pools, panels.</p>
-            </div>
-            <div class="strip-frame" data-step="3">
               <div class="strip-media strip-placeholder"><span>Loading the roof &amp; sun report&hellip;</span></div>
-              <p class="strip-caption">4. Measure the roof from shadows and work out the sun it gets all year.</p>
+              <p class="strip-caption">3. Measure the roof from shadows and work out the sun it gets all year.</p>
             </div>
           </div>
           <div class="strip-dots" role="tablist" aria-label="Jump to a step"></div>
@@ -155,9 +152,6 @@
             <label class="inline-control">Colour by
               <select id="color-by" aria-label="Colour map markers by">
                 <option value="auto">study measure</option>
-                <option value="parking_space_count">parking spaces</option>
-                <option value="green_cover_percent">green cover</option>
-                <option value="paved_surface_percent">paved surface</option>
                 <option value="roof_area_sq_ft">roof area</option>
                 <option value="payback_years">solar payback</option>
               </select></label>
