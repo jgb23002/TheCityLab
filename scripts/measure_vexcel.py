@@ -24,7 +24,7 @@ For each building in ``data/samples/<city>.csv``:
 With ``--detect``, Vexcel's AI also boxes the cars on one ~80 m photo
 centred on the parcel; the boxes go into ``Measurement.detections`` and a
 boxed copy of the photo is saved (about 2 more calls per building). Car
-counts are not parking-space counts (see docs/PARKING_METHOD.md).
+counts are not parking-space counts.
 
 Resumable: a building already in ``data/cache/measurements/<city>/`` is
 skipped unless ``--refresh``. About 2 Vexcel calls per new building, all

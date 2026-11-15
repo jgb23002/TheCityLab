@@ -1,155 +1,262 @@
-This is Team Cook 
+# CityLab
 
-CityLab is our HackPrinceton Fall 2026 building research project. It combines
-Vexcel aerial imagery and local CoStar data to investigate building questions
-and identify rooftop-solar candidates. The web interface runs the merged data,
-vision, regression, solar and outreach tools and displays a brief, completed
-study steps, map, chart, evidence table, solar shortlist and owner-email draft.
+**Find the apartment roofs that are wasting money, do the math, and tell the owner.**
 
-## Run the frontend
+CityLab is an AI research agent that scans every sampled apartment community in a city,
+measures each roof from aerial imagery, simulates a full year of sun on every roof face,
+places real-size solar panels, and ranks the buildings by what solar would be worth. For
+the best roofs it builds a 3D model and drafts an email to the owner.
 
-1. Open a terminal in the project folder. If needed, create a Python 3.11 virtual
-   environment with `python3.11 -m venv .venv`.
-2. Activate the virtual environment:
+Built at **HackPrinceton Fall 2026** by Team Cook.
 
-   Mac or Linux:
+| Track | How CityLab fits |
+| --- | --- |
+| 🌱 **Sustainability** (main track) | Finds where rooftop solar pays off, city-wide, before anyone climbs a ladder |
+| 🏢 **CoStar** | Every building, owner, unit count and lot size comes from the CoStar dataset |
+| 🦜 **LangChain** | A DeepAgents (LangChain) agent runs the analysis; LangSmith traces every run |
+| ☁️ **Amazon** | The agent's language model runs on Amazon Bedrock |
 
-   ```sh
-   source .venv/bin/activate
-   ```
+---
 
-   Windows (PowerShell):
+## The problem
 
-   ```powershell
-   .venv\Scripts\Activate.ps1
-   ```
+Apartment roofs are some of the largest unused solar surfaces in a city, but finding the
+good ones is slow and expensive. Owners don't know if their roof is worth it, and
+installers can't pay for a site visit to every building just to find out. The data to
+answer the question already exists. It's scattered across a real-estate database, aerial
+photos and public weather records.
 
-3. Install the existing project dependencies:
+## What CityLab does
 
-   ```sh
-   pip install -r requirements.txt
-   ```
+Pick **Houston** or **Los Angeles** and click **Find the roofs**. CityLab's agent then:
 
-4. Start the server:
+1. **Discovers** 50 apartment communities from CoStar, with units, lot size and owner.
+2. **Follows the sun** every 10 minutes for a full year, with NASA cloud data for the city.
+3. **Traces every roof** from Vexcel aerial data and splits sloped roofs into real faces.
+4. **Places real-size panels** (400 W, 1.72 × 1.13 m) only on faces that get at least
+   80% of the best sun, with a 3 ft fire setback and room left for rooftop AC units.
+5. **Prices each site:** yearly kWh from NREL PVWatts, installed cost, savings and payback.
+6. **Ranks the sites**, builds the top 5 in 3D, and drafts the owner email (never sent).
+7. **Checks itself** against NREL's own solar model.
 
-   ```sh
-   uvicorn backend.main:app --reload
-   ```
+Every step streams live into the page as the agent works, with the real numbers each
+tool returned.
 
-5. Open http://127.0.0.1:8000, choose a sample question, city, study type, data
-   source and number of buildings, then click **Find the answer**.
-   Hard-refresh the page if your browser still shows the old placeholder.
+### Results
 
-## What the page does now
+| | Houston | Los Angeles |
+| --- | --- | --- |
+| Apartment communities analyzed | 43 of 50 | 46 of 50 |
+| Roofs traced / roof faces scored | 505 / 2,272 | 59 / 98 |
+| Panels placed | 119,955 | 23,272 |
+| Total estimated savings | **$5.87M / year** | **$3.29M / year** |
+| #1 site | 33 Thirty Three: $412K/yr, pays back in 13–22 yrs | HillCreste Apartments: $531K/yr, pays back in 5–8 yrs |
 
-The page streams a real DeepAgents run from `POST /api/ask-stream`:
+Los Angeles pays back faster because power costs more there ($0.22/kWh vs $0.09/kWh) and
+it gets more sun (10% cloud loss vs 23% in Houston).
 
-- **Left, agent activity:** the planner's to-do list (DeepAgents `write_todos`), each
-  subagent delegation, every tool call, and the citation check.
-- **Centre, map:** sampled buildings, coloured by a chosen measure, with a filter.
-- **Right, building inspection:** the CoStar record (owners and tenants for single
-  properties), the aerial image with the boxes the vision model confirmed, confidence,
-  editable measurements, the interior scan and solar estimates.
-- **Below, analytics and reports:** two charts, the cited research brief, retrofit proposal
-  or property report (copy, download, print to PDF), the upgrade table with every
-  assumption, the solar ranking, the owner email draft (never sent) and the evidence ledger.
+### Why you can trust the numbers
 
-Three kinds of question work:
+- **Matches NREL PVWatts**, the U.S. government's solar calculator. Roof faces differ by
+  a median of **1.9%** (Houston) and **3.3%** (LA). Both models rank roofs the same way
+  (rank agreement 0.98 and 0.96) and pick the same best roof.
+- **Matches real installations.** On **53 Los Angeles homes that already have solar**,
+  Vexcel's AI detected the installed panels and we measured where they sit. On the median
+  home, **95% of the panel area** is on faces CityLab recommends. **No** installed panels
+  sit on faces CityLab rates below 60% of the best sun.
+- **Matches NASA.** Our sun model's flat-roof sunlight equals NASA POWER's measurement to
+  within 1 kWh/m²/year in both cities.
+- **Never invents a number.** The AI model decides the order of the steps and writes a
+  short summary. Every number on the page comes from a tool, never from the model.
 
-- **Research:** for example, Q1 and Q2.
-- **Retrofit:** Q3, or "best rooftop solar" questions.
-- **Single property:** a CoStar property id or a street address, for example "Evaluate
-  property 23453 for building upgrades".
+---
 
-Correcting a measurement (parking spaces, green cover or roof area) re-runs the statistics,
-or the solar estimates, ranking, upgrades and email, with no model call. Corrections are
-saved under a new study id, and correction history feeds `GET /api/calibration`.
+## Sponsor tracks
 
-**Offline demo:** `USE_CACHE_ONLY=true uvicorn backend.main:app` replays the recorded
-showcase runs (Q1-Q3 and the judging scenarios S1-S3) with no network calls. Replays are
-labelled as recorded runs. See `docs/AGENT.md` and `IMPLEMENTATION_STATUS.md`.
+### 🌱 Sustainability: main track
 
-## Older details
+Solar on existing roofs is one of the cheapest ways to add clean power to a city, because
+no new land is needed. The hard part is knowing *which* roofs are worth it. CityLab turns
+a city-wide screening job into a few minutes of computation:
 
-Open **Preview selected buildings** to see the actual CoStar sample immediately,
-without starting an imagery or model call. Changing city or data source refreshes
-that preview.
+- It finds the sunny faces of each roof and leaves out the shaded ones, so no panel goes
+  where it would waste money.
+- It sizes each system from the real roof, not a rule of thumb.
+- It shows the payback and the savings per apartment per month. If the owner saves on
+  power, they don't have to raise the rent.
+- It drafts the email that starts the conversation with the owner.
 
-Press Ctrl+C in the terminal to stop the server. Fonts, Leaflet, Chart.js and map
-tiles load from the internet. If those libraries cannot load, the brief,
-statistics and evidence table still work, with a message in the map/chart area.
+### 🏢 CoStar
 
-### Real data and mock demo
+CoStar's dataset is the backbone of CityLab. Every building starts as a CoStar record:
 
-**Real data** uses the committed 50-building Houston or Los Angeles CoStar sample
-from `data/samples/`. If the local CoStar kit is available in `data/costar/`, the
-merged CoStar loader enriches those same property ids with full building fields.
-Existing cached vision measurements are reused. Fresh measurements call Vexcel
-and the configured vision model, so copy `.env.example` to `.env` if needed and
-configure `VEXCEL_API_KEY`, `LLM_PROVIDER`, `VISION_MODEL` and provider credentials.
-Start with a small building count while checking your configuration. No keys or
-local kit/cache files belong in Git.
+| CoStar data | What CityLab uses it for |
+| --- | --- |
+| Commercial property records (Houston market 14, LA market 20) | The sample of apartment communities, location, units, floors, year built |
+| Lot size | Matching each property to the right Vexcel parcel |
+| True owner contacts and sale records | Who the owner email goes to (owner, else property manager) |
+| Units | Savings per apartment per month |
 
-Q1 runs the green-cover/rent regression; Q2 runs paved-surface/vacancy regression,
-retaining reported zero vacancy. Both use full Building records for the units,
-year-built and categorical class controls. Q3 measures Los Angeles roofs, ranks
-solar payback, shows up to ten known-payback candidates and drafts an email for
-the top candidate. Emails are drafts only and are never sent.
+Code: [backend/tools/costar_data.py](backend/tools/costar_data.py), the `owners()`
+lookup in [scripts/build_solar_demo.py](scripts/build_solar_demo.py), and the samples in
+[backend/samples.py](backend/samples.py).
 
-**Mock demo** runs the same question-specific workflow with synthetic Houston or
-Los Angeles tools. It needs no keys, model calls, network access or CoStar kit;
-all results are labeled synthetic. It no longer returns one fixed Houston
-answer for every question. `GET /api/mock-study` remains a saved fixture preview.
+### 🦜 LangChain
 
-The web workflow is in `backend/agent/study.py`. It calls the merged typed tools
-directly and builds the brief only from returned numbers. The existing Deep
-Agents CLI remains available for conversational planning. The web request's
-`use_mock_tools` flag selects its data source; `USE_MOCK_TOOLS` still controls that
-workflow. The dashboard itself uses the agent routes below.
+The solar analysis is run by an agent built with **DeepAgents**, LangChain's agent
+toolkit, on LangChain and LangGraph:
 
-To prohibit all Vexcel and vision calls and use existing measurements only:
+- **Agent:** `create_deep_agent` with a system prompt and five LangChain tools, one per
+  stage of the analysis: `find_apartment_buildings`, `measure_year_of_sun`,
+  `trace_roofs_and_place_panels`, `rank_roofs_by_savings` and `check_against_nrel`.
+- **Planning:** LangChain's `write_todos` tool gives the agent a to-do list, which is
+  shown on the page.
+- **Streaming:** a LangChain callback forwards each plan and tool call to the browser as
+  it happens.
+- **Guard rails:** if the agent skips a stage, the backend runs it and labels it
+  "run by the backend". If the model is unavailable, the same tools run in order and the
+  page says why.
+- **LangSmith:** every run is traced as `citylab-solar-city` in the `citylab` project,
+  showing each model call, the plan and each tool's inputs and outputs.
+
+The original question-box app at `/classic` uses a larger DeepAgents setup with
+subagents (sampler, inspector, statistician, writer) and a citation check.
+
+Code: [backend/agent/solar_city.py](backend/agent/solar_city.py) (solar agent) and
+[backend/agent/planner.py](backend/agent/planner.py) (research agent).
+
+### ☁️ Amazon
+
+The agent's language model runs on **Amazon Bedrock** through LangChain's
+`ChatBedrockConverse`. Claude Haiku 4.5 plans and writes the summary, and Claude Sonnet
+4.6 handles the vision tasks in the research app. Bedrock calls use adaptive retries,
+so parallel agent steps back off instead of failing when throttled.
+
+Code: [backend/llm.py](backend/llm.py). The model ids are set in `.env`.
+
+---
+
+## How it works
+
+```
+Browser (frontend/solar/)                    FastAPI backend
+──────────────────────────                   ─────────────────────────────────────────────
+"Find the roofs"  ──POST /api/solar-city/stream──▶  DeepAgents agent (Amazon Bedrock model)
+                                                     │  plans with write_todos
+"Working on it"   ◀── live steps (SSE) ──────────────┤  calls 5 LangChain tools:
+                                                     │   1 CoStar buildings, owners
+Map, 3D roofs,    ◀── result: ranked roofs ──────────┤   2 Sun every 10 min + NASA POWER weather
+savings card,                                        │   3 Vexcel roofs → faces → panels
+owner email                                          │   4 Rank, 3D models, owner email
+                                                     │   5 Check against NREL PVWatts
+                                                     └─▶ LangSmith trace
+```
+
+| Data source | Used for |
+| --- | --- |
+| **CoStar** | Buildings, units, lot sizes, owners |
+| **Vexcel** | Parcel roof outlines and shapes, rooftop AC units, aerial photos, panel detection |
+| **NOAA** equations | Sun position every 10 minutes for a year |
+| **NASA POWER** | Monthly cloud cover and sunlight |
+| **NREL PVWatts V8** | Yearly energy per roof face, and the accuracy check |
+
+All Vexcel and NREL calls are cached under `data/cache/`, so a repeat run costs nothing.
+
+---
+
+## Run it
+
+**Requirements:** Python 3.11, the CoStar hackathon kit unzipped into `data/costar/`, and
+API keys.
+
+```sh
+python3.11 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cp .env.example .env               # then fill in your keys
+uvicorn backend.main:app --reload
+```
+
+Open **http://127.0.0.1:8000/**.
+
+| Address | Page |
+| --- | --- |
+| `/` | CityLab Solar: the main experience |
+| `/classic` | The original research app (ask a question about a city's buildings) |
+
+**Keys in `.env`:**
+- `VEXCEL_API_KEY`
+- `NREL_API_KEY`
+- AWS credentials with `LLM_PROVIDER=bedrock`, `LLM_MODEL` and `VISION_MODEL`
+- Optional: `LANGSMITH_API_KEY` with `LANGSMITH_TRACING=true` and `LANGSMITH_PROJECT=citylab`
+
+Keys are read only through [backend/config.py](backend/config.py) and are never printed
+or committed.
+
+**Offline mode** (no model or paid API calls):
 
 ```sh
 USE_CACHE_ONLY=true uvicorn backend.main:app --reload
 ```
 
-Missing measurements stay unknown. If none are usable, the API returns a clear
-503 error instead of substituting fake data. Solar uses the existing documented
-fallback yield when PVWatts is unavailable, and cache-only outreach uses the
-merged tool's local template without a model call.
+The backend runs the same tools on cached data only. If a city's roofs aren't cached, the
+page shows the recorded run and labels it as recorded.
 
-### API routes
+**Rebuild a city's recorded data:**
 
-| Route | What it returns |
-| --- | --- |
-| `GET /api/health` | `{"ok": true}` |
-| `GET /api/questions` | The three existing showcase questions and their metadata |
-| `GET /api/mock-study` | The validated, saved mock `StudyResult` |
-| `GET /api/buildings?market_id=14&limit=50` | The selected CoStar cohort without imagery/model calls; `use_mock_tools=true` previews synthetic records |
-| `POST /api/ask` | A question-specific `AskResponse` containing a `StudyResult` and actual completed-step events (fixed pipeline, no agent) |
-| `POST /api/ask-agent` | The DeepAgents planner's `AskResponse` (research, retrofit or single property) |
-| `POST /api/ask-stream` | The same, as server-sent events: plan, handoff, tool_call, details, citation_check, evidence, result |
-| `POST /api/correct` | Applies a measurement correction to a saved study and recomputes it (no model call) |
-| `GET /api/calibration` | Correction-history calibration per measured field |
-| `GET /api/image/{id}` | A building's aerial image (showcase, then cache) or a demo placeholder |
+```sh
+python scripts/build_solar_demo.py --city houston       # or los_angeles
+```
 
-`POST /api/ask` accepts the existing `AskRequest` contract, for example
-`{"question": "Do greener Houston apartments have higher asking rents?", "market_id": 14, "limit": 12, "use_mock_tools": true}`.
-Use `mode: "retrofit"` and `market_id: 20` for the Los Angeles solar workflow.
-Invalid request bodies return 422; missing preview files return 404; unavailable
-analysis returns 503. Completed events are shown after the request finishes;
-the active indicator while waiting is not a simulated tool-execution replay.
-
-### Frontend files
-
-- `frontend/index.html`: supplied page layout and animated aerial illustration.
-- `frontend/style.css`: supplied survey-map styling, responsive layout and animations.
-- `frontend/app.js`: typed study requests, completed-step history, brief, map,
-  research/solar charts, rankings, email drafts and evidence tables.
-
-### Checks
+## Tests
 
 ```sh
 pytest -q
-node --check frontend/app.js
 ```
+
+There are 439 tests. They cover the agent with a scripted model, the live stream, the
+sun model, roof geometry, the finance math and the API routes. They run offline in about
+10 seconds.
+
+## Project structure
+
+```
+backend/
+  main.py               FastAPI app; serves the solar page at /
+  agent/solar_city.py   Solar agent (DeepAgents), its 5 tools and the live stream
+  agent/planner.py      Research agent for /classic (subagents, citation check)
+  llm.py                Model setup (Amazon Bedrock, via LangChain)
+  sun.py                Sun position and NASA POWER weather
+  tools/                CoStar, Vexcel, solar finance, geometry, outreach, statistics
+  vexcel_detect.py      Vexcel parcel matching and panel detection
+scripts/
+  build_solar_demo.py   The staged solar pipeline (CityRun) used by the agent and the CLI
+  roof_solar_view.py    Roof faces, panel fitting, PVWatts per face
+  validate_installs.py  Real-install test drawings
+  detect_installs.py    Real-install test, measured with Vexcel's panel detector
+frontend/
+  solar/                CityLab Solar page (map, 3D roofs, live agent steps)
+  index.html, app.js    Research app at /classic
+data/samples/           The fixed 50-building samples for each city
+docs/CONTRACTS.md       Tool signatures (checked by tests/test_contracts.py)
+tests/                  pytest suite
+```
+
+## Assumptions and limits
+
+- **Costs and prices:** installed cost is $2.00/W (range $1.80–$2.40). Power price is
+  $0.09/kWh in Houston and $0.22/kWh in LA. No tax credits are included.
+- **Simple payback:** every kWh produced is assumed to replace a kWh bought from the grid.
+- **Sloped roofs:** assumed to be 27°, measured from roof shading on one building.
+- **Roof outlines** are Vexcel's detected footprints. They can be off under trees or at
+  complex rooflines.
+- **Not modelled:** shade from neighbouring buildings and trees.
+- **Not an engineering design.** CityLab is a screening tool that decides which roofs are
+  worth a site visit. A site visit still makes the final call.
+
+## Data and privacy
+
+CoStar data, the Vexcel cache and `.env` are licensed or secret and are never committed
+(see [.gitignore](.gitignore)). The repository contains only code, fixed building samples,
+the recorded page data and the photos the page displays. Owner emails are drafts only;
+CityLab never sends anything.

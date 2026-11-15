@@ -2,8 +2,7 @@
 
 Every live call is cached under ``data/cache/vexcel`` so ``USE_CACHE_ONLY=true``
 never touches the network. HTTP 429 responses are retried with exponential
-backoff. Request fields match ``scripts/vexcel_test.py``, which was checked
-against the live API. Detection lives in ``backend/vexcel_detect.py``.
+backoff. Request fields were checked against the live API. Detection lives in ``backend/vexcel_detect.py``.
 """
 
 from __future__ import annotations

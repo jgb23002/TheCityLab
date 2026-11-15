@@ -1,9 +1,17 @@
+# Secrets and local environments
 .env
 .venv/
-__pycache__/
+node_modules/
+
+# Licensed data and API caches (never commit)
 data/costar/
 data/cache/
-notes/vexcel/
+notes/
+
+# Tooling and OS files
+__pycache__/
 .pytest_cache/
-out.json
 .vscode/
+.claude/
+.DS_Store
+out.json
