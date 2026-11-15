@@ -36,7 +36,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from shapely import wkt as shapely_wkt  # noqa: E402
 import numpy as np  # noqa: E402
-from shapely.geometry import Polygon, box  # noqa: E402
+from shapely.geometry import Point, Polygon, box  # noqa: E402
 
 from backend import config, sun, vexcel_detect  # noqa: E402
 from backend.samples import sample_buildings  # noqa: E402
@@ -154,7 +154,7 @@ def analyze(b, props: dict[str, Any], steps: list[dict[str, Any]], best_year: fl
                         "solar_m2": _num(st.get("roof-objects.solar-panel-photovoltaic.area"))})
         shape = st.get("roof-characteristics.shape.value")
         if shape in ("gable", "hip"):
-            sides, tilt = roof_sides(poly), PITCHED_TILT_DEG
+            sides, tilt = roof_sides(poly, shape), PITCHED_TILT_DEG
         else:
             sides, tilt = [{"poly": poly, "facing_deg": 180.0}], FLAT_TILT_DEG
         flat = tilt == FLAT_TILT_DEG
@@ -178,7 +178,7 @@ def analyze(b, props: dict[str, Any], steps: list[dict[str, Any]], best_year: fl
                                   "skipped": {"panels": len(bad), "kw": round(len(bad) * PANEL["kw"], 1),
                                               "kwh": round(len(bad) * PANEL["kw"] * bad_per_kw),
                                               "kwh_per_panel": round(PANEL["kw"] * bad_per_kw)},
-                                  "_st": si, "_poly": sd["poly"], "_panels": [], "_bad": bad})
+                                  "_st": si, "_poly": sd["poly"], "_eave": sd.get("eave"), "_panels": [], "_bad": bad})
                 continue
             panels = fit["panels"]
             kw = len(panels) * PANEL["kw"]
@@ -194,7 +194,7 @@ def analyze(b, props: dict[str, Any], steps: list[dict[str, Any]], best_year: fl
                               "layout": layout,
                               "outline": loc.latlon(sd["poly"]),
                               "panel_shapes": [loc.latlon(p) for p in panels],
-                              "_st": si, "_poly": sd["poly"], "_panels": panels, "_ours": kw * ours_per_kw})
+                              "_st": si, "_poly": sd["poly"], "_eave": sd.get("eave"), "_panels": panels, "_ours": kw * ours_per_kw})
     ac_lost = make_room_for_ac(sides_out, structs, b.latitude, b.longitude)
     kw = sum(s["kw"] for s in sides_out)
     kwh = sum(s["kwh"] for s in sides_out)
@@ -428,18 +428,16 @@ def scene(r: dict[str, Any], b, parcel_wkt: str) -> dict[str, Any]:
     for si, sides in by_struct.items():
         st = r["_structs"][si]
         c = np.array(st["poly"].centroid.coords[0])
-        pitched = st["shape"] in ("gable", "hip") and len(sides) == 2
-        if pitched:
-            t = math.tan(math.radians(PITCHED_TILT_DEG))
-            reach = [max((np.array(p) - c) @ unit(sd["facing"]) for p in sd["_poly"].exterior.coords) for sd in sides]
-            rise = min(t * min(reach), MAX_RISE_M)
+        pitched = st["shape"] in ("gable", "hip") and all(sd.get("_eave") is not None for sd in sides)
+        t = math.tan(math.radians(PITCHED_TILT_DEG))
         for k, sd in enumerate(sides):
             n = unit(sd["facing"])
 
-            def z_roof(p, n=n) -> float:
+            def z_roof(p, sd=sd) -> float:
+                # Each face rises from its own eave at the roof's tilt (capped), so faces meet at hips and ridges.
                 if not pitched:
                     return eave
-                return max(eave, eave + rise - t * float((np.array(p) - c) @ n))
+                return eave + min(MAX_RISE_M, t * sd["_eave"].distance(Point(p)))
 
             pts = [[round(x, 2), round(y, 2), round(z_roof((x, y)), 2)] for x, y in list(sd["_poly"].exterior.coords)[:-1]]
             out_sides.append({"pts": pts, "pct": sd["pct"], "facing": sd["facing"], "tilt": sd["tilt"], "layout": sd["layout"],
@@ -709,7 +707,7 @@ class CityRun:
         for r in results:
             r.pop("_structs", None)
             for sd in r["sides"]:
-                for k in ("_st", "_poly", "_panels", "_ours", "_bad"):
+                for k in ("_st", "_poly", "_eave", "_panels", "_ours", "_bad"):
                     sd.pop(k, None)
         for r in results:  # smaller file: 6 decimals is ~10 cm
             for sd in r["sides"]:

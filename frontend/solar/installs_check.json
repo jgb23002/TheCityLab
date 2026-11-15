@@ -1,11 +1,478 @@
 {
  "city": "Los Angeles",
- "best_kwh_m2_year": 2277.5,
+ "best_kwh_m2_year": 2277.8,
  "keep_pct": 80,
  "roofs": [
   {
    "n": 0,
    "image": "views/install_0.jpg",
+   "before": "views/install_0_before.jpg",
+   "lat": 33.996002,
+   "lon": -118.345542,
+   "shape": "hip",
+   "pv_area_sqft": 146,
+   "pv_count": 3,
+   "pv_score": 0.49,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 338.0,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 8.4
+    },
+    {
+     "facing": 73.4,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 3.7
+    },
+    {
+     "facing": 153.1,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 3.5
+    },
+    {
+     "facing": 242.2,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 7.4
+    },
+    {
+     "facing": 162.6,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 1.5
+    },
+    {
+     "facing": 247.0,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 66,
+    "panel_m2": 24.6,
+    "boxes": 9
+   }
+  },
+  {
+   "n": 1,
+   "image": "views/install_1.jpg",
+   "before": "views/install_1_before.jpg",
+   "lat": 33.996146,
+   "lon": -118.345631,
+   "shape": "hip",
+   "pv_area_sqft": 38,
+   "pv_count": 1,
+   "pv_score": 0.62,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 335.0,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 156.4,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 4.2
+    },
+    {
+     "facing": 61.8,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 75.6,
+     "pct": 82,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 248.0,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 163.2,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 246.5,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 4.2,
+    "boxes": 4
+   }
+  },
+  {
+   "n": 2,
+   "image": "views/install_2.jpg",
+   "before": "views/install_2_before.jpg",
+   "lat": 33.995687,
+   "lon": -118.344373,
+   "shape": "hip",
+   "pv_area_sqft": 58,
+   "pv_count": 1,
+   "pv_score": 0.96,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 217.8,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 309.9,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.4
+    },
+    {
+     "facing": 44.6,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 24.6
+    },
+    {
+     "facing": 48.9,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 126.6,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 39.4,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 1.7
+    },
+    {
+     "facing": 131.9,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 128.6,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 2.7
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 9,
+    "panel_m2": 29.4,
+    "boxes": 3
+   }
+  },
+  {
+   "n": 3,
+   "image": "views/install_3.jpg",
+   "before": "views/install_3_before.jpg",
+   "lat": 33.996593,
+   "lon": -118.345065,
+   "shape": "hip",
+   "pv_area_sqft": 211,
+   "pv_count": 1,
+   "pv_score": 0.91,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 66.1,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.7
+    },
+    {
+     "facing": 247.3,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 330.8,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 155.1,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 247.2,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 29.5,
+     "detected_panel_m2": 10.0
+    },
+    {
+     "facing": 177.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 13.9,
+     "detected_panel_m2": 7.4
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 96,
+    "panel_m2": 18.1,
+    "boxes": 14
+   }
+  },
+  {
+   "n": 4,
+   "image": "views/install_4.jpg",
+   "before": "views/install_4_before.jpg",
+   "lat": 33.995849,
+   "lon": -118.34546,
+   "shape": "hip",
+   "pv_area_sqft": 300,
+   "pv_count": 2,
+   "pv_score": 0.66,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 336.2,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 3.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 155.5,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 17.4,
+     "detected_panel_m2": 14.5
+    },
+    {
+     "facing": 230.3,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 64.0,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 4.8,
+     "detected_panel_m2": 0.3
+    },
+    {
+     "facing": 250.8,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 264.5,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 98,
+    "panel_m2": 14.8,
+    "boxes": 23
+   }
+  },
+  {
+   "n": 5,
+   "image": "views/install_5.jpg",
+   "before": "views/install_5_before.jpg",
+   "lat": 34.140078,
+   "lon": -118.203733,
+   "shape": "hip",
+   "pv_area_sqft": 84,
+   "pv_count": 1,
+   "pv_score": 0.28,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 0.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 7.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 179.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 43.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 87.9,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 30.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 271.9,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 356.4,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 6,
+   "image": "views/install_6.jpg",
+   "before": "views/install_6_before.jpg",
+   "lat": 34.140626,
+   "lon": -118.203784,
+   "shape": "gable",
+   "pv_area_sqft": 147,
+   "pv_count": 2,
+   "pv_score": 0.71,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 355.7,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 29.9,
+     "detected_panel_m2": 6.1
+    },
+    {
+     "facing": 179.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 39.5,
+     "detected_panel_m2": 6.3
+    },
+    {
+     "facing": 21.9,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 42.7,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 51,
+    "panel_m2": 12.4,
+    "boxes": 12
+   }
+  },
+  {
+   "n": 7,
+   "image": "views/install_7.jpg",
+   "before": "views/install_7_before.jpg",
+   "lat": 34.114452,
+   "lon": -118.190064,
+   "shape": "gable",
+   "pv_area_sqft": 367,
+   "pv_count": 1,
+   "pv_score": 0.78,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 149.7,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 36.3,
+     "detected_panel_m2": 34.7
+    },
+    {
+     "facing": 326.5,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 34.7,
+    "boxes": 3
+   }
+  },
+  {
+   "n": 8,
+   "image": "views/install_8.jpg",
+   "before": "views/install_8_before.jpg",
    "lat": 34.035718,
    "lon": -118.316889,
    "shape": "hip",
@@ -15,23 +482,73 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 269.2,
+     "facing": 89.4,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 7.8
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 89.2,
+     "facing": 269.4,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 0.0
+     "panel_pixels_pct": 12.5,
+     "detected_panel_m2": 31.8
+    },
+    {
+     "facing": 173.1,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 0.7,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 80.3,
+     "pct": 83,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 254.9,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 178.8,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 173.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_0_before.jpg"
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 31.8,
+    "boxes": 11
+   }
   },
   {
-   "n": 1,
-   "image": "views/install_1.jpg",
+   "n": 9,
+   "image": "views/install_9.jpg",
+   "before": "views/install_9_before.jpg",
    "lat": 34.035751,
    "lon": -118.316018,
    "shape": "hip",
@@ -41,23 +558,837 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 179.1,
+     "facing": 178.9,
      "pct": 100,
      "ours": true,
-     "panel_pixels_pct": 30.1
+     "panel_pixels_pct": 32.5,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 359.1,
+     "facing": 89.6,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 35.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 0.0,
      "pct": 66,
      "ours": false,
-     "panel_pixels_pct": 25.6
+     "panel_pixels_pct": 22.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 269.4,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 24.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 226.2,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 18.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 36.6,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 31.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 322.7,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 27.3,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_1_before.jpg"
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   },
   {
-   "n": 2,
-   "image": "views/install_2.jpg",
+   "n": 10,
+   "image": "views/install_10.jpg",
+   "before": "views/install_10_before.jpg",
+   "lat": 34.009476,
+   "lon": -118.361617,
+   "shape": "hip",
+   "pv_area_sqft": 427,
+   "pv_count": 1,
+   "pv_score": 0.97,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 245.4,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 26.1,
+     "detected_panel_m2": 30.4
+    },
+    {
+     "facing": 70.1,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 170.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 1.4
+    },
+    {
+     "facing": 339.3,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 225.5,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 29.0,
+     "detected_panel_m2": 12.6
+    },
+    {
+     "facing": 95.6,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 71.3,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 253.8,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 44.4,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 11,
+   "image": "views/install_11.jpg",
+   "before": "views/install_11_before.jpg",
+   "lat": 34.115521,
+   "lon": -118.188519,
+   "shape": "gable",
+   "pv_area_sqft": 231,
+   "pv_count": 1,
+   "pv_score": 0.31,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 156.4,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 333.3,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 341.8,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 1.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 12,
+   "image": "views/install_12.jpg",
+   "before": "views/install_12_before.jpg",
+   "lat": 34.115204,
+   "lon": -118.1881,
+   "shape": "hip",
+   "pv_area_sqft": 176,
+   "pv_count": 1,
+   "pv_score": 0.96,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 32.7,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 3.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 203.3,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 2.1,
+     "detected_panel_m2": 19.3
+    },
+    {
+     "facing": 287.4,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 104.2,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 118.4,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 2.0
+    },
+    {
+     "facing": 328.3,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 30.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 275.1,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 3.6,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 14.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 201.5,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 21.3,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 13,
+   "image": "views/install_13.jpg",
+   "before": "views/install_13_before.jpg",
+   "lat": 34.141277,
+   "lon": -118.204491,
+   "shape": "hip",
+   "pv_area_sqft": 52,
+   "pv_count": 1,
+   "pv_score": 0.76,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 3.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 9.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 178.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 27.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 267.3,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 2.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 36.4,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 8.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 90.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 1.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 88.2,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 14,
+   "image": "views/install_14.jpg",
+   "before": "views/install_14_before.jpg",
+   "lat": 34.140822,
+   "lon": -118.202994,
+   "shape": "hip",
+   "pv_area_sqft": 258,
+   "pv_count": 1,
+   "pv_score": 0.3,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 178.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 67.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 357.3,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 5.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 88.3,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 29.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 269.1,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 15,
+   "image": "views/install_15.jpg",
+   "before": "views/install_15_before.jpg",
+   "lat": 34.140913,
+   "lon": -118.202887,
+   "shape": "hip",
+   "pv_area_sqft": 475,
+   "pv_count": 1,
+   "pv_score": 0.41,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 86.7,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 53.3
+    },
+    {
+     "facing": 266.2,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 22.1
+    },
+    {
+     "facing": 357.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 23.0
+    },
+    {
+     "facing": 175.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0
+    }
+   ],
+   "measured": {
+    "status": "duplicate"
+   }
+  },
+  {
+   "n": 16,
+   "image": "views/install_16.jpg",
+   "before": "views/install_16_before.jpg",
+   "lat": 34.1409,
+   "lon": -118.203842,
+   "shape": "gable",
+   "pv_area_sqft": 212,
+   "pv_count": 1,
+   "pv_score": 0.92,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 355.4,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 173.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 10.1,
+     "detected_panel_m2": 36.5
+    },
+    {
+     "facing": 151.5,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 1.5
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 37.9,
+    "boxes": 13
+   }
+  },
+  {
+   "n": 17,
+   "image": "views/install_17.jpg",
+   "before": "views/install_17_before.jpg",
+   "lat": 34.141046,
+   "lon": -118.203836,
+   "shape": "hip",
+   "pv_area_sqft": 299,
+   "pv_count": 1,
+   "pv_score": 0.82,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 357.8,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 175.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 31.0,
+     "detected_panel_m2": 26.0
+    },
+    {
+     "facing": 85.6,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 11.9,
+     "detected_panel_m2": 0.1
+    },
+    {
+     "facing": 266.4,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 5.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 264.9,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 10.0,
+     "detected_panel_m2": 0.7
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 26.8,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 18,
+   "image": "views/install_18.jpg",
+   "before": "views/install_18_before.jpg",
+   "lat": 34.068685,
+   "lon": -118.330871,
+   "shape": "hip",
+   "pv_area_sqft": 557,
+   "pv_count": 7,
+   "pv_score": 0.7,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 180.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 359.8,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 4.3,
+     "detected_panel_m2": 56.5
+    },
+    {
+     "facing": 90.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 1.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 181.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 2.4,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 266.1,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 357.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 90.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 270.7,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 0,
+    "panel_m2": 56.5,
+    "boxes": 7
+   }
+  },
+  {
+   "n": 19,
+   "image": "views/install_19.jpg",
+   "before": "views/install_19_before.jpg",
+   "lat": 34.069436,
+   "lon": -118.330627,
+   "shape": "hip",
+   "pv_area_sqft": 781,
+   "pv_count": 8,
+   "pv_score": 0.72,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 91.2,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 12.3,
+     "detected_panel_m2": 34.0
+    },
+    {
+     "facing": 330.4,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.1
+    },
+    {
+     "facing": 238.6,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 10.2,
+     "detected_panel_m2": 6.7
+    },
+    {
+     "facing": 151.1,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 16.8,
+     "detected_panel_m2": 23.2
+    },
+    {
+     "facing": 0.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 181.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 15.2
+    },
+    {
+     "facing": 323.2,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.9
+    },
+    {
+     "facing": 343.0,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 233.5,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 7.1,
+     "detected_panel_m2": 9.1
+    },
+    {
+     "facing": 178.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 29.6,
+     "detected_panel_m2": 10.2
+    },
+    {
+     "facing": 357.1,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 4.1,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 3.9
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 95,
+    "panel_m2": 103.3,
+    "boxes": 48
+   }
+  },
+  {
+   "n": 20,
+   "image": "views/install_20.jpg",
+   "before": "views/install_20_before.jpg",
+   "lat": 34.039767,
+   "lon": -118.410846,
+   "shape": "gable",
+   "pv_area_sqft": 241,
+   "pv_count": 2,
+   "pv_score": 0.55,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 105.8,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 16.3
+    },
+    {
+     "facing": 289.8,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 287.8,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 9.0,
+     "detected_panel_m2": 15.3
+    },
+    {
+     "facing": 311.3,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 4.8,
+     "detected_panel_m2": 16.7
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 65,
+    "panel_m2": 48.4,
+    "boxes": 8
+   }
+  },
+  {
+   "n": 21,
+   "image": "views/install_21.jpg",
+   "before": "views/install_21_before.jpg",
+   "lat": 34.11654,
+   "lon": -118.191556,
+   "shape": "hip",
+   "pv_area_sqft": 11,
+   "pv_count": 1,
+   "pv_score": 0.5,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 329.0,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 57.7,
+     "detected_panel_m2": 9.9
+    },
+    {
+     "facing": 149.1,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 43.2,
+     "detected_panel_m2": 18.5
+    },
+    {
+     "facing": 58.5,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 25.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 60.8,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 87.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 229.8,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 8.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 230.9,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 39.6,
+     "detected_panel_m2": 1.9
+    },
+    {
+     "facing": 133.4,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 42.9,
+     "detected_panel_m2": 2.2
+    },
+    {
+     "facing": 266.9,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 54.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 144.5,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.2
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 70,
+    "panel_m2": 32.9,
+    "boxes": 5
+   }
+  },
+  {
+   "n": 22,
+   "image": "views/install_22.jpg",
+   "before": "views/install_22_before.jpg",
    "lat": 34.069381,
    "lon": -118.45572,
    "shape": "hip",
@@ -67,23 +1398,80 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 304.6,
-     "pct": 76,
-     "ours": false,
-     "panel_pixels_pct": 9.7
-    },
-    {
-     "facing": 124.6,
+     "facing": 124.9,
      "pct": 94,
      "ours": true,
-     "panel_pixels_pct": 2.8
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 214.0,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 6.6,
+     "detected_panel_m2": 4.8
+    },
+    {
+     "facing": 34.6,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 18.4,
+     "detected_panel_m2": 51.0
+    },
+    {
+     "facing": 299.5,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 7.4,
+     "detected_panel_m2": 6.6
+    },
+    {
+     "facing": 307.0,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 1.1
+    },
+    {
+     "facing": 36.2,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 323.6,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 1.7,
+     "detected_panel_m2": 0.3
+    },
+    {
+     "facing": 135.6,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 215.9,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_2_before.jpg"
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 8,
+    "panel_m2": 63.9,
+    "boxes": 22
+   }
   },
   {
-   "n": 3,
-   "image": "views/install_3.jpg",
+   "n": 23,
+   "image": "views/install_23.jpg",
+   "before": "views/install_23_before.jpg",
    "lat": 34.069376,
    "lon": -118.455718,
    "shape": "hip",
@@ -93,23 +1481,254 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 304.7,
-     "pct": 76,
-     "ours": false,
-     "panel_pixels_pct": 10.1
+     "facing": 215.0,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 4.1
     },
     {
-     "facing": 124.7,
+     "facing": 124.5,
      "pct": 94,
      "ours": true,
-     "panel_pixels_pct": 2.1
+     "panel_pixels_pct": 0.0
+    },
+    {
+     "facing": 33.8,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 19.1
+    },
+    {
+     "facing": 310.1,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 9.6
+    },
+    {
+     "facing": 305.1,
+     "pct": 76,
+     "ours": false,
+     "panel_pixels_pct": 0.0
+    },
+    {
+     "facing": 293.2,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0
+    },
+    {
+     "facing": 37.5,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.0
     }
    ],
-   "before": "views/install_3_before.jpg"
+   "measured": {
+    "status": "duplicate"
+   }
   },
   {
-   "n": 4,
-   "image": "views/install_4.jpg",
+   "n": 24,
+   "image": "views/install_24.jpg",
+   "before": "views/install_24_before.jpg",
+   "lat": 34.071363,
+   "lon": -118.328495,
+   "shape": "gable",
+   "pv_area_sqft": 355,
+   "pv_count": 5,
+   "pv_score": 0.6,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 1.6,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 4.7,
+     "detected_panel_m2": 26.8
+    },
+    {
+     "facing": 178.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 13.8
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 34,
+    "panel_m2": 40.6,
+    "boxes": 4
+   }
+  },
+  {
+   "n": 25,
+   "image": "views/install_25.jpg",
+   "before": "views/install_25_before.jpg",
+   "lat": 34.070566,
+   "lon": -118.327708,
+   "shape": "hip",
+   "pv_area_sqft": 206,
+   "pv_count": 5,
+   "pv_score": 0.53,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 89.5,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 6.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 271.3,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 3.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 107.9,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 4.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 359.4,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 7.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 180.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 0.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 1.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 259.2,
+     "pct": 89,
+     "ours": true,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 188.9,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 105.4,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 26,
+   "image": "views/install_26.jpg",
+   "before": "views/install_26_before.jpg",
+   "lat": 34.03987,
+   "lon": -118.411226,
+   "shape": "hip",
+   "pv_area_sqft": 442,
+   "pv_count": 5,
+   "pv_score": 0.67,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 104.2,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.6,
+     "detected_panel_m2": 21.0
+    },
+    {
+     "facing": 274.4,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 2.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 191.9,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 96.9,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 275.0,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 5.7
+    },
+    {
+     "facing": 9.9,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 181.3,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 241.1,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 26.7,
+    "boxes": 19
+   }
+  },
+  {
+   "n": 27,
+   "image": "views/install_27.jpg",
+   "before": "views/install_27_before.jpg",
    "lat": 34.051181,
    "lon": -118.406982,
    "shape": "hip",
@@ -119,23 +1738,661 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 327.9,
-     "pct": 70,
-     "ours": false,
-     "panel_pixels_pct": 0.5
+     "facing": 251.2,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 147.9,
+     "facing": 339.6,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 341.8,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 160.3,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 68.5,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 255.9,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 249.7,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 2.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 72.3,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 345.1,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 2.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 147.6,
      "pct": 98,
      "ours": true,
-     "panel_pixels_pct": 0.6
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 70.9,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 61.6,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 166.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 180.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 3.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 74.0,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 6.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 164.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 174.5,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 339.9,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 312.2,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 129.6,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 11.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 355.7,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 276.8,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 340.2,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 3.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 80.8,
+     "pct": 83,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 97.7,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 7.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 64.7,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 1.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 259.6,
+     "pct": 89,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 163.7,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 57.8,
+     "pct": 76,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 331.5,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 160.7,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 209.6,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 115.2,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 243.1,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_4_before.jpg"
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   },
   {
-   "n": 5,
-   "image": "views/install_5.jpg",
+   "n": 28,
+   "image": "views/install_28.jpg",
+   "before": "views/install_28_before.jpg",
+   "lat": 34.011544,
+   "lon": -118.395462,
+   "shape": "hip",
+   "pv_area_sqft": 218,
+   "pv_count": 1,
+   "pv_score": 0.97,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 136.3,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 226.4,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 26.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 314.8,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 42.0,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 225.3,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 301.5,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 319.0,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 29,
+   "image": "views/install_29.jpg",
+   "before": "views/install_29_before.jpg",
+   "lat": 34.011656,
+   "lon": -118.394831,
+   "shape": "hip",
+   "pv_area_sqft": 92,
+   "pv_count": 1,
+   "pv_score": 0.52,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 135.8,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 45.5,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 4.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 224.8,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 21.7,
+     "detected_panel_m2": 13.0
+    },
+    {
+     "facing": 307.0,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 311.1,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 13.4,
+     "detected_panel_m2": 5.9
+    },
+    {
+     "facing": 224.8,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 136.2,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 8.8,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 51.9,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 136.4,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 56.5,
+     "pct": 76,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 69,
+    "panel_m2": 18.9,
+    "boxes": 1
+   }
+  },
+  {
+   "n": 30,
+   "image": "views/install_30.jpg",
+   "before": "views/install_30_before.jpg",
+   "lat": 34.081161,
+   "lon": -118.179387,
+   "shape": "gable",
+   "pv_area_sqft": 512,
+   "pv_count": 3,
+   "pv_score": 0.74,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 270.7,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 16.4,
+     "detected_panel_m2": 34.1
+    },
+    {
+     "facing": 85.6,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 1.9,
+     "detected_panel_m2": 62.8
+    },
+    {
+     "facing": 101.2,
+     "pct": 89,
+     "ours": true,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 96.9,
+    "boxes": 19
+   }
+  },
+  {
+   "n": 31,
+   "image": "views/install_31.jpg",
+   "before": "views/install_31_before.jpg",
+   "lat": 34.079386,
+   "lon": -118.181805,
+   "shape": "hip",
+   "pv_area_sqft": 297,
+   "pv_count": 4,
+   "pv_score": 0.82,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 262.1,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 0.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 169.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 1.4,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 350.1,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 77.5,
+     "pct": 82,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 79.0,
+     "pct": 83,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 32,
+   "image": "views/install_32.jpg",
+   "before": "views/install_32_before.jpg",
+   "lat": 34.01108,
+   "lon": -118.396782,
+   "shape": "hip",
+   "pv_area_sqft": 299,
+   "pv_count": 2,
+   "pv_score": 0.96,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 133.5,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 20.6,
+     "detected_panel_m2": 6.2
+    },
+    {
+     "facing": 37.1,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 6.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 222.9,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 44.2,
+     "detected_panel_m2": 17.5
+    },
+    {
+     "facing": 309.7,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 292.5,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 30.5,
+     "detected_panel_m2": 0.8
+    },
+    {
+     "facing": 308.7,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 97,
+    "panel_m2": 24.5,
+    "boxes": 17
+   }
+  },
+  {
+   "n": 33,
+   "image": "views/install_33.jpg",
+   "before": "views/install_33_before.jpg",
+   "lat": 34.038426,
+   "lon": -118.40903,
+   "shape": "hip",
+   "pv_area_sqft": 121,
+   "pv_count": 3,
+   "pv_score": 0.55,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 285.2,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 93.5,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 125.9,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 13.4,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 296.4,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 197.7,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 214.8,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 111.2,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 285.4,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 113.0,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 34,
+   "image": "views/install_34.jpg",
+   "before": "views/install_34_before.jpg",
    "lat": 34.024426,
    "lon": -118.307396,
    "shape": "hip",
@@ -145,23 +2402,1654 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 90.4,
-     "pct": 86,
+     "facing": 94.1,
+     "pct": 87,
      "ours": true,
-     "panel_pixels_pct": 0.0
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 270.4,
+     "facing": 270.0,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 0.0
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 182.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 358.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 72.0,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_5_before.jpg"
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   },
   {
-   "n": 6,
-   "image": "views/install_6.jpg",
+   "n": 35,
+   "image": "views/install_35.jpg",
+   "before": "views/install_35_before.jpg",
+   "lat": 33.960635,
+   "lon": -118.403605,
+   "shape": "gable",
+   "pv_area_sqft": 193,
+   "pv_count": 1,
+   "pv_score": 0.88,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 269.4,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 2.2,
+     "detected_panel_m2": 12.7
+    },
+    {
+     "facing": 90.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 4.6
+    },
+    {
+     "facing": 278.6,
+     "pct": 83,
+     "ours": true,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 17.3,
+    "boxes": 19
+   }
+  },
+  {
+   "n": 36,
+   "image": "views/install_36.jpg",
+   "before": "views/install_36_before.jpg",
+   "lat": 34.071436,
+   "lon": -118.332003,
+   "shape": "hip",
+   "pv_area_sqft": 582,
+   "pv_count": 2,
+   "pv_score": 0.79,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 315.0,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 19.5,
+     "detected_panel_m2": 35.1
+    },
+    {
+     "facing": 130.6,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 5.3,
+     "detected_panel_m2": 1.6
+    },
+    {
+     "facing": 39.3,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 217.0,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 21.1,
+     "detected_panel_m2": 24.5
+    },
+    {
+     "facing": 25.5,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 3.8,
+     "detected_panel_m2": 0.2
+    },
+    {
+     "facing": 214.6,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 39.6,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 128.5,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 287.6,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.4
+    },
+    {
+     "facing": 218.4,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 127.5,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 43,
+    "panel_m2": 61.7,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 37,
+   "image": "views/install_37.jpg",
+   "before": "views/install_37_before.jpg",
+   "lat": 34.116802,
+   "lon": -118.1884,
+   "shape": "hip",
+   "pv_area_sqft": 146,
+   "pv_count": 1,
+   "pv_score": 0.24,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 57.9,
+     "pct": 76,
+     "ours": false,
+     "panel_pixels_pct": 14.5,
+     "detected_panel_m2": 10.3
+    },
+    {
+     "facing": 239.3,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 10.9
+    },
+    {
+     "facing": 328.0,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 146.0,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 29.2,
+     "detected_panel_m2": 5.5
+    },
+    {
+     "facing": 157.2,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 1.6
+    },
+    {
+     "facing": 227.7,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 1.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 65,
+    "panel_m2": 29.1,
+    "boxes": 20
+   }
+  },
+  {
+   "n": 38,
+   "image": "views/install_38.jpg",
+   "before": "views/install_38_before.jpg",
+   "lat": 34.116519,
+   "lon": -118.188197,
+   "shape": "hip",
+   "pv_area_sqft": 206,
+   "pv_count": 3,
+   "pv_score": 0.77,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 60.8,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 21.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 240.4,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 7.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 328.5,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 133.0,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 12.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 147.5,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 11.5,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 5
+   }
+  },
+  {
+   "n": 39,
+   "image": "views/install_39.jpg",
+   "before": "views/install_39_before.jpg",
+   "lat": 34.1166,
+   "lon": -118.188035,
+   "shape": "hip",
+   "pv_area_sqft": 161,
+   "pv_count": 2,
+   "pv_score": 0.66,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 242.3,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 60.8,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 32.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 144.9,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 28.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 330.6,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 16.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 345.5,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 1.1,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 40,
+   "image": "views/install_40.jpg",
+   "before": "views/install_40_before.jpg",
+   "lat": 34.11666,
+   "lon": -118.188298,
+   "shape": "hip",
+   "pv_area_sqft": 224,
+   "pv_count": 2,
+   "pv_score": 0.6,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 61.7,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 1.4
+    },
+    {
+     "facing": 240.2,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 26.0
+    },
+    {
+     "facing": 149.1,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 22.9,
+     "detected_panel_m2": 16.6
+    },
+    {
+     "facing": 330.3,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 97,
+    "panel_m2": 44.0,
+    "boxes": 20
+   }
+  },
+  {
+   "n": 41,
+   "image": "views/install_41.jpg",
+   "before": "views/install_41_before.jpg",
+   "lat": 34.116035,
+   "lon": -118.18843,
+   "shape": "hip",
+   "pv_area_sqft": 149,
+   "pv_count": 2,
+   "pv_score": 0.51,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 333.3,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 13.7,
+     "detected_panel_m2": 24.2
+    },
+    {
+     "facing": 150.7,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 24.6,
+     "detected_panel_m2": 16.0
+    },
+    {
+     "facing": 166.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 15.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 135.1,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 327.5,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 14.4,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 29.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 236.4,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 168.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 247.0,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 3.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 333.9,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 88.9,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 3.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 59.8,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 23.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 58.7,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 140.6,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 12.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 291.7,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 54.1,
+     "detected_panel_m2": 3.5
+    },
+    {
+     "facing": 20.4,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 37,
+    "panel_m2": 43.8,
+    "boxes": 7
+   }
+  },
+  {
+   "n": 42,
+   "image": "views/install_42.jpg",
+   "before": "views/install_42_before.jpg",
+   "lat": 33.995129,
+   "lon": -118.34432,
+   "shape": "hip",
+   "pv_area_sqft": 322,
+   "pv_count": 3,
+   "pv_score": 0.53,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 311.5,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.2,
+     "detected_panel_m2": 13.3
+    },
+    {
+     "facing": 130.5,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 1.2,
+     "detected_panel_m2": 4.8
+    },
+    {
+     "facing": 220.7,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 17.5,
+     "detected_panel_m2": 16.5
+    },
+    {
+     "facing": 46.3,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 131.9,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 17.2,
+     "detected_panel_m2": 5.2
+    },
+    {
+     "facing": 124.3,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 219.5,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 10.1,
+     "detected_panel_m2": 1.4
+    },
+    {
+     "facing": 40.7,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 282.2,
+     "pct": 82,
+     "ours": true,
+     "panel_pixels_pct": 1.1,
+     "detected_panel_m2": 2.5
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 69,
+    "panel_m2": 43.7,
+    "boxes": 4
+   }
+  },
+  {
+   "n": 43,
+   "image": "views/install_43.jpg",
+   "before": "views/install_43_before.jpg",
+   "lat": 33.99554,
+   "lon": -118.346929,
+   "shape": "hip",
+   "pv_area_sqft": 165,
+   "pv_count": 2,
+   "pv_score": 0.75,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 335.3,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 169.5,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 1.4,
+     "detected_panel_m2": 16.6
+    },
+    {
+     "facing": 65.0,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 7.7
+    },
+    {
+     "facing": 198.4,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 340.6,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.6
+    },
+    {
+     "facing": 154.6,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 247.5,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 65.4,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 1.8
+    },
+    {
+     "facing": 244.3,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 1.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 335.3,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 265.4,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 68.4,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 62,
+    "panel_m2": 26.7,
+    "boxes": 5
+   }
+  },
+  {
+   "n": 44,
+   "image": "views/install_44.jpg",
+   "before": "views/install_44_before.jpg",
+   "lat": 33.995296,
+   "lon": -118.345892,
+   "shape": "hip",
+   "pv_area_sqft": 160,
+   "pv_count": 2,
+   "pv_score": 0.78,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 39.5,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 9.7
+    },
+    {
+     "facing": 214.0,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 5.3
+    },
+    {
+     "facing": 304.2,
+     "pct": 76,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 4.6
+    },
+    {
+     "facing": 133.0,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 2.9
+    },
+    {
+     "facing": 265.1,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 62.4,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 137.9,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 3.2
+    },
+    {
+     "facing": 123.4,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 216.1,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 44,
+    "panel_m2": 25.7,
+    "boxes": 4
+   }
+  },
+  {
+   "n": 45,
+   "image": "views/install_45.jpg",
+   "before": "views/install_45_before.jpg",
+   "lat": 33.995093,
+   "lon": -118.346277,
+   "shape": "hip",
+   "pv_area_sqft": 167,
+   "pv_count": 2,
+   "pv_score": 0.71,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 317.9,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 2.2
+    },
+    {
+     "facing": 49.2,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 4.8
+    },
+    {
+     "facing": 229.4,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 13.3
+    },
+    {
+     "facing": 143.3,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 6.2
+    },
+    {
+     "facing": 96.5,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 51.9,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 74,
+    "panel_m2": 26.6,
+    "boxes": 4
+   }
+  },
+  {
+   "n": 46,
+   "image": "views/install_46.jpg",
+   "before": "views/install_46_before.jpg",
+   "lat": 34.009837,
+   "lon": -118.393912,
+   "shape": "hip",
+   "pv_area_sqft": 435,
+   "pv_count": 5,
+   "pv_score": 0.66,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 44.6,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 2.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 312.5,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 8.2,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 206.5,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 1.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 227.5,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 32.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 133.3,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 14.1,
+     "detected_panel_m2": 4.8
+    },
+    {
+     "facing": 154.2,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 326.4,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 4.8,
+    "boxes": 5
+   }
+  },
+  {
+   "n": 47,
+   "image": "views/install_47.jpg",
+   "before": "views/install_47_before.jpg",
+   "lat": 34.009747,
+   "lon": -118.39288,
+   "shape": "hip",
+   "pv_area_sqft": 475,
+   "pv_count": 6,
+   "pv_score": 0.78,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 202.6,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 7.2,
+     "detected_panel_m2": 15.2
+    },
+    {
+     "facing": 17.9,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.7,
+     "detected_panel_m2": 9.8
+    },
+    {
+     "facing": 122.9,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 2.3,
+     "detected_panel_m2": 10.2
+    },
+    {
+     "facing": 293.9,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 11.2
+    },
+    {
+     "facing": 21.7,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 2.1,
+     "detected_panel_m2": 10.0
+    },
+    {
+     "facing": 110.3,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 290.1,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 4.8,
+     "detected_panel_m2": 1.6
+    },
+    {
+     "facing": 197.5,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 47,
+    "panel_m2": 58.0,
+    "boxes": 7
+   }
+  },
+  {
+   "n": 48,
+   "image": "views/install_48.jpg",
+   "before": "views/install_48_before.jpg",
+   "lat": 34.01046,
+   "lon": -118.393542,
+   "shape": "hip",
+   "pv_area_sqft": 209,
+   "pv_count": 1,
+   "pv_score": 0.79,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 181.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 16.1
+    },
+    {
+     "facing": 1.1,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 97.3,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 293.7,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 80.1,
+     "pct": 83,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 2.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 16.1,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 49,
+   "image": "views/install_49.jpg",
+   "before": "views/install_49_before.jpg",
+   "lat": 34.008921,
+   "lon": -118.394485,
+   "shape": "hip",
+   "pv_area_sqft": 420,
+   "pv_count": 5,
+   "pv_score": 0.63,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 69.2,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 6.4,
+     "detected_panel_m2": 5.4
+    },
+    {
+     "facing": 342.4,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 165.5,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 14.3,
+     "detected_panel_m2": 10.9
+    },
+    {
+     "facing": 251.3,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 8.3,
+     "detected_panel_m2": 2.6
+    },
+    {
+     "facing": 248.4,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 36.7,
+     "detected_panel_m2": 7.5
+    },
+    {
+     "facing": 70.7,
+     "pct": 80,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 171.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 25.1,
+     "detected_panel_m2": 5.2
+    },
+    {
+     "facing": 341.6,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 262.6,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 4.7,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 31.7,
+    "boxes": 28
+   }
+  },
+  {
+   "n": 50,
+   "image": "views/install_50.jpg",
+   "before": "views/install_50_before.jpg",
+   "lat": 34.008954,
+   "lon": -118.393665,
+   "shape": "hip",
+   "pv_area_sqft": 171,
+   "pv_count": 1,
+   "pv_score": 0.78,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 54.9,
+     "pct": 76,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.1
+    },
+    {
+     "facing": 140.9,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 2.8,
+     "detected_panel_m2": 7.4
+    },
+    {
+     "facing": 319.2,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 235.3,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 10.6,
+     "detected_panel_m2": 7.0
+    },
+    {
+     "facing": 323.3,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 19.9,
+     "detected_panel_m2": 8.8
+    },
+    {
+     "facing": 154.2,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 2.3,
+     "detected_panel_m2": 0.9
+    },
+    {
+     "facing": 235.5,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 24.1,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 51,
+   "image": "views/install_51.jpg",
+   "before": "views/install_51_before.jpg",
+   "lat": 34.069424,
+   "lon": -118.328503,
+   "shape": "hip",
+   "pv_area_sqft": 8,
+   "pv_count": 1,
+   "pv_score": 0.5,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 267.3,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 0.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 182.8,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 155.1,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 1.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 88.0,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 90.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 52,
+   "image": "views/install_52.jpg",
+   "before": "views/install_52_before.jpg",
+   "lat": 33.958832,
+   "lon": -118.402981,
+   "shape": "hip",
+   "pv_area_sqft": 285,
+   "pv_count": 2,
+   "pv_score": 0.82,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 265.3,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 358.4,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 10.5,
+     "detected_panel_m2": 5.9
+    },
+    {
+     "facing": 85.3,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 19.1,
+     "detected_panel_m2": 11.0
+    },
+    {
+     "facing": 175.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 88.4,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 4.6,
+     "detected_panel_m2": 6.3
+    },
+    {
+     "facing": 268.1,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 1.4
+    },
+    {
+     "facing": 168.3,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 62.3,
+     "detected_panel_m2": 21.0
+    },
+    {
+     "facing": 1.9,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 87,
+    "panel_m2": 45.6,
+    "boxes": 10
+   }
+  },
+  {
+   "n": 53,
+   "image": "views/install_53.jpg",
+   "before": "views/install_53_before.jpg",
+   "lat": 33.995868,
+   "lon": -118.343372,
+   "shape": "hip",
+   "pv_area_sqft": 44,
+   "pv_count": 2,
+   "pv_score": 0.65,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 346.9,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 140.6,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 227.3,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 167.9,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 326.2,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 98.3,
+     "pct": 88,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 47.6,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 5.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 274.5,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 310.3,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 171.4,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 54,
+   "image": "views/install_54.jpg",
+   "before": "views/install_54_before.jpg",
+   "lat": 33.996634,
+   "lon": -118.344015,
+   "shape": "hip",
+   "pv_area_sqft": 360,
+   "pv_count": 2,
+   "pv_score": 0.8,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 299.0,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 120.3,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 38.4,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 12.4,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 1.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 208.7,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 158.9,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 32.2,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 227.3,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 5.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 122.6,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 29.2,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 116.7,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 55,
+   "image": "views/install_55.jpg",
+   "before": "views/install_55_before.jpg",
+   "lat": 33.986515,
+   "lon": -118.3184,
+   "shape": "gable",
+   "pv_area_sqft": 310,
+   "pv_count": 2,
+   "pv_score": 0.56,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 180.0,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 359.3,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 56,
+   "image": "views/install_56.jpg",
+   "before": "views/install_56_before.jpg",
+   "lat": 34.140718,
+   "lon": -118.206452,
+   "shape": "hip",
+   "pv_area_sqft": 308,
+   "pv_count": 2,
+   "pv_score": 0.61,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 357.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 19.6,
+     "detected_panel_m2": 9.9
+    },
+    {
+     "facing": 178.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 13.6,
+     "detected_panel_m2": 5.5
+    },
+    {
+     "facing": 91.2,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 47.7,
+     "detected_panel_m2": 4.1
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 11.5,
+     "detected_panel_m2": 7.7
+    },
+    {
+     "facing": 17.6,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 32.3,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 64,
+    "panel_m2": 27.3,
+    "boxes": 3
+   }
+  },
+  {
+   "n": 57,
+   "image": "views/install_57.jpg",
+   "before": "views/install_57_before.jpg",
    "lat": 34.083207,
    "lon": -118.281573,
    "shape": "gable",
@@ -171,23 +4059,221 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 296.9,
-     "pct": 78,
-     "ours": false,
-     "panel_pixels_pct": 22.3
-    },
-    {
-     "facing": 116.9,
+     "facing": 116.5,
      "pct": 93,
      "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 297.5,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 22.9,
+     "detected_panel_m2": 18.2
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 0,
+    "panel_m2": 18.2,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 58,
+   "image": "views/install_58.jpg",
+   "before": "views/install_58_before.jpg",
+   "lat": 34.009529,
+   "lon": -118.395015,
+   "shape": "hip",
+   "pv_area_sqft": 177,
+   "pv_count": 1,
+   "pv_score": 1.0,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 177.3,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 21.2,
+     "detected_panel_m2": 16.2
+    },
+    {
+     "facing": 357.8,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 85.0,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 87.2,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 267.3,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 355.3,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 86.5,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.3,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 16.2,
+    "boxes": 1
+   }
+  },
+  {
+   "n": 59,
+   "image": "views/install_59.jpg",
+   "before": "views/install_59_before.jpg",
+   "lat": 34.069218,
+   "lon": -118.456424,
+   "shape": "gable",
+   "pv_area_sqft": 341,
+   "pv_count": 1,
+   "pv_score": 0.84,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 170.7,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 15.0,
+     "detected_panel_m2": 37.5
+    },
+    {
+     "facing": 348.6,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.9,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 331.3,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 11.4,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 307.0,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 10.7,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 37.5,
+    "boxes": 14
+   }
+  },
+  {
+   "n": 60,
+   "image": "views/install_60.jpg",
+   "before": "views/install_60_before.jpg",
+   "lat": 34.069198,
+   "lon": -118.456428,
+   "shape": "hip",
+   "pv_area_sqft": 283,
+   "pv_count": 1,
+   "pv_score": 0.93,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 173.6,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 13.2
+    },
+    {
+     "facing": 106.6,
+     "pct": 90,
+     "ours": true,
+     "panel_pixels_pct": 0.0
+    },
+    {
+     "facing": 354.6,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 19.3
+    },
+    {
+     "facing": 276.7,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 0.0
+    },
+    {
+     "facing": 308.0,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 25.7
+    },
+    {
+     "facing": 3.6,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0
+    },
+    {
+     "facing": 340.2,
+     "pct": 68,
+     "ours": false,
      "panel_pixels_pct": 0.0
     }
    ],
-   "before": "views/install_6_before.jpg"
+   "measured": {
+    "status": "duplicate"
+   }
   },
   {
-   "n": 7,
-   "image": "views/install_7.jpg",
+   "n": 61,
+   "image": "views/install_61.jpg",
+   "before": "views/install_61_before.jpg",
    "lat": 34.067862,
    "lon": -118.262984,
    "shape": "hip",
@@ -197,23 +4283,273 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 13.1,
-     "pct": 67,
-     "ours": false,
-     "panel_pixels_pct": 1.4
-    },
-    {
-     "facing": 193.1,
+     "facing": 193.3,
      "pct": 100,
      "ours": true,
-     "panel_pixels_pct": 3.6
+     "panel_pixels_pct": 1.4,
+     "detected_panel_m2": 19.7
+    },
+    {
+     "facing": 1.7,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 8.4
+    },
+    {
+     "facing": 102.2,
+     "pct": 89,
+     "ours": true,
+     "panel_pixels_pct": 12.2,
+     "detected_panel_m2": 6.5
+    },
+    {
+     "facing": 282.2,
+     "pct": 82,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 5.0
+    },
+    {
+     "facing": 24.9,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 3.3
     }
    ],
-   "before": "views/install_7_before.jpg"
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 73,
+    "panel_m2": 42.8,
+    "boxes": 5
+   }
   },
   {
-   "n": 8,
-   "image": "views/install_8.jpg",
+   "n": 62,
+   "image": "views/install_62.jpg",
+   "before": "views/install_62_before.jpg",
+   "lat": 34.011269,
+   "lon": -118.361859,
+   "shape": "hip",
+   "pv_area_sqft": 366,
+   "pv_count": 1,
+   "pv_score": 0.27,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 47.3,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 227.7,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 22.3,
+     "detected_panel_m2": 33.4
+    },
+    {
+     "facing": 317.1,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 135.8,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 225.0,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 49.1,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 137.2,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 136.1,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 41.8,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 33.4,
+    "boxes": 1
+   }
+  },
+  {
+   "n": 63,
+   "image": "views/install_63.jpg",
+   "before": "views/install_63_before.jpg",
+   "lat": 34.011101,
+   "lon": -118.36113,
+   "shape": "hip",
+   "pv_area_sqft": 260,
+   "pv_count": 1,
+   "pv_score": 0.92,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 244.3,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 334.5,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 157.0,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 33.2,
+     "detected_panel_m2": 21.0
+    },
+    {
+     "facing": 65.0,
+     "pct": 78,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 66.9,
+     "pct": 79,
+     "ours": false,
+     "panel_pixels_pct": 4.9,
+     "detected_panel_m2": 1.2
+    },
+    {
+     "facing": 334.1,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 49.2,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 155.7,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 95,
+    "panel_m2": 22.2,
+    "boxes": 1
+   }
+  },
+  {
+   "n": 64,
+   "image": "views/install_64.jpg",
+   "before": "views/install_64_before.jpg",
+   "lat": 34.011498,
+   "lon": -118.361086,
+   "shape": "hip",
+   "pv_area_sqft": 337,
+   "pv_count": 1,
+   "pv_score": 0.8,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 60.8,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 150.3,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 8.1,
+     "detected_panel_m2": 29.3
+    },
+    {
+     "facing": 329.5,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 244.8,
+     "pct": 92,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 74.6,
+     "pct": 81,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 150.9,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 29.3,
+    "boxes": 2
+   }
+  },
+  {
+   "n": 65,
+   "image": "views/install_65.jpg",
+   "before": "views/install_65_before.jpg",
    "lat": 34.074888,
    "lon": -118.295162,
    "shape": "hip",
@@ -223,23 +4559,280 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 179.6,
-     "pct": 100,
-     "ours": true,
-     "panel_pixels_pct": 25.2
-    },
-    {
      "facing": 359.6,
      "pct": 66,
      "ours": false,
-     "panel_pixels_pct": 11.6
+     "panel_pixels_pct": 2.1,
+     "detected_panel_m2": 1.9
+    },
+    {
+     "facing": 178.3,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 19.2,
+     "detected_panel_m2": 8.7
+    },
+    {
+     "facing": 270.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 36.0,
+     "detected_panel_m2": 12.0
+    },
+    {
+     "facing": 90.0,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 39.8,
+     "detected_panel_m2": 20.2
+    },
+    {
+     "facing": 88.9,
+     "pct": 85,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 173.5,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_8_before.jpg"
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 96,
+    "panel_m2": 42.7,
+    "boxes": 6
+   }
   },
   {
-   "n": 9,
-   "image": "views/install_9.jpg",
+   "n": 66,
+   "image": "views/install_66.jpg",
+   "before": "views/install_66_before.jpg",
+   "lat": 34.041224,
+   "lon": -118.409944,
+   "shape": "hip",
+   "pv_area_sqft": 266,
+   "pv_count": 2,
+   "pv_score": 0.95,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 330.0,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.5,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 54.8,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 1.9
+    },
+    {
+     "facing": 140.7,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 13.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 199.3,
+     "pct": 99,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 223.8,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 17.5,
+     "detected_panel_m2": 18.0
+    },
+    {
+     "facing": 319.4,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 338.1,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 16.2,
+     "pct": 67,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 243.0,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 6.8,
+     "detected_panel_m2": 2.4
+    },
+    {
+     "facing": 144.6,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 228.1,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 92,
+    "panel_m2": 22.3,
+    "boxes": 5
+   }
+  },
+  {
+   "n": 67,
+   "image": "views/install_67.jpg",
+   "before": "views/install_67_before.jpg",
+   "lat": 33.995224,
+   "lon": -118.343782,
+   "shape": "hip",
+   "pv_area_sqft": 246,
+   "pv_count": 1,
+   "pv_score": 0.93,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 221.4,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 28.9,
+     "detected_panel_m2": 24.1
+    },
+    {
+     "facing": 131.9,
+     "pct": 96,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 23.0,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 308.6,
+     "pct": 75,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 40.2,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 316.0,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 44.4,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 222.1,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 24.1,
+    "boxes": 1
+   }
+  },
+  {
+   "n": 68,
+   "image": "views/install_68.jpg",
+   "before": "views/install_68_before.jpg",
+   "lat": 34.113278,
+   "lon": -118.190899,
+   "shape": "hip",
+   "pv_area_sqft": 43,
+   "pv_count": 1,
+   "pv_score": 0.54,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 239.9,
+     "pct": 93,
+     "ours": true,
+     "panel_pixels_pct": 1.4,
+     "detected_panel_m2": 10.9
+    },
+    {
+     "facing": 60.1,
+     "pct": 77,
+     "ours": false,
+     "panel_pixels_pct": 29.1,
+     "detected_panel_m2": 15.3
+    },
+    {
+     "facing": 333.4,
+     "pct": 69,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 150.9,
+     "pct": 98,
+     "ours": true,
+     "panel_pixels_pct": 38.9,
+     "detected_panel_m2": 11.6
+    }
+   ],
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 60,
+    "panel_m2": 37.8,
+    "boxes": 8
+   }
+  },
+  {
+   "n": 69,
+   "image": "views/install_69.jpg",
+   "before": "views/install_69_before.jpg",
    "lat": 33.959218,
    "lon": -118.426545,
    "shape": "gable",
@@ -249,23 +4842,27 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 269.9,
-     "pct": 86,
-     "ours": true,
-     "panel_pixels_pct": 14.5
-    },
-    {
      "facing": 89.9,
      "pct": 86,
      "ours": true,
      "panel_pixels_pct": 15.8
+    },
+    {
+     "facing": 269.9,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 14.5
     }
    ],
-   "before": "views/install_9_before.jpg"
+   "measured": {
+    "status": "panel structure",
+    "panel_cover_pct": 88
+   }
   },
   {
-   "n": 10,
-   "image": "views/install_10.jpg",
+   "n": 70,
+   "image": "views/install_70.jpg",
+   "before": "views/install_70_before.jpg",
    "lat": 33.959564,
    "lon": -118.426956,
    "shape": "gable",
@@ -275,23 +4872,29 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 359.8,
-     "pct": 66,
-     "ours": false,
-     "panel_pixels_pct": 0.1
-    },
-    {
      "facing": 179.8,
      "pct": 100,
      "ours": true,
-     "panel_pixels_pct": 0.1
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 359.9,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_10_before.jpg"
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   },
   {
-   "n": 11,
-   "image": "views/install_11.jpg",
+   "n": 71,
+   "image": "views/install_71.jpg",
+   "before": "views/install_71_before.jpg",
    "lat": 33.96044,
    "lon": -118.42675,
    "shape": "hip",
@@ -301,23 +4904,59 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 269.3,
+     "facing": 270.0,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 0.2
+     "panel_pixels_pct": 0.4,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 89.3,
+     "facing": 90.0,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 2.2
+     "panel_pixels_pct": 4.0,
+     "detected_panel_m2": 2.7
+    },
+    {
+     "facing": 169.2,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 3.2,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 184.8,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 335.9,
+     "pct": 68,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_11_before.jpg"
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 100,
+    "panel_m2": 2.7,
+    "boxes": 1
+   }
   },
   {
-   "n": 12,
-   "image": "views/install_12.jpg",
+   "n": 72,
+   "image": "views/install_72.jpg",
+   "before": "views/install_72_before.jpg",
    "lat": 33.960856,
    "lon": -118.426211,
    "shape": "hip",
@@ -330,20 +4969,169 @@
      "facing": 90.0,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 0.0
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 270.0,
+     "facing": 269.2,
      "pct": 86,
      "ours": true,
-     "panel_pixels_pct": 3.5
+     "panel_pixels_pct": 4.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 174.9,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 0.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 1.1,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_12_before.jpg"
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   },
   {
-   "n": 13,
-   "image": "views/install_13.jpg",
+   "n": 73,
+   "image": "views/install_73.jpg",
+   "before": "views/install_73_before.jpg",
+   "lat": 34.009688,
+   "lon": -118.397032,
+   "shape": "hip",
+   "pv_area_sqft": 221,
+   "pv_count": 3,
+   "pv_score": 0.81,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 313.9,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 219.3,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 2.0,
+     "detected_panel_m2": 10.2
+    },
+    {
+     "facing": 125.2,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 6.0,
+     "detected_panel_m2": 9.0
+    },
+    {
+     "facing": 39.8,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 1.0,
+     "detected_panel_m2": 1.5
+    },
+    {
+     "facing": 218.4,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 41.0,
+     "pct": 72,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 36.4,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 7.2,
+     "detected_panel_m2": 1.1
+    },
+    {
+     "facing": 127.2,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 38.5,
+     "detected_panel_m2": 10.1
+    }
+   ],
+   "measured": {
+    "status": "match",
+    "share_on_our_sides": 92,
+    "panel_m2": 31.9,
+    "boxes": 15
+   }
+  },
+  {
+   "n": 74,
+   "image": "views/install_74.jpg",
+   "before": "views/install_74_before.jpg",
+   "lat": 34.010372,
+   "lon": -118.396584,
+   "shape": "hip",
+   "pv_area_sqft": 362,
+   "pv_count": 5,
+   "pv_score": 0.57,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 38.1,
+     "pct": 71,
+     "ours": false,
+     "panel_pixels_pct": 0.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 216.3,
+     "pct": 97,
+     "ours": true,
+     "panel_pixels_pct": 11.6,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 310.2,
+     "pct": 74,
+     "ours": false,
+     "panel_pixels_pct": 2.1,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 129.7,
+     "pct": 95,
+     "ours": true,
+     "panel_pixels_pct": 6.1,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
+  },
+  {
+   "n": 75,
+   "image": "views/install_75.jpg",
+   "before": "views/install_75_before.jpg",
    "lat": 34.049233,
    "lon": -118.455913,
    "shape": "gable",
@@ -353,23 +5141,29 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 143.4,
-     "pct": 97,
-     "ours": true,
-     "panel_pixels_pct": 0.0
+     "facing": 326.9,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 0.8,
+     "detected_panel_m2": 0.0
     },
     {
-     "facing": 323.4,
-     "pct": 71,
-     "ours": false,
-     "panel_pixels_pct": 1.2
+     "facing": 111.3,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_13_before.jpg"
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   },
   {
-   "n": 14,
-   "image": "views/install_14.jpg",
+   "n": 76,
+   "image": "views/install_76.jpg",
+   "before": "views/install_76_before.jpg",
    "lat": 34.057521,
    "lon": -118.454784,
    "shape": "gable",
@@ -379,23 +5173,52 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 315.2,
-     "pct": 73,
-     "ours": false,
-     "panel_pixels_pct": 20.2
-    },
-    {
-     "facing": 135.2,
+     "facing": 133.8,
      "pct": 96,
      "ours": true,
-     "panel_pixels_pct": 0.0
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 242.7
+    },
+    {
+     "facing": 315.3,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 21.5,
+     "detected_panel_m2": 232.9
+    },
+    {
+     "facing": 122.8,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 10.5,
+     "detected_panel_m2": 42.3
+    },
+    {
+     "facing": 328.0,
+     "pct": 70,
+     "ours": false,
+     "panel_pixels_pct": 9.1,
+     "detected_panel_m2": 6.6
+    },
+    {
+     "facing": 122.8,
+     "pct": 94,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
     }
    ],
-   "before": "views/install_14_before.jpg"
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 54,
+    "panel_m2": 524.5,
+    "boxes": 9
+   }
   },
   {
-   "n": 15,
-   "image": "views/install_15.jpg",
+   "n": 77,
+   "image": "views/install_77.jpg",
+   "before": "views/install_77_before.jpg",
    "lat": 34.057249,
    "lon": -118.45464,
    "shape": "gable",
@@ -405,23 +5228,31 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 46.2,
-     "pct": 73,
-     "ours": false,
-     "panel_pixels_pct": 4.2
-    },
-    {
-     "facing": 226.2,
+     "facing": 226.5,
      "pct": 96,
      "ours": true,
-     "panel_pixels_pct": 6.5
+     "panel_pixels_pct": 6.0,
+     "detected_panel_m2": 83.1
+    },
+    {
+     "facing": 47.1,
+     "pct": 73,
+     "ours": false,
+     "panel_pixels_pct": 5.0,
+     "detected_panel_m2": 59.2
     }
    ],
-   "before": "views/install_15_before.jpg"
+   "measured": {
+    "status": "differs",
+    "share_on_our_sides": 58,
+    "panel_m2": 142.3,
+    "boxes": 4
+   }
   },
   {
-   "n": 16,
-   "image": "views/install_16.jpg",
+   "n": 78,
+   "image": "views/install_78.jpg",
+   "before": "views/install_78_before.jpg",
    "lat": 34.05752,
    "lon": -118.454778,
    "shape": "gable",
@@ -431,19 +5262,97 @@
    "collection": "us-ca-losangeles_rf07-2026",
    "sides": [
     {
-     "facing": 135.2,
+     "facing": 135.5,
      "pct": 96,
      "ours": true,
      "panel_pixels_pct": 0.0
     },
     {
-     "facing": 315.2,
+     "facing": 315.3,
      "pct": 73,
      "ours": false,
-     "panel_pixels_pct": 21.7
+     "panel_pixels_pct": 22.1
     }
    ],
-   "before": "views/install_16_before.jpg"
+   "measured": {
+    "status": "duplicate"
+   }
+  },
+  {
+   "n": 79,
+   "image": "views/install_79.jpg",
+   "before": "views/install_79_before.jpg",
+   "lat": 33.960188,
+   "lon": -118.403157,
+   "shape": "hip",
+   "pv_area_sqft": 292,
+   "pv_count": 1,
+   "pv_score": 0.69,
+   "collection": "us-ca-losangeles_rf07-2026",
+   "sides": [
+    {
+     "facing": 269.5,
+     "pct": 86,
+     "ours": true,
+     "panel_pixels_pct": 2.4,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 92.8,
+     "pct": 87,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 0.0,
+     "pct": 66,
+     "ours": false,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 109.4,
+     "pct": 91,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 82.5,
+     "pct": 84,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    },
+    {
+     "facing": 190.3,
+     "pct": 100,
+     "ours": true,
+     "panel_pixels_pct": 0.0,
+     "detected_panel_m2": 0.0
+    }
+   ],
+   "measured": {
+    "status": "not found",
+    "boxes": 0
+   }
   }
- ]
+ ],
+ "measured_summary": {
+  "method": "Vexcel elements/detect ('solar panel') pixel masks, each panel pixel placed on the Vexcel roof outline, area per roof side",
+  "match_share_pct": 80,
+  "roofs_flagged": 80,
+  "panel_structures_left_out": 1,
+  "tested": 53,
+  "match": 30,
+  "panel_area_on_our_sides_pct": 69,
+  "panel_area_by_our_score_pct": {
+   "80+": 69,
+   "70-79": 24,
+   "60-69": 7,
+   "under 60": 0
+  },
+  "median_roof_share_pct": 95
+ }
 }
