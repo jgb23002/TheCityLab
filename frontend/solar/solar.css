@@ -496,6 +496,7 @@ body.intro-on .brand img { opacity: 0; }
 .ch.c7 { left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: auto; max-width: 720px; }
 .ch.glass { background: rgba(11,13,16,0.62); backdrop-filter: blur(10px); border: 1px solid rgba(237,234,228,0.12); border-radius: 12px; padding: 20px 22px; }
 .ch h1 { margin: 6px 0; font: 650 clamp(56px, 9vw, 112px)/1 Geist, sans-serif; letter-spacing: -0.05em; }
+.ch h1.question-line { font: 650 clamp(32px, 5vw, 58px)/1.15 Geist, sans-serif; letter-spacing: -0.03em; }
 .ch h2 { margin: 6px 0; font: 500 clamp(24px, 3vw, 38px)/1.12 Geist, sans-serif; letter-spacing: -0.03em; }
 .ch p { margin: 6px 0 0; color: rgba(237,234,228,0.78); font-size: 15px; }
 .ch b { color: var(--ink); }
