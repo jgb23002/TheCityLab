@@ -259,7 +259,7 @@ def sky_year(lat: float, lon: float, step_minutes: int = 10, year: int = 2026) -
             if pos["elevation_deg"] > 0:
                 dni, dhi = _clear_sky(pos["elevation_deg"], doy)
                 ghi = dni * math.sin(math.radians(pos["elevation_deg"])) + dhi
-                raw.append((pos, ghi))
+                raw.append(({**pos, "minute_utc": minute}, ghi))
         clear_day_kwh = sum(g for _, g in raw) * step_minutes / 60 / 1000
         row = (clim or {}).get("monthly", [{}] * 12)[m] if clim else {}
         measured = row.get("sunlight_kwh_m2_day")
@@ -271,7 +271,7 @@ def sky_year(lat: float, lon: float, step_minutes: int = 10, year: int = 2026) -
             d = g * fd
             steps.append({"month": m, "elevation_deg": pos["elevation_deg"], "azimuth_deg": pos["azimuth_deg"],
                           "ghi": g, "dhi": d, "dni": (g - d) / sin_e if sin_e > 0.02 else 0.0,
-                          "hours": step_minutes / 60 * days})
+                          "hours": step_minutes / 60 * days, "minute_utc": pos.get("minute_utc")})
     return steps
 
 
