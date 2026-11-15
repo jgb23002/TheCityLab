@@ -1,6 +1,9 @@
 /* CityLab Solar: ask -> thinking -> map -> the roof in 3D with its panels -> savings card ->
    which sides get panels -> how we got the number -> why to trust it -> owner email.
-   Data: data_<city>.json from scripts/build_solar_demo.py (works offline).
+   Data: live from the backend (POST /api/solar-city/stream): a DeepAgents agent runs the
+   CoStar / sun / Vexcel / NREL tools and streams each step. If the live run cannot measure any
+   roof (offline without cached roofs, or the server is down), the recorded data_<city>.json is
+   shown and labelled as recorded.
    3D photos: views/<id>_top.jpg (Vexcel imagery, kept out of git). */
 
 import * as THREE from "three";
@@ -457,9 +460,9 @@ function setView(v) {
 }
 
 /* ================= story ================= */
-async function load(c) {
+async function loadRecorded(c) {
   const res = await fetch(`data_${c}.json`, { cache: "no-cache" });
-  if (!res.ok) throw new Error(`No data for ${c}. Run scripts/build_solar_demo.py --city ${c}`);
+  if (!res.ok) throw new Error(`No recorded data for ${c}.`);
   return res.json();
 }
 
@@ -471,29 +474,66 @@ function step(text) {
   return li;
 }
 
-async function think(d, id) {
+// Backend step text marks numbers as **n**; escape everything, then bold those.
+const bold = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+
+function finishStep(li, ok = true) {
+  li.classList.add("done");
+  li.querySelector(".dot").textContent = ok ? "✓" : "✗";
+}
+
+/* Parse a fetch() body as server-sent events, calling onEvent(type, data) for each frame. */
+async function readSSE(res, onEvent) {
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let cut;
+    while ((cut = buf.indexOf("\n\n")) >= 0) {
+      const frame = buf.slice(0, cut); buf = buf.slice(cut + 2);
+      let type = "message", body = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith("event:")) type = line.slice(6).trim();
+        else if (line.startsWith("data:")) body += line.slice(5).trim();
+      }
+      if (body) onEvent(type, JSON.parse(body));
+    }
+  }
+}
+
+/* The live run: the backend's DeepAgents agent plans, then calls each analysis tool; every
+   line below is a real step with the numbers that tool returned. */
+async function think(c, id) {
   $("steps").innerHTML = "";
   $("thinking").hidden = false;
   $("thinking").classList.remove("small");
-  const c = d.counts, ac = d.buildings.reduce((a, b) => a + (b.ac_room?.ac_units || 0), 0);
-  const lines = [
-    `Reading CoStar: <b>${c.buildings_in_sample}</b> apartment communities in ${d.city}`,
-    `Tracing <b>${fmt(c.roofs)}</b> roofs and <b>${fmt(c.roof_sides)}</b> roof sides from Vexcel aerial photos`,
-    `Following the sun: <b>${fmt(d.sun.positions)}</b> sun positions over a year at ${d.sun.latitude}°N`,
-    `Real weather from NASA: clouds block <b>${d.weather.cloud_loss_percent}%</b> of the sun here`,
-    `Leaving room for <b>${fmt(ac)}</b> rooftop AC units Vexcel sees`,
-    `Placing <b>${fmt(c.panels)}</b> real-size panels on the sunny sides (3 ft fire gap)`,
-    `Checking every roof against NREL's solar model`,
-    `Building the top 5 roofs in 3D`,
-  ];
-  for (let i = 0; i < lines.length; i++) {
+  const open = {};  // tool -> its "working" line
+  let result = null, failed = null;
+  const res = await fetch("/api/solar-city/stream", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ city: c, n: 50 }),
+  });
+  if (!res.ok || !res.body) throw new Error(`The solar server answered ${res.status}.`);
+  await readSSE(res, (type, e) => {
     if (id !== runId) return;
-    const li = step(lines[i]);
-    if (i === 1) drawAll(d);
-    await sleep(650);
-    li.classList.add("done");
-    li.querySelector(".dot").textContent = "✓";
-  }
+    if (type === "agent") finishStep(step(esc(e.message)));
+    else if (type === "plan" && e.todos?.length) finishStep(step(`Plan: ${e.todos.map(esc).join(" → ")}`));
+    else if (type === "step") {
+      if (e.status === "start") open[e.tool] = step(esc(e.label) + (e.by === "backend" ? " <small>(run by the backend)</small>" : "") + "…");
+      else {
+        const li = open[e.tool] || step("");
+        li.lastElementChild.innerHTML = e.status === "done" ? bold(e.text) : esc(e.text);
+        finishStep(li, e.status === "done");
+      }
+    } else if (type === "brief") finishStep(step(esc(e.text)));
+    else if (type === "result") result = e;
+    else if (type === "error") failed = e.message;
+  });
+  if (failed) throw new Error(failed);
+  if (!result) throw new Error("The solar run ended without a result.");
+  if (result.run.agent_note) finishStep(step(esc(result.run.agent_note)));
+  return result;
 }
 
 function picks(d) {
@@ -728,10 +768,24 @@ async function run(ev) {
   $("empty").hidden = true;
   setView("map");
   try {
-    data = await load(city);
-    await think(data, id);
+    let live = null, why = "";
+    try {
+      live = await think(city, id);
+      if (!live.data.buildings.length) why = live.run.cache_only
+        ? "No roof could be measured live: the server is offline and has no cached Vexcel roofs for this city."
+        : "No roof could be measured live: Vexcel returned no matching roofs.";
+    } catch (err) {
+      why = err.message || String(err);
+    }
     if (id !== runId) return;
-    $("thinking").hidden = true;  // done: the results speak for themselves
+    if (live && !why) {
+      data = live.data;
+      $("thinking").classList.add("small");  // keep the agent's last line visible
+    } else {
+      data = await loadRecorded(city);
+      finishStep(step(`${esc(why)} Showing the recorded run instead.`), false);
+    }
+    drawAll(data);
     picks(data);
     installsBlock();
     await show(data.buildings.find((b) => b.scene) || data.buildings[0], id);
