@@ -132,9 +132,9 @@ def main() -> dict[str, Any]:
             d.line(pts, fill=(70, 185, 124) if s["ours"] else (229, 83, 75), width=5)
             cx, cy = s["poly"].centroid.coords[0]
             u, v = px(cx, cy)
-            label = f"{s['pct']}%"
+            label = f"{'WE’D INSTALL' if s['ours'] else 'WE’D SKIP'} · {s['pct']}%"
             d.rectangle(d.textbbox((u * 2, v * 2), label, font=font, anchor="mm"), fill=(11, 13, 16))
-            d.text((u * 2, v * 2), label, fill=(237, 234, 228), font=font, anchor="mm")
+            d.text((u * 2, v * 2), label, fill=(70, 185, 124) if s["ours"] else (229, 83, 75), font=font, anchor="mm")
         big.thumbnail((900, 900))
         big.save(path, quality=88)
         results.append({"n": n, "image": f"views/{path.name}", "before": f"views/{before_path.name}",
