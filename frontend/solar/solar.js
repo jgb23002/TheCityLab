@@ -402,9 +402,10 @@ function togglePlay(on = !T.playing) {
 
 function key3D() {
   const keep = data.assumptions.keep_sides_with_sun_pct;
-  const sunRows = `<p><i class="sw line" style="background:#FFB224"></i>Jun 21 ` +
-    `<i class="sw line" style="background:#FFD27A"></i>Mar/Sep 21 ` +
-    `<i class="sw line" style="background:#9fc0ff"></i>Dec 21 &mdash; the sun's path overhead</p>`;
+  const sunRows = `<p style="color:var(--muted)">Lines show how high the sun gets each season: ` +
+    `<i class="sw line" style="background:#FFB224"></i>highest (summer) ` +
+    `<i class="sw line" style="background:#FFD27A"></i>mid-year (spring/fall) ` +
+    `<i class="sw line" style="background:#9fc0ff"></i>lowest (winter).</p>`;
   const s = current && current.skipped;
   $("key3d").innerHTML = T.mode === "photo"
     ? `<p><i class="sw panel"></i>Solar panel, ${panelSize()}, ${data.assumptions.panel.name}</p>${sunRows}<p style="color:var(--muted)">Drag to turn · scroll to zoom · point at a roof</p>`
@@ -413,8 +414,8 @@ function key3D() {
         `<p><i class="sw" style="background:#E5534B"></i>Wasted: ${fmt(s.panels)} more on shady sides, only ${fmt(s.kwh_per_panel)} kWh each</p>` +
         `<p style="color:var(--muted)">Those extra panels would take ${s.payback_years} years to pay back</p>`
         : `<p><b>Every roof side here is sunny.</b></p><p style="color:var(--muted)">No panels were left off. Try a Houston roof to see shady sides.</p>`)
-    : `<p><b>Share of the best sun each side gets</b></p><p><span class="ramp"></span></p>` +
-      `<div class="ends"><span>60%</span><span>${keep}% (panels from here)</span><span>100%</span></div>${sunRows}` +
+    : `<p><b>How much sun each side of the roof gets, compared to the best-facing side here</b></p><p><span class="ramp"></span></p>` +
+      `<div class="ends"><span>Shadier</span><span>${keep}% &mdash; cutoff for panels</span><span>Sunniest (100%)</span></div>${sunRows}` +
       (current?.ac_room?.ac_units
         ? `<p style="color:var(--muted)">Already leaves room for ${fmt(current.ac_room.ac_units)} rooftop AC units (exact spot unknown).</p>`
         : "");

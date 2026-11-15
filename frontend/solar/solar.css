@@ -23,10 +23,10 @@ b { font-weight: 700; }
 .logo { color: var(--sun); }
 .tag { font-size: 12px; font-weight: 700; color: var(--bg); background: var(--sun); padding: 2px 8px; border-radius: 99px; vertical-align: middle; }
 .oneliner { margin: 0; color: var(--muted); font-size: 16px; }
-.ask { display: flex; gap: 10px; padding: 10px 24px 16px; flex-wrap: wrap; }
-.ask input { flex: 1 1 420px; min-width: 0; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line);
-  background: var(--panel); color: var(--ink); font: inherit; font-size: 16px; }
-.cities { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.ask { display: flex; align-items: center; gap: 16px; padding: 10px 24px 16px; flex-wrap: wrap; }
+.ask-sentence { margin: 0; flex: 1 1 420px; min-width: 0; color: var(--ink); font-size: 18px; line-height: 1.5; }
+.ask-sentence .cities { display: inline-flex; vertical-align: middle; margin: 0 2px; }
+.cities { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
 .city { border: 0; background: none; color: var(--muted); font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 9px; cursor: pointer; }
 .city.on { background: var(--panel-2); color: var(--ink); }
 .go { border: 0; border-radius: 12px; padding: 0 22px; font: inherit; font-weight: 700; cursor: pointer; background: var(--sun); color: #1C1300; min-height: 48px; }
