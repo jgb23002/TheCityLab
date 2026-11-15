@@ -280,6 +280,27 @@ def _problems(brief: str, ledger: Ledger) -> list[str]:
     return problems
 
 
+def _fix_next_step_citation(brief: str, ledger: Ledger) -> str:
+    """Retag the retrofit brief's "Next step" sentence with its OWN draft_email evidence id.
+
+    The writer picks the top candidate's property id correctly but sometimes tags it
+    with a different draft_email call's evidence id (e.g. the first one it read,
+    rather than the one for that property) -- a wrong-but-plausible citation the
+    single writer fix-retry does not reliably catch. The correct id is unambiguous
+    from the ledger, so it is corrected here instead of trusted from the model.
+    """
+    match = re.search(r"(Next step.*?property )(\d+)(\s*\[E(\d+)\])", brief, re.S)
+    if not match:
+        return brief
+    property_id, wrong_id = match.group(2), match.group(4)
+    for entry in ledger.all():
+        if entry["tool"] == "draft_email" and str(entry["result"].get("property_id")) == property_id:
+            if entry["id"] != f"E{wrong_id}":
+                return brief[:match.start(3)] + f" [{entry['id']}]" + brief[match.end(3):]
+            return brief
+    return brief
+
+
 
 
 _RESULT_CHECKS = {"run_regression": regression_ok, "rank_buildings": ranking_ok, "draft_email": draft_ok}
@@ -428,6 +449,8 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         problems: list[str] = []
     else:
         brief = str(redact(_brief_from(messages)))
+        if study_intent == "retrofit":
+            brief = _fix_next_step_citation(brief, ledger)
         problems = _problems(brief, ledger)
 
     if problems:
@@ -440,6 +463,8 @@ def run_question(question: str, mode: str | None = None, n: int = DEFAULT_N,
         print(f"CITATION CHECK found {len(problems)} problems; asking the writer to fix them.", flush=True)
         state = agent.invoke({"messages": [*messages, fix]}, config=run_config)
         brief = str(redact(_brief_from(list(state.get("messages", [])))))
+        if study_intent == "retrofit":
+            brief = _fix_next_step_citation(brief, ledger)
         problems = _problems(brief, ledger)
 
     incomplete = [_incomplete_caveat(step) for step in missing]

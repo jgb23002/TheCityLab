@@ -500,6 +500,12 @@ function buildCard(study, b, m) {
   const solar = solarFor(study, b.id);
   const verdict = ownerVerdict(solar);
   const hasTour = !!b.matterport_model_id;
+  // A solar study's question is about the roof and sun, not what the vision model
+  // counted in the parking lot, so its card image leads with the roof-and-sun report
+  // instead of the parking/obstruction detection overlay; research cards still lead
+  // with the plain aerial photo and its boxed detections (what the study is about there).
+  const isSolarStudy = studyKind(study) !== "research";
+  const roofImgSrc = `/api/roof-view/${encodeURIComponent(b.id)}/summary`;
   // The Sun & roof tab is always offered; it checks for its own report image on click.
   const tabs = `<div class="bcard-tabs" role="tablist">` +
     (hasTour ? `<button type="button" class="bcard-tab" data-tab="tour" role="tab">3D tour</button>` : "") +
@@ -507,7 +513,8 @@ function buildCard(study, b, m) {
     (hasTour ? `<div class="bcard-panel" data-panel="tour" hidden></div>` : "") +
     `<div class="bcard-panel" data-panel="roof" hidden></div>`;
   card.innerHTML =
-    `<div class="bimg"><img alt="Aerial image of property ${esc(b.id)}" loading="lazy" decoding="async" src="/api/image/${encodeURIComponent(b.id)}">` +
+    `<div class="bimg"><img alt="${isSolarStudy ? "Roof and sun report for" : "Aerial image of"} property ${esc(b.id)}" ` +
+    `loading="lazy" decoding="async" src="${isSolarStudy ? roofImgSrc : `/api/image/${encodeURIComponent(b.id)}`}">` +
     `<canvas class="boxes" aria-hidden="true"></canvas><span class="noimg" hidden>No aerial image</span>` +
     `${study.is_mock ? '<span class="demo-tag">Demo data</span>' : ""}` +
     `${m && m.is_corrected ? '<span class="corrected-tag">Corrected</span>' : ""}</div>` +
@@ -524,9 +531,24 @@ function buildCard(study, b, m) {
   const img = card.querySelector("img");
   const canvas = card.querySelector("canvas");
   const obs = (m && m.observations) || {};
-  const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
-  img.addEventListener("load", draw);
-  img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
+  if (isSolarStudy) {
+    // No roof report yet for this building: fall back to the plain aerial photo
+    // (still no detection boxes -- the point is to not show parking/pool overlays
+    // on a solar card). If that also fails, show the normal "no image" message.
+    img.addEventListener("error", function onRoofImgError() {
+      img.removeEventListener("error", onRoofImgError);
+      if (img.src.endsWith(roofImgSrc)) {
+        img.src = `/api/image/${encodeURIComponent(b.id)}`;
+      } else {
+        img.hidden = true;
+        card.querySelector(".noimg").hidden = false;
+      }
+    });
+  } else {
+    const draw = () => drawDetections(img, canvas, (m && m.detections) || [], obs.image_width_px, obs.image_height_px);
+    img.addEventListener("load", draw);
+    img.addEventListener("error", () => { img.hidden = true; canvas.hidden = true; card.querySelector(".noimg").hidden = false; });
+  }
   if ("ResizeObserver" in window) new ResizeObserver(draw).observe(img);
   if (canEdit) {
     card.querySelectorAll(".edit-value").forEach((btn) => btn.addEventListener("click", (e) => {
