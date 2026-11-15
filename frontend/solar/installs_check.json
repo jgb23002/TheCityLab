@@ -26,7 +26,8 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ]
+   ],
+   "before": "views/install_0_before.jpg"
   },
   {
    "n": 1,
@@ -51,7 +52,8 @@
      "ours": false,
      "panel_pixels_pct": 25.6
     }
-   ]
+   ],
+   "before": "views/install_1_before.jpg"
   },
   {
    "n": 2,
@@ -76,7 +78,8 @@
      "ours": true,
      "panel_pixels_pct": 2.8
     }
-   ]
+   ],
+   "before": "views/install_2_before.jpg"
   },
   {
    "n": 3,
@@ -101,7 +104,8 @@
      "ours": true,
      "panel_pixels_pct": 2.1
     }
-   ]
+   ],
+   "before": "views/install_3_before.jpg"
   },
   {
    "n": 4,
@@ -126,7 +130,8 @@
      "ours": true,
      "panel_pixels_pct": 0.6
     }
-   ]
+   ],
+   "before": "views/install_4_before.jpg"
   },
   {
    "n": 5,
@@ -151,7 +156,8 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ]
+   ],
+   "before": "views/install_5_before.jpg"
   },
   {
    "n": 6,
@@ -176,7 +182,8 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ]
+   ],
+   "before": "views/install_6_before.jpg"
   },
   {
    "n": 7,
@@ -201,7 +208,8 @@
      "ours": true,
      "panel_pixels_pct": 3.6
     }
-   ]
+   ],
+   "before": "views/install_7_before.jpg"
   },
   {
    "n": 8,
@@ -226,7 +234,8 @@
      "ours": false,
      "panel_pixels_pct": 11.6
     }
-   ]
+   ],
+   "before": "views/install_8_before.jpg"
   },
   {
    "n": 9,
@@ -251,7 +260,8 @@
      "ours": true,
      "panel_pixels_pct": 15.8
     }
-   ]
+   ],
+   "before": "views/install_9_before.jpg"
   },
   {
    "n": 10,
@@ -276,7 +286,8 @@
      "ours": true,
      "panel_pixels_pct": 0.1
     }
-   ]
+   ],
+   "before": "views/install_10_before.jpg"
   },
   {
    "n": 11,
@@ -301,7 +312,8 @@
      "ours": true,
      "panel_pixels_pct": 2.2
     }
-   ]
+   ],
+   "before": "views/install_11_before.jpg"
   },
   {
    "n": 12,
@@ -326,7 +338,8 @@
      "ours": true,
      "panel_pixels_pct": 3.5
     }
-   ]
+   ],
+   "before": "views/install_12_before.jpg"
   },
   {
    "n": 13,
@@ -351,7 +364,8 @@
      "ours": false,
      "panel_pixels_pct": 1.2
     }
-   ]
+   ],
+   "before": "views/install_13_before.jpg"
   },
   {
    "n": 14,
@@ -376,7 +390,8 @@
      "ours": true,
      "panel_pixels_pct": 0.0
     }
-   ]
+   ],
+   "before": "views/install_14_before.jpg"
   },
   {
    "n": 15,
@@ -401,7 +416,8 @@
      "ours": true,
      "panel_pixels_pct": 6.5
     }
-   ]
+   ],
+   "before": "views/install_15_before.jpg"
   },
   {
    "n": 16,
@@ -426,7 +442,8 @@
      "ours": false,
      "panel_pixels_pct": 21.7
     }
-   ]
+   ],
+   "before": "views/install_16_before.jpg"
   }
  ]
 }

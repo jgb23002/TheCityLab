@@ -52,6 +52,7 @@ let roofLayer = null;
 function mapRoof(b) {
   if (roofLayer) roofLayer.remove();
   roofLayer = L.layerGroup().addTo(layer);
+  $("map-note").hidden = false;
   const pts = [];
   for (const s of b.sides) {
     s.outline.forEach((p) => pts.push(p));
@@ -74,7 +75,7 @@ function init3D() {
   T.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   el.prepend(T.renderer.domElement);
   T.scene = new THREE.Scene();
-  T.scene.background = new THREE.Color("#0E1114");
+  T.scene.background = new THREE.Color("#8FB8D9");  // daytime sky; setDay()/lightFrom() repaint this once the sun position is known
   T.camera = new THREE.PerspectiveCamera(38, 1, 0.5, 6000);
   T.camera.up.set(0, 0, 1);
   T.controls = new OrbitControls(T.camera, T.renderer.domElement);
@@ -208,6 +209,11 @@ function build3D(b) {
   lg.setAttribute("position", new THREE.Float32BufferAttribute(pl, 3));
   const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x9fc0ff, transparent: true, opacity: 0.55 }));
   T.group.add(panels, lines);
+  // Hidden in "Real photo" mode: that view is the bare aerial photo, not the panel layout.
+  // T.mode is already set (to "photo" by default) before this runs, so apply it here too,
+  // not just in setMode() -- the scene's first build never calls setMode itself.
+  panels.visible = lines.visible = T.mode !== "photo";
+  T.panels = panels; T.panelLines = lines;
   // "Panels everywhere": what we did NOT do -- panels on the shady sides, in orange.
   const bp = [];
   for (const p of sc.bad_panels || []) {
@@ -311,7 +317,7 @@ function setDay(month, minute) {
   const k = Math.sin(el);
   T.sun.intensity = 0.6 + 2.4 * k;
   T.hemi.intensity = 0.45 + 0.65 * k;
-  T.scene.background.set("#07090C").lerp(new THREE.Color("#141A22"), Math.min(1, k * 1.6));
+  T.scene.background.set("#07090C").lerp(new THREE.Color("#8FB8D9"), Math.min(1, k * 1.6));
   const kw = roofPowerKw(st);
   if (T.panelMat) T.panelMat.emissiveIntensity = 0.55 * kw / T.dayPeak;
   $("sun-read").innerHTML = `<b>${hm} · <em>${fmt(Math.round(kw))} kW</em> now</b>` +
@@ -341,7 +347,7 @@ function lightFrom(st) {
   const k = Math.sin(el);
   T.sun.intensity = 0.6 + 2.4 * k;
   T.hemi.intensity = 0.45 + 0.65 * k;
-  T.scene.background.set("#07090C").lerp(new THREE.Color("#141A22"), Math.min(1, k * 1.6));
+  T.scene.background.set("#07090C").lerp(new THREE.Color("#8FB8D9"), Math.min(1, k * 1.6));
   const kw = roofPowerKw(st);
   if (T.panelMat) T.panelMat.emissiveIntensity = 0.55 * kw / (T.dayPeak || kw || 1);
   return kw;
@@ -396,9 +402,10 @@ function togglePlay(on = !T.playing) {
 
 function key3D() {
   const keep = data.assumptions.keep_sides_with_sun_pct;
-  const sunRows = `<p><i class="sw line" style="background:#FFB224"></i>Sun's path, June 21</p>` +
-    `<p><i class="sw line" style="background:#FFD27A"></i>March and September 21</p>` +
-    `<p><i class="sw line" style="background:#9fc0ff"></i>December 21</p>`;
+  const sunRows = `<p style="color:var(--muted)">Lines show how high the sun gets each season: ` +
+    `<i class="sw line" style="background:#FFB224"></i>highest (summer) ` +
+    `<i class="sw line" style="background:#FFD27A"></i>mid-year (spring/fall) ` +
+    `<i class="sw line" style="background:#9fc0ff"></i>lowest (winter).</p>`;
   const s = current && current.skipped;
   $("key3d").innerHTML = T.mode === "photo"
     ? `<p><i class="sw panel"></i>Solar panel, ${panelSize()}, ${data.assumptions.panel.name}</p>${sunRows}<p style="color:var(--muted)">Drag to turn · scroll to zoom · point at a roof</p>`
@@ -407,8 +414,11 @@ function key3D() {
         `<p><i class="sw" style="background:#E5534B"></i>Wasted: ${fmt(s.panels)} more on shady sides, only ${fmt(s.kwh_per_panel)} kWh each</p>` +
         `<p style="color:var(--muted)">Those extra panels would take ${s.payback_years} years to pay back</p>`
         : `<p><b>Every roof side here is sunny.</b></p><p style="color:var(--muted)">No panels were left off. Try a Houston roof to see shady sides.</p>`)
-    : `<p><b>Share of the best sun each side gets</b></p><p><span class="ramp"></span></p>` +
-      `<div class="ends"><span>60%</span><span>${keep}% (panels from here)</span><span>100%</span></div>${sunRows}`;
+    : `<p><b>How much sun each side of the roof gets, compared to the best-facing side here</b></p><p><span class="ramp"></span></p>` +
+      `<div class="ends"><span>Shadier</span><span>${keep}% &mdash; cutoff for panels</span><span>Sunniest (100%)</span></div>${sunRows}` +
+      (current?.ac_room?.ac_units
+        ? `<p style="color:var(--muted)">Already leaves room for ${fmt(current.ac_room.ac_units)} rooftop AC units (exact spot unknown).</p>`
+        : "");
 }
 
 function setMode(mode) {
@@ -416,6 +426,8 @@ function setMode(mode) {
   document.querySelectorAll(".mode").forEach((m) => m.classList.toggle("on", m.dataset.mode === mode));
   for (const r of T.roofs || []) r.material = mode === "photo" ? T.photoMat : r.userData.sunMat;
   if (T.bad) T.bad.visible = mode === "bad";
+  if (T.panels) T.panels.visible = mode !== "photo";
+  if (T.panelLines) T.panelLines.visible = mode !== "photo";
   if (data) key3D();
 }
 
@@ -587,16 +599,12 @@ function howBlock(b) {
     `<li><span class="n">${i + 1}</span><div><h3>${h}</h3><p>${p}</p></div><div class="val"><b>${v}</b><span class="src">${src}</span></div></li>`).join("");
 }
 
-/* ---------- why trust it: NREL check + real installs + what we assume ---------- */
+/* ---------- why trust it: NREL check (one sentence) + real installs + what we assume ---------- */
 function trustBlock() {
   const n = data.nrel_check, a = data.assumptions;
   if (n && n.rows) {
-    const rows = n.rows.filter((r) => r.tilt === 25), top = Math.max(...rows.flatMap((r) => [r.nrel, r.ours_scaled]));
-    $("nrel-lead").innerHTML = `Same best angle (<b>${n.best_ours.tilt}° facing ${facingWord(n.best_ours.facing)}</b>), the same ranking of all ${n.rows.length} angles we tested ` +
-      `(<b>${n.rank_agreement}</b> out of 1), typically within <b>${n.median_abs_diff_pct}%</b>.`;
-    $("nrel").innerHTML = rows.map((r) => `<div class="col" title="Faces ${facingWord(r.facing)}: NREL ${fmt(r.nrel)}, CityLab ${fmt(r.ours_scaled)} (${r.diff_pct > 0 ? "+" : ""}${r.diff_pct}%)">` +
-      `<div class="pair"><i class="n" style="height:${100 * r.nrel / top}%"></i><i class="o" style="height:${100 * r.ours_scaled / top}%"></i></div>` +
-      `<div class="nl"><b>${["N", "NE", "E", "SE", "S", "SW", "W", "NW"][r.facing / 45]}</b></div></div>`).join("");
+    $("nrel-lead").innerHTML = `We checked our numbers against NREL PVWatts, the U.S. government's own solar calculator ` +
+      `&mdash; they agree on the best roof angle and are usually within <b>${n.median_abs_diff_pct}%</b> of each other.`;
   }
   $("assume").innerHTML = `<b>What we assume:</b> walls are CoStar floors × 3 m · sloped roofs are ${a.pitched_roof_tilt_deg}° (measured on one roof) · ` +
     `each AC unit takes about 2 panels of space · the building uses the power it makes · no tax credits.`;
@@ -612,11 +620,21 @@ async function installsBlock() {
   const roofs = review.roofs.filter((r) => byN[r.n]);
   const agree = roofs.filter((r) => r.agree).length;
   $("inst-lead").innerHTML = `On <b>${agree} of ${roofs.length}</b> real LA roofs with panels, every panel sits on a side our model picks. ` +
-    `Where we differ, installers used a side our stricter rules skip. Green = we'd put panels, red = we'd skip.`;
-  $("inst").innerHTML = roofs.map((r) => `<figure class="${r.agree ? "ok" : "no"}" title="${esc(r.note)}">` +
-    `<img loading="lazy" src="${byN[r.n].image}" alt="Roof with existing solar panels and our model's choice drawn on it">` +
-    `<figcaption>${r.agree ? "✓ Match" : "≈ Differs"}</figcaption></figure>`).join("");
+    `Where we differ, installers used a side our stricter rules skip. Each pair: the plain roof, then our choice drawn on it ` +
+    `(green = we'd put panels, red = we'd skip).`;
+  $("inst").innerHTML = roofs.map((r) => {
+    const before = byN[r.n].before;
+    return `<figure class="${r.agree ? "ok" : "no"}">` +
+      (before ? `<div class="pair2"><img loading="lazy" src="${before}" alt="Plain aerial photo of the roof, no annotation">` +
+        `<img loading="lazy" src="${byN[r.n].image}" alt="Our model's choice drawn on the same roof"></div>` :
+        `<img loading="lazy" src="${byN[r.n].image}" alt="Roof with existing solar panels and our model's choice drawn on it">`) +
+      `<figcaption><b>${r.agree ? "✓ Match" : "≈ Differs"}</b><span>${esc(r.note)}</span></figcaption></figure>`;
+  }).join("");
   $("inst").querySelectorAll("img").forEach((img) => img.addEventListener("error", () => img.closest("figure").classList.add("noimg")));
+  if (Array.isArray(review.takeaways) && review.takeaways.length) {
+    $("inst-take").innerHTML = review.takeaways.map((t) => `<li>${esc(t)}</li>`).join("");
+    $("inst-take").hidden = false;
+  }
   $("installs-block").hidden = false;
 }
 
