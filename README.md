@@ -294,3 +294,6 @@ CoStar data, the Vexcel cache and `.env` are licensed or secret and are never co
 (see [.gitignore](.gitignore)). The repository contains only code, fixed building samples,
 the recorded page data and the photos the page displays. Owner emails are drafts only;
 CityLab never sends anything.
+
+## Demo link:
+https://youtu.be/hMkkUuWLMYE
